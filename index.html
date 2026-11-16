@@ -8,13 +8,15 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#18191A" id="themeColorMeta">
     <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="./img/icono192.png">
+    <link rel="apple-touch-icon" href="./img/icono192.png">
     
     <title>Gestión Interna | Villaser</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="style.css">
     
-    <!-- Script Inteligente de Tema -->
+    <!-- Script Inteligente de Tema y Captura Temprana PWA -->
     <script>
         (function() {
             const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
@@ -24,8 +26,18 @@
                 document.getElementById('themeColorMeta').setAttribute('content', '#F0F2F5');
             }
         })();
+
+        window.deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            if (typeof mostrarControlesInstalacion === 'function') {
+                mostrarControlesInstalacion();
+            }
+        });
     </script>
 </head>
+    
 <body>
 
     <!-- PANTALLA DE CARGA (Splash Screen Estilo META / FACEBOOK) -->
