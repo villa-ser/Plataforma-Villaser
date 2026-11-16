@@ -9,6 +9,7 @@ let registrandoCuenta = false;
 let cargaInicial = true;
 let estadoAuthResuelto = false;
 let splashOculto = false;
+let modoAuthActual = 'login';
 
 // Lógica inteligente de Tema Corporativo
 function aplicarTema(tema) {
@@ -105,7 +106,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById('passwordInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') iniciarSesion();
+        if (e.key === 'Enter') {
+            if (modoAuthActual === 'register') {
+                crearCuenta();
+            } else {
+                iniciarSesion();
+            }
+        }
     });
 
     // --- PREVISUALIZACIÓN DE LOGO ---
@@ -185,6 +192,40 @@ function mostrarMensaje(texto, tipo) {
     } else {
         errorMsg.style.color = "var(--corp-danger)";
         errorIcon.className = "fa-solid fa-circle-exclamation";
+    }
+}
+
+function cambiarTabAuth(modo, limpiarError = true) {
+    modoAuthActual = modo;
+
+    const tabLogin = document.getElementById('tabBtnLogin');
+    const tabRegister = document.getElementById('tabBtnRegister');
+    const grupoTerminos = document.getElementById('grupoTerminos');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+    const forgotBox = document.getElementById('forgotPasswordContainer');
+    const passwordInput = document.getElementById('passwordInput');
+
+    if (modo === 'register') {
+        tabLogin.classList.remove('active');
+        tabRegister.classList.add('active');
+        grupoTerminos.classList.remove('oculto');
+        loginBtn.classList.add('oculto');
+        registerBtn.classList.remove('oculto');
+        forgotBox.classList.add('oculto');
+        passwordInput.setAttribute('autocomplete', 'new-password');
+    } else {
+        tabRegister.classList.remove('active');
+        tabLogin.classList.add('active');
+        grupoTerminos.classList.add('oculto');
+        registerBtn.classList.add('oculto');
+        loginBtn.classList.remove('oculto');
+        forgotBox.classList.remove('oculto');
+        passwordInput.setAttribute('autocomplete', 'current-password');
+    }
+
+    if (limpiarError) {
+        document.getElementById('errorMessage').classList.add('oculto');
     }
 }
 
@@ -375,6 +416,7 @@ function crearCuenta() {
                 document.getElementById('togglePasswordIcon').classList.replace('fa-eye-slash', 'fa-eye');
                 document.getElementById('togglePasswordIcon').style.color = 'var(--corp-text-faded)';
                 document.getElementById('aceptaTerminos').checked = false; 
+                cambiarTabAuth('login', false);
                 mostrarPantallaLogin();
             });
         })
