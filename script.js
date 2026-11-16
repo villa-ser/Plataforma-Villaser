@@ -186,6 +186,9 @@ function mostrarPantallaLogin() {
     
     // Quitar el espaciado superior que evita chocar con la barra
     document.getElementById('mainContainer').style.paddingTop = '0px';
+
+    // Mostrar cartel PWA si el evento ya fue capturado
+    mostrarControlesInstalacion();
 }
 
 function mostrarAppPrincipal(emailUsuario) {
@@ -194,7 +197,10 @@ function mostrarAppPrincipal(emailUsuario) {
     document.getElementById('mainHeader').classList.add('oculto');
     
     const bannerPwa = document.getElementById('pwaInstallBanner');
-    if (bannerPwa) bannerPwa.classList.add('oculto');
+    if (bannerPwa) {
+        bannerPwa.classList.add('oculto');
+        bannerPwa.style.display = 'none';
+    }
     
     const emailDisplay = document.getElementById('userEmailDisplay');
     if (emailDisplay) emailDisplay.innerText = emailUsuario;
@@ -208,6 +214,9 @@ function mostrarAppPrincipal(emailUsuario) {
     document.getElementById('barraSuperiorNav').style.display = 'flex';
     document.getElementById('mainContainer').style.paddingTop = '72px'; 
     document.getElementById('appScreen').classList.remove('oculto');
+
+    // Mantener habilitada la opción dentro del menú de perfil
+    mostrarControlesInstalacion();
 }
 
 function toggleUserMenu() {
@@ -427,30 +436,44 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-let eventoInstalacion = null;
+let temporizadorBannerPWA = null;
+let bannerYaMostradoEnEstaCarga = false;
 
 function mostrarControlesInstalacion() {
-    if (!eventoInstalacion) return;
+    const promptGuardado = window.deferredInstallPrompt;
+    if (!promptGuardado) return;
 
     const btnInstalarMenu = document.getElementById('btn-instalar');
     const pwaInstallBanner = document.getElementById('pwaInstallBanner');
     const loginScreen = document.getElementById('loginScreen');
 
-    // 1. Mostrar siempre la opción dentro del menú de perfil (aunque ya esté logueado)
+    // 1. Mantener siempre visible la opción dentro del menú de perfil
     if (btnInstalarMenu) {
         btnInstalarMenu.classList.remove('oculto');
         btnInstalarMenu.style.display = 'flex';
     }
 
-    // 2. Mostrar el cartel superior si la pantalla de login está visible (sin sesión activa)
+    // 2. Mostrar el cartel superior durante 7 segundos al entrar por URL (si no inició sesión)
     const enPantallaLogin = loginScreen && !loginScreen.classList.contains('oculto');
-    if (pwaInstallBanner && (!auth.currentUser || enPantallaLogin)) {
+    if (pwaInstallBanner && !bannerYaMostradoEnEstaCarga && (!auth.currentUser || enPantallaLogin)) {
+        bannerYaMostradoEnEstaCarga = true;
+        pwaInstallBanner.style.opacity = '1';
         pwaInstallBanner.classList.remove('oculto');
         pwaInstallBanner.style.display = 'flex';
+
+        clearTimeout(temporizadorBannerPWA);
+        temporizadorBannerPWA = setTimeout(() => {
+            pwaInstallBanner.style.opacity = '0';
+            setTimeout(() => {
+                pwaInstallBanner.classList.add('oculto');
+                pwaInstallBanner.style.display = 'none';
+            }, 400);
+        }, 7000); // 7000 ms = 7 segundos
     }
 }
 
 function ocultarControlesInstalacion() {
+    clearTimeout(temporizadorBannerPWA);
     const btnInstalarMenu = document.getElementById('btn-instalar');
     const pwaInstallBanner = document.getElementById('pwaInstallBanner');
 
@@ -464,23 +487,18 @@ function ocultarControlesInstalacion() {
     }
 }
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    eventoInstalacion = e;
-    mostrarControlesInstalacion();
-});
-
 async function ejecutarInstalacionPWA(e) {
     if (e) e.preventDefault();
-    if (!eventoInstalacion) return;
+    const promptGuardado = window.deferredInstallPrompt;
+    if (!promptGuardado) return;
 
-    eventoInstalacion.prompt();
-    const { outcome } = await eventoInstalacion.userChoice;
+    promptGuardado.prompt();
+    const { outcome } = await promptGuardado.userChoice;
 
     if (outcome === 'accepted') {
         ocultarControlesInstalacion();
     }
-    eventoInstalacion = null;
+    window.deferredInstallPrompt = null;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -492,6 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('appinstalled', () => {
-    eventoInstalacion = null;
+    window.deferredInstallPrompt = null;
     ocultarControlesInstalacion();
 });
