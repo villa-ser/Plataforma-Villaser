@@ -419,52 +419,79 @@ function recuperarPassword() {
 // ==========================================
 // 5. CONFIGURACIÓN PWA (INSTALACIÓN)
 // ==========================================
-if ('serviceWorker' in navigator) { 
-    window.addEventListener('load', () => { 
-        navigator.serviceWorker.register('./sw.js') 
-        .then(reg => console.log('ServiceWorker registrado con éxito:', reg.scope)) 
-        .catch(err => console.log('Error al registrar ServiceWorker:', err)); 
-    }); 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('ServiceWorker registrado con éxito:', reg.scope))
+            .catch(err => console.log('Error al registrar ServiceWorker:', err));
+    });
 }
 
-let eventoInstalacion; 
-const btnInstalarMenu = document.getElementById('btn-instalar');
-const pwaInstallBanner = document.getElementById('pwaInstallBanner');
-const btnBannerInstalar = document.getElementById('btnBannerInstalar');
+let eventoInstalacion = null;
 
-window.addEventListener('beforeinstallprompt', (e) => { 
-    e.preventDefault(); 
-    eventoInstalacion = e;
-    
-    // Mostrar opción en el menú desplegable del perfil
+function mostrarControlesInstalacion() {
+    if (!eventoInstalacion) return;
+
+    const btnInstalarMenu = document.getElementById('btn-instalar');
+    const pwaInstallBanner = document.getElementById('pwaInstallBanner');
+    const loginScreen = document.getElementById('loginScreen');
+
+    // 1. Mostrar siempre la opción dentro del menú de perfil (aunque ya esté logueado)
     if (btnInstalarMenu) {
-        btnInstalarMenu.classList.remove('oculto'); 
-        btnInstalarMenu.style.display = 'flex'; 
+        btnInstalarMenu.classList.remove('oculto');
+        btnInstalarMenu.style.display = 'flex';
     }
 
-    // Mostrar el cartel frontal solo si el usuario NO ha iniciado sesión (pantalla login activa)
-    if (pwaInstallBanner && !auth.currentUser) {
+    // 2. Mostrar el cartel superior si la pantalla de login está visible (sin sesión activa)
+    const enPantallaLogin = loginScreen && !loginScreen.classList.contains('oculto');
+    if (pwaInstallBanner && (!auth.currentUser || enPantallaLogin)) {
         pwaInstallBanner.classList.remove('oculto');
+        pwaInstallBanner.style.display = 'flex';
     }
+}
+
+function ocultarControlesInstalacion() {
+    const btnInstalarMenu = document.getElementById('btn-instalar');
+    const pwaInstallBanner = document.getElementById('pwaInstallBanner');
+
+    if (btnInstalarMenu) {
+        btnInstalarMenu.classList.add('oculto');
+        btnInstalarMenu.style.display = 'none';
+    }
+    if (pwaInstallBanner) {
+        pwaInstallBanner.classList.add('oculto');
+        pwaInstallBanner.style.display = 'none';
+    }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    eventoInstalacion = e;
+    mostrarControlesInstalacion();
 });
 
-// Función centralizada para ambos botones
-async function manejarInstalacionPWA(e) {
-    e.preventDefault(); 
+async function ejecutarInstalacionPWA(e) {
+    if (e) e.preventDefault();
     if (!eventoInstalacion) return;
-    
+
     eventoInstalacion.prompt();
     const { outcome } = await eventoInstalacion.userChoice;
-    
+
     if (outcome === 'accepted') {
-        if (btnInstalarMenu) {
-            btnInstalarMenu.classList.add('oculto');
-            btnInstalarMenu.style.display = 'none';
-        }
-        if (pwaInstallBanner) pwaInstallBanner.classList.add('oculto');
+        ocultarControlesInstalacion();
     }
     eventoInstalacion = null;
 }
 
-if (btnInstalarMenu) btnInstalarMenu.addEventListener('click', manejarInstalacionPWA);
-if (btnBannerInstalar) btnBannerInstalar.addEventListener('click', manejarInstalacionPWA);
+document.addEventListener('DOMContentLoaded', () => {
+    const btnInstalarMenu = document.getElementById('btn-instalar');
+    const btnBannerInstalar = document.getElementById('btnBannerInstalar');
+
+    if (btnInstalarMenu) btnInstalarMenu.addEventListener('click', ejecutarInstalacionPWA);
+    if (btnBannerInstalar) btnBannerInstalar.addEventListener('click', ejecutarInstalacionPWA);
+});
+
+window.addEventListener('appinstalled', () => {
+    eventoInstalacion = null;
+    ocultarControlesInstalacion();
+});
