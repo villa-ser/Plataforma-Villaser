@@ -123,33 +123,43 @@
             </div>
         </div>
         
-        
-        <!-- PANTALLA DE LOGIN -->
+                <!-- PANTALLA DE LOGIN / REGISTRO CON PESTAÑAS -->
         <div id="loginScreen" class="corp-card" style="border-left: 4px solid var(--corp-accent);">
-            <h2 style="font-size: 1.15rem; margin-bottom: 18px; color: var(--corp-text-main); font-weight: 700;">Acceso al Sistema</h2>
+            
+            <!-- SELECTOR DE PESTAÑAS -->
+            <div class="corp-auth-tabs" role="tablist">
+                <button type="button" id="tabBtnLogin" class="corp-auth-tab active" onclick="cambiarTabAuth('login')">
+                    <i class="fa-solid fa-right-to-bracket"></i> Ingresar
+                </button>
+                <button type="button" id="tabBtnRegister" class="corp-auth-tab" onclick="cambiarTabAuth('register')">
+                    <i class="fa-solid fa-user-plus"></i> Registrarse
+                </button>
+            </div>
             
             <div class="row-group">
                 <input type="email" id="emailInput" class="corp-input" placeholder="Correo electrónico" autocomplete="email">
             </div>
             
             <div class="row-group" style="position: relative;">
-                <input type="password" id="passwordInput" class="corp-input" placeholder="Contraseña" style="padding-right: 45px;">
+                <input type="password" id="passwordInput" class="corp-input" placeholder="Contraseña" autocomplete="current-password" style="padding-right: 45px;">
                 <i class="fa-solid fa-eye" id="togglePasswordIcon" onclick="togglePasswordVisibility()" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--corp-text-faded); cursor: pointer; font-size: 1.1rem;"></i>
             </div>
 
-            <!-- CHECKBOX DE TÉRMINOS Y CONDICIONES -->
-            <div class="corp-checkbox-group">
+            <!-- CHECKBOX DE TÉRMINOS (Oculto por defecto, solo visible en Registrarse) -->
+            <div id="grupoTerminos" class="corp-checkbox-group oculto">
                 <input type="checkbox" id="aceptaTerminos">
                 <label for="aceptaTerminos">
                     Acepto los <a href="#" onclick="abrirTerminos(true); return false;">Términos y Condiciones</a>
                 </label>
             </div>
             
+            <!-- BOTÓN INGRESAR (Visible en pestaña Ingresar) -->
             <button id="loginBtn" class="corp-btn primary-btn" style="width: 100%; margin-top: 15px;" onclick="iniciarSesion()">
                 <i class="fa-solid fa-lock-open"></i> Ingresar
             </button>
             
-            <button id="registerBtn" class="corp-btn secondary-btn" style="width: 100%; margin-top: 8px;" onclick="crearCuenta()">
+            <!-- BOTÓN CREAR CUENTA (Visible en pestaña Registrarse) -->
+            <button id="registerBtn" class="corp-btn primary-btn oculto" style="width: 100%; margin-top: 15px;" onclick="crearCuenta()">
                 <i class="fa-solid fa-user-plus"></i> Crear Cuenta
             </button>
             
@@ -157,11 +167,12 @@
                 <i id="errorIcon" class="fa-solid fa-circle-exclamation"></i> <span id="errorTextContent"></span>
             </p>
 
-            <div class="forgot-password">
+            <!-- RECUPERAR CONTRASEÑA (Solo visible en pestaña Ingresar) -->
+            <div id="forgotPasswordContainer" class="forgot-password">
                 <a href="#" onclick="recuperarPassword(); return false;">¿Olvidaste tu contraseña?</a>
             </div>
         </div>
-
+        
         <!-- INTERFAZ PRINCIPAL DE LA APP -->
         <div id="appScreen" class="oculto" style="width: 100%;">
             <!-- GRILLA DE MÓDULOS (Flat Design 3 Columnas) -->
