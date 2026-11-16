@@ -334,12 +334,26 @@ function moverBloque(index, direccion) {
     renderizarParrafos();
 }
 
+let indiceParrafoAEliminar = null;
+
 function eliminarParrafo(index) {
-    if (confirm("¿Eliminar este elemento?")) {
-        informeParrafos.splice(index, 1);
+    indiceParrafoAEliminar = index;
+    document.getElementById('modalConfirmarEliminarParrafo').classList.remove('oculto');
+}
+
+function cerrarModalEliminarParrafo() {
+    document.getElementById('modalConfirmarEliminarParrafo').classList.add('oculto');
+    indiceParrafoAEliminar = null;
+}
+
+function ejecutarEliminarParrafo() {
+    if (indiceParrafoAEliminar !== null) {
+        informeParrafos.splice(indiceParrafoAEliminar, 1);
         renderizarParrafos();
     }
+    cerrarModalEliminarParrafo();
 }
+
 
 function editarParrafo(index) {
     const bloque = normalizarBloqueInforme(informeParrafos[index]);
