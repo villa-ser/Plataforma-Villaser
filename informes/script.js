@@ -1132,3 +1132,195 @@ function generarMenuInferior() {
         }
     });
 }
+
+// ==========================================
+// LIBRERÍA TÉCNICA (FÓRMULAS, SIMBOLOGÍA Y NORMAS)
+// ==========================================
+const LIBRERIA_TECNICA = [
+    // --- FÓRMULAS ELÉCTRICAS FUNDAMENTALES ---
+    { cat: 'formulas', etq: 'Fórmula', valor: 'V = I · R', desc: 'Ley de Ohm: Tensión (V) en función de Corriente y Resistencia' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'I = V / R', desc: 'Ley de Ohm: Intensidad de corriente (A)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'R = V / I', desc: 'Ley de Ohm: Resistencia eléctrica (Ω)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'P = U · I · cos φ', desc: 'Potencia Activa Monofásica (W)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'S = U · I', desc: 'Potencia Aparente Monofásica (VA)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'Q = U · I · sen φ', desc: 'Potencia Reactiva Monofásica (VAr)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'P = √3 · U · I · cos φ', desc: 'Potencia Activa Trifásica (W)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'S = √3 · U · I', desc: 'Potencia Aparente Trifásica (VA)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'Q = √3 · U · I · sen φ', desc: 'Potencia Reactiva Trifásica (VAr)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'ΔU = k · I · L · (R · cos φ + X · sen φ)', desc: 'Caída de tensión en línea (k=2 mono, k=√3 trif)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'ΔU% = (ΔU / U) · 100', desc: 'Porcentaje de caída de tensión respecto a tensión nominal' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'I = P / (U · η · cos φ)', desc: 'Corriente nominal de motor monofásico (A)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'I = P / (√3 · U · η · cos φ)', desc: 'Corriente nominal de motor trifásico (A)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'C = [P · (tg φ₁ - tg φ₂) · 10⁶] / (ω · U²)', desc: 'Capacitor requerido para corrección de factor de potencia (µF)' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'R = ρ · (L / S)', desc: 'Resistencia de un conductor según resistividad, longitud y sección' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'Ib ≤ In ≤ Iz', desc: 'Condición de coordinación entre corriente de proyecto, calibre y cable' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'I₂ ≤ 1,45 · Iz', desc: 'Condición de disparo convencional de protección contra sobrecargas' },
+    { cat: 'formulas', etq: 'Fórmula', valor: 'E = P · t', desc: 'Energía eléctrica consumida (kWh)' },
+
+    // --- SIMBOLOGÍA ELÉCTRICA Y UNIDADES DE PLANOS ---
+    { cat: 'simbologia', etq: 'Símbolo', valor: '⏚', desc: 'Puesta a tierra general (PAT)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'PE', desc: 'Conductor de protección / Tierra de seguridad' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '3N~ 380/220 V - 50 Hz', desc: 'Sistema trifásico con neutro y frecuencia' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '1N~ 220 V - 50 Hz', desc: 'Sistema monofásico con neutro y frecuencia' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '∿', desc: 'Corriente Alterna (CA / AC)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '⎓', desc: 'Corriente Continua (CC / DC)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'PIA (MCB)', desc: 'Pequeño Interruptor Automático / Llave Termomagnética' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'ID (RCD)', desc: 'Interruptor Diferencial / Disyuntor (IΔn)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'IΔn = 30 mA', desc: 'Sensibilidad nominal de disparo diferencial' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'DPS (SPD)', desc: 'Dispositivo de Protección contra Sobretensiones Transitorias' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'TP / TS', desc: 'Tablero Principal / Tablero Seccional' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'IUG / TUG / TUE / ACU', desc: 'Circuitos: Iluminación, Tomas Uso General, Especial y Carga Única' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'KM / FR', desc: 'Contactor electromagnético / Relé térmico de sobrecarga' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'M 3~', desc: 'Motor eléctrico trifásico' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'Ω', desc: 'Ohm (Unidad de resistencia / impedancia)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'mm²', desc: 'Milímetros cuadrados (Sección nominal de conductores)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'µF', desc: 'Microfaradios (Capacidad de capacitores)' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'cos φ', desc: 'Factor de potencia' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: 'ΔU', desc: 'Caída de tensión' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '⌀', desc: 'Diámetro nominal de cañería / conducto' },
+    { cat: 'simbologia', etq: 'Símbolo', valor: '≤ / ≥ / ± / ≈', desc: 'Operadores técnicos: menor o igual, mayor o igual, tolerancia, aprox.' },
+
+    // --- NORMAS AEA (ARGENTINA) ---
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-7-770', desc: 'Instalaciones eléctricas en inmuebles destinados a viviendas (hasta 63 A)' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-7-771', desc: 'Viviendas, oficinas y locales (unitarios)' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-5-52', desc: 'Elección e instalación de canalizaciones y caída de tensión admisible' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-5-54', desc: 'Puesta a tierra, conductores de protección (PE) y equipotencialidad' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-4-41', desc: 'Protección para la seguridad: Protección contra los choques eléctricos' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-4-43', desc: 'Protección contra las sobreintensidades (sobrecargas y cortocircuitos)' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-6', desc: 'Verificación inicial y periódica de las instalaciones eléctricas' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-7-701', desc: 'Cuartos de baño y locales que contienen una bañera o ducha' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-7-710', desc: 'Locales para usos médicos y salas externas' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 90364-7-718', desc: 'Locales y lugares de pública concurrencia' },
+    { cat: 'aea', etq: 'AEA', valor: 'AEA 95150', desc: 'Ejecución de instalaciones de suministro y medición en baja tensión' },
+    { cat: 'aea', etq: 'AEA', valor: 'Ley 10.281 (ERSeP)', desc: 'Ley de Seguridad Eléctrica de la Provincia de Córdoba' },
+
+    // --- NORMAS IRAM ---
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM NM 247-3', desc: 'Cables unipolares aislados en PVC sin envoltura para instalaciones fijas' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2178-1', desc: 'Cables de energía aislados con dieléctricos sólidos extruidos (subterráneos)' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2281', desc: 'Puesta a tierra de sistemas eléctricos - Código de práctica y medición' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2071', desc: 'Tomacorrientes bipolares con toma de tierra para uso doméstico y similar' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2007', desc: 'Interruptores manuales para instalaciones eléctricas fijas' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2301', desc: 'Interruptores automáticos de corriente diferencial de fuga (ID)' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2169', desc: 'Interruptores automáticos para protección contra sobrecorrientes (PIA)' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2184', desc: 'Protección de estructuras contra las descargas eléctricas atmosféricas' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 62386', desc: 'Sistemas de caños y accesorios para instalaciones eléctricas' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 2004', desc: 'Conductores eléctricos de cobre desnudo para líneas aéreas y PAT' },
+    { cat: 'iram', etq: 'IRAM', valor: 'IRAM 10005', desc: 'Colores y señales de seguridad en instalaciones y tableros' },
+
+    // --- NORMAS INTERNACIONALES ---
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 60364', desc: 'Instalaciones eléctricas de baja tensión (norma base internacional)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 60617', desc: 'Símbolos gráficos para esquemas y planos eléctricos' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 60898-1', desc: 'Interruptores automáticos para instalaciones domésticas y análogas (MCB)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 60947-2', desc: 'Aparamenta de baja tensión: Interruptores automáticos industriales' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 61008-1', desc: 'Interruptores diferenciales sin protección contra sobrecorrientes (RCCB)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 61009-1', desc: 'Interruptores diferenciales con protección contra sobrecorrientes (RCBO)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 60529', desc: 'Grados de protección proporcionados por las envolventes (Código IP)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 62262', desc: 'Grados de protección contra impactos mecánicos externos (Código IK)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 61643-11', desc: 'Dispositivos de protección contra sobretensiones en baja tensión (SPD)' },
+    { cat: 'internacionales', etq: 'IEC', valor: 'IEC 62305', desc: 'Protección contra el rayo y evaluación de riesgo' },
+    { cat: 'internacionales', etq: 'ISO', valor: 'ISO 45001', desc: 'Sistemas de gestión de la seguridad y salud en el trabajo' }
+];
+
+let categoriaLibreriaActual = 'todas';
+let cursorLibreriaStart = 0;
+let cursorLibreriaEnd = 0;
+
+function abrirModalLibreria() {
+    if (modoEditorTabla) return;
+
+    const textarea = document.getElementById('textoInforme');
+    if (textarea) {
+        cursorLibreriaStart = textarea.selectionStart ?? textarea.value.length;
+        cursorLibreriaEnd = textarea.selectionEnd ?? textarea.value.length;
+    }
+
+    categoriaLibreriaActual = 'todas';
+    const buscador = document.getElementById('buscadorLibreria');
+    if (buscador) buscador.value = '';
+
+    document.querySelectorAll('#tabsLibreria .lib-tab-btn').forEach((btn, idx) => {
+        btn.classList.toggle('active', idx === 0);
+    });
+
+    filtrarLibreria();
+    document.getElementById('modalLibreriaTecnica').classList.remove('oculto');
+}
+
+function cerrarModalLibreria() {
+    document.getElementById('modalLibreriaTecnica').classList.add('oculto');
+}
+
+function seleccionarCategoriaLibreria(categoria, btnElement) {
+    categoriaLibreriaActual = categoria;
+    document.querySelectorAll('#tabsLibreria .lib-tab-btn').forEach(b => b.classList.remove('active'));
+    if (btnElement) btnElement.classList.add('active');
+    filtrarLibreria();
+}
+
+function normalizarTextoBusqueda(txt) {
+    return String(txt || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function filtrarLibreria() {
+    const contenedor = document.getElementById('listaLibreriaTecnica');
+    if (!contenedor) return;
+
+    const termino = normalizarTextoBusqueda(document.getElementById('buscadorLibreria')?.value.trim());
+
+    const resultados = LIBRERIA_TECNICA.filter(item => {
+        const coincideCat = categoriaLibreriaActual === 'todas' || item.cat === categoriaLibreriaActual;
+        if (!coincideCat) return false;
+        if (!termino) return true;
+
+        const textoItem = normalizarTextoBusqueda(`${item.valor} ${item.desc} ${item.etq}`);
+        return textoItem.includes(termino);
+    });
+
+    contenedor.innerHTML = '';
+
+    if (resultados.length === 0) {
+        contenedor.innerHTML = '<p style="text-align:center; color: var(--ngc-text-faded); padding: 15px 0;">No se encontraron coincidencias.</p>';
+        return;
+    }
+
+    resultados.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'lib-item-card';
+        card.innerHTML = `
+            <div class="lib-item-header">
+                <span class="lib-item-valor">${item.valor}</span>
+                <span class="lib-item-badge">${item.etq}</span>
+            </div>
+            <div class="lib-item-desc">${item.desc}</div>
+        `;
+        card.onclick = () => insertarDesdeLibreria(item.valor);
+        contenedor.appendChild(card);
+    });
+}
+
+function insertarDesdeLibreria(textoAInsertar) {
+    const textarea = document.getElementById('textoInforme');
+    cerrarModalLibreria();
+    if (!textarea) return;
+
+    const textoActual = textarea.value;
+    const inicio = Math.min(cursorLibreriaStart, textoActual.length);
+    const fin = Math.min(cursorLibreriaEnd, textoActual.length);
+
+    const antes = textoActual.slice(0, inicio);
+    const despues = textoActual.slice(fin);
+
+    // Agrega un espacio automático solo si hay texto pegado inmediatamente antes y no es apertura de paréntesis/salto
+    const necesitaEspacioAntes = antes.length > 0 && !/[\s(\[¿¡]$/.test(antes);
+    const insercion = (necesitaEspacioAntes ? ' ' : '') + textoAInsertar;
+
+    textarea.value = antes + insercion + despues;
+
+    const nuevaPosicion = antes.length + insercion.length;
+    textarea.focus();
+    textarea.setSelectionRange(nuevaPosicion, nuevaPosicion);
+    }
+        
