@@ -1,4 +1,4 @@
-const CACHE_NAME = 'villaser-cache-v35';
+const CACHE_NAME = 'villaser-cache-v36';
 
 const urlsToCache = [
     './',
