@@ -5,6 +5,7 @@ let db = null;
 let uidSeguro = null;
 
 let informeParrafos = [];
+let bloquesExpandidos = new Set();
 let nombreBorradorActual = null; 
 let telefonoClienteActual = "";
 
@@ -131,6 +132,7 @@ function ejecutarNuevoInforme() {
     
     cancelarEdicionTabla();
     informeParrafos = [];
+    bloquesExpandidos.clear();
     clienteDesdeAgenda = false;
     permiteGuardarNube = true;
     nombreBorradorActual = null;
@@ -522,6 +524,15 @@ function agregarParrafo() {
     agregarBloque('parrafo');
 }
 
+function actualizarIndicesExpandidosAlEliminar(indexEliminado) {
+    const nuevos = new Set();
+    bloquesExpandidos.forEach(idx => {
+        if (idx < indexEliminado) nuevos.add(idx);
+        else if (idx > indexEliminado) nuevos.add(idx - 1);
+    });
+    bloquesExpandidos = nuevos;
+}
+
 function moverBloque(index, direccion) {
     const nuevoIndex = index + direccion;
     if (nuevoIndex < 0 || nuevoIndex >= informeParrafos.length) return;
@@ -529,6 +540,16 @@ function moverBloque(index, direccion) {
     const temp = informeParrafos[index];
     informeParrafos[index] = informeParrafos[nuevoIndex];
     informeParrafos[nuevoIndex] = temp;
+
+    // Mantener el estado expandido/colapsado de cada bloque al reordenarlo
+    const actualAbierto = bloquesExpandidos.has(index);
+    const destinoAbierto = bloquesExpandidos.has(nuevoIndex);
+    if (actualAbierto) bloquesExpandidos.add(nuevoIndex);
+    else bloquesExpandidos.delete(nuevoIndex);
+
+    if (destinoAbierto) bloquesExpandidos.add(index);
+    else bloquesExpandidos.delete(index);
+
     renderizarParrafos();
 }
 
@@ -547,6 +568,7 @@ function cerrarModalEliminarParrafo() {
 function ejecutarEliminarParrafo() {
     if (indiceParrafoAEliminar !== null) {
         informeParrafos.splice(indiceParrafoAEliminar, 1);
+        actualizarIndicesExpandidosAlEliminar(indiceParrafoAEliminar);
         renderizarParrafos();
     }
     cerrarModalEliminarParrafo();
@@ -555,6 +577,7 @@ function ejecutarEliminarParrafo() {
 function editarParrafo(index) {
     const bloque = normalizarBloqueInforme(informeParrafos[index]);
     informeParrafos.splice(index, 1);
+    actualizarIndicesExpandidosAlEliminar(index);
     renderizarParrafos();
 
     if (bloque.tipo === 'tabla') {
@@ -567,6 +590,50 @@ function editarParrafo(index) {
     if (modoEditorTabla) cancelarEdicionTabla();
     document.getElementById('textoInforme').value = bloque.texto;
     document.getElementById('textoInforme').focus();
+}
+
+function recortarPrimerasPalabras(texto, maxPalabras = 5) {
+    const limpio = String(texto || '')
+        .replace(/\*\*\*|\*\*|\*/g, '')
+        .replace(/•/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!limpio) return '';
+    const palabras = limpio.split(' ');
+    if (palabras.length <= maxPalabras) return limpio;
+    return palabras.slice(0, maxPalabras).join(' ') + '...';
+}
+
+function obtenerResumenBloque(bloque) {
+    if (bloque.tipo === 'tabla') {
+        if (bloque.titulo && bloque.titulo.trim()) {
+            return recortarPrimerasPalabras(bloque.titulo, 5);
+        }
+        const celdas = [];
+        bloque.filas.forEach(fila => {
+            fila.forEach(celda => {
+                if (celda && celda.trim() && celdas.length < 6) {
+                    celdas.push(celda.trim());
+                }
+            });
+        });
+        if (celdas.length > 0) {
+            return recortarPrimerasPalabras(celdas.join(' · '), 5);
+        }
+        const cols = (bloque.filas[0] && bloque.filas[0].length) || 0;
+        return `Tabla (${bloque.filas.length}×${cols})`;
+    }
+    return recortarPrimerasPalabras(bloque.texto, 5);
+}
+
+function toggleExpandirBloque(index) {
+    if (bloquesExpandidos.has(index)) {
+        bloquesExpandidos.delete(index);
+    } else {
+        bloquesExpandidos.add(index);
+    }
+    renderizarParrafos();
 }
 
 function renderizarParrafos() {
@@ -584,18 +651,39 @@ function renderizarParrafos() {
         const bloque = normalizarBloqueInforme(item);
         const esPrimero = index === 0;
         const esUltimo = index === informeParrafos.length - 1;
+        const estaExpandido = bloquesExpandidos.has(index);
+
+        const resumenEscapado = obtenerResumenBloque(bloque)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
 
         const div = document.createElement('div');
-        div.style.cssText = 'background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); padding: 12px; border-radius: 8px; position: relative; font-size: 0.85rem; line-height: 1.5; color: var(--ngc-text-main);';
-        div.innerHTML = `
-            <div style="font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; color: var(--ngc-neon); margin-bottom: 4px;">${etiquetas[bloque.tipo] || 'PÁRRAFO'}</div>
-            ${renderizarBloqueHTML(bloque, false)}
-            <div style="display: flex; gap: 12px; margin-top: 8px; justify-content: flex-end; align-items: center;">
-                <button type="button" onclick="moverBloque(${index}, -1)" ${esPrimero ? 'disabled' : ''} title="Subir" style="background: transparent; border: none; color: var(--ngc-neon); cursor: pointer; opacity: ${esPrimero ? '0.3' : '1'}; padding: 4px;"><i class="fa-solid fa-arrow-up"></i></button>
-                <button type="button" onclick="moverBloque(${index}, 1)" ${esUltimo ? 'disabled' : ''} title="Bajar" style="background: transparent; border: none; color: var(--ngc-neon); cursor: pointer; opacity: ${esUltimo ? '0.3' : '1'}; padding: 4px;"><i class="fa-solid fa-arrow-down"></i></button>
-                <button type="button" onclick="editarParrafo(${index})" title="Editar" style="background: transparent; border: none; color: #ff9800; cursor: pointer; padding: 4px;"><i class="fa-solid fa-pen"></i></button>
-                <button type="button" onclick="eliminarParrafo(${index})" title="Eliminar" style="background: transparent; border: none; color: var(--error-red); cursor: pointer; padding: 4px;"><i class="fa-solid fa-trash"></i></button>
+        div.className = `bloque-item-card ${estaExpandido ? 'expandido' : ''}`;
+
+        const detalleHTML = estaExpandido ? `
+            <div class="bloque-item-detalle">
+                ${renderizarBloqueHTML(bloque, false)}
+                <div class="bloque-item-acciones">
+                    <button type="button" onclick="moverBloque(${index}, -1)" ${esPrimero ? 'disabled' : ''} title="Subir" style="background: transparent; border: none; color: var(--ngc-neon); cursor: pointer; opacity: ${esPrimero ? '0.3' : '1'}; padding: 4px;"><i class="fa-solid fa-arrow-up"></i></button>
+                    <button type="button" onclick="moverBloque(${index}, 1)" ${esUltimo ? 'disabled' : ''} title="Bajar" style="background: transparent; border: none; color: var(--ngc-neon); cursor: pointer; opacity: ${esUltimo ? '0.3' : '1'}; padding: 4px;"><i class="fa-solid fa-arrow-down"></i></button>
+                    <button type="button" onclick="editarParrafo(${index})" title="Editar" style="background: transparent; border: none; color: #ff9800; cursor: pointer; padding: 4px;"><i class="fa-solid fa-pen"></i></button>
+                    <button type="button" onclick="eliminarParrafo(${index})" title="Eliminar" style="background: transparent; border: none; color: var(--error-red); cursor: pointer; padding: 4px;"><i class="fa-solid fa-trash"></i></button>
+                </div>
             </div>
+        ` : '';
+
+        div.innerHTML = `
+            <div class="bloque-item-header">
+                <div class="bloque-item-info">
+                    <div class="bloque-item-tipo">${etiquetas[bloque.tipo] || 'PÁRRAFO'}</div>
+                    ${!estaExpandido ? `<div class="bloque-item-preview">${resumenEscapado}</div>` : ''}
+                </div>
+                <button type="button" class="btn-ver-mas-bloque" onclick="toggleExpandirBloque(${index})">
+                    ${estaExpandido ? 'Ver menos <i class="fa-solid fa-chevron-up"></i>' : 'Ver más <i class="fa-solid fa-chevron-down"></i>'}
+                </button>
+            </div>
+            ${detalleHTML}
         `;
         contenedor.appendChild(div);
     });
@@ -851,7 +939,7 @@ async function generarPDF() {
         // Restaurar Sello de Agua para vista en vivo / Vista Previa
         if (selloAgua) selloAgua.style.display = 'flex';
     }
-}
+        }
 
 // ==========================================
 // WHATSAPP (INTEGRACIÓN GLOBAL)
@@ -1077,6 +1165,7 @@ async function cargarBorradorNube(docId) {
             
             cancelarEdicionTabla();
             informeParrafos = data.parrafos || [];
+            bloquesExpandidos.clear();
             if (data.telefonoClienteActual !== undefined) telefonoClienteActual = data.telefonoClienteActual;
             
             clienteDesdeAgenda = true;
@@ -1322,5 +1411,4 @@ function insertarDesdeLibreria(textoAInsertar) {
     const nuevaPosicion = antes.length + insercion.length;
     textarea.focus();
     textarea.setSelectionRange(nuevaPosicion, nuevaPosicion);
-    }
-        
+         }
