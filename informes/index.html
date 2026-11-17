@@ -56,6 +56,74 @@
             outline: none;
             background: rgba(35, 116, 225, 0.14);
         }
+                /* Estilos del Modal Librería Técnica */
+        .lib-tabs-scroll {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 6px;
+            margin-bottom: 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .lib-tab-btn {
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            color: var(--ngc-text-faded);
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .lib-tab-btn.active {
+            background: rgba(35, 116, 225, 0.16);
+            border-color: var(--ngc-neon);
+            color: var(--ngc-neon);
+        }
+        .lib-item-card {
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            border-left: 3px solid var(--ngc-neon);
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            text-align: left;
+            cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+        .lib-item-card:active {
+            transform: scale(0.98);
+        }
+        .lib-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 3px;
+        }
+        .lib-item-valor {
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: var(--ngc-neon);
+            word-break: break-word;
+        }
+        .lib-item-badge {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(245, 195, 59, 0.14);
+            color: var(--ngc-warning);
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .lib-item-desc {
+            font-size: 0.78rem;
+            color: var(--ngc-text-faded);
+            line-height: 1.3;
+                }
     </style>
 
     <script>
@@ -170,18 +238,22 @@
                         </div>
                     </div>
                     
-                    <!-- Herramientas de formato sobre el texto -->
-                    <div id="barraFormatoTexto" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 5px;">
-                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 6px; font-size: 0.85rem;" onclick="aplicarFormatoSeleccion('**')">
+                   <!-- Herramientas de formato sobre el texto -->
+                    <div id="barraFormatoTexto" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 5px;">
+                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.8rem;" onclick="aplicarFormatoSeleccion('**')">
                             <i class="fa-solid fa-bold"></i> Negrita
                         </button>
-                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 6px; font-size: 0.85rem;" onclick="aplicarFormatoSeleccion('*')">
+                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.8rem;" onclick="aplicarFormatoSeleccion('*')">
                             <i class="fa-solid fa-italic"></i> Cursiva
                         </button>
-                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 6px; font-size: 0.85rem;" onclick="aplicarVinetasSeleccion()">
+                        <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.8rem;" onclick="aplicarVinetasSeleccion()">
                             <i class="fa-solid fa-list-ul"></i> Viñetas
                         </button>
+                        <button type="button" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.14); padding: 10px 4px; font-size: 0.8rem;" onclick="abrirModalLibreria()">
+                            <i class="fa-solid fa-book-bookmark"></i> Librería
+                        </button>
                     </div>
+                    
 
                     <!-- Botones para insertar bloque al informe -->
                     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px;">
@@ -470,6 +542,28 @@
                 <button class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarSinAgenda()">Volver atrás</button>
                 <button class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarContinuarSinAgenda()">Continuar</button>
             </div>
+        </div>
+    </div>
+
+        <!-- MODAL LIBRERÍA TÉCNICA (FÓRMULAS, SIMBOLOGÍA Y NORMAS) -->
+    <div id="modalLibreriaTecnica" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-width: 480px; width: 94%;">
+            <h3 style="margin-bottom: 10px;"><i class="fa-solid fa-book-bookmark" style="color: var(--ngc-neon);"></i> Librería Técnica</h3>
+            
+            <input type="text" id="buscadorLibreria" class="corp-input" placeholder="Buscar fórmula, símbolo, IRAM, AEA, IEC..." oninput="filtrarLibreria()" style="margin-bottom: 10px;">
+            
+            <div id="tabsLibreria" class="lib-tabs-scroll">
+                <button type="button" class="lib-tab-btn active" onclick="seleccionarCategoriaLibreria('todas', this)">Todas</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('formulas', this)">Fórmulas</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('simbologia', this)">Simbología</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('aea', this)">Normas AEA</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('iram', this)">Normas IRAM</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('internacionales', this)">Internacionales</button>
+            </div>
+
+            <div id="listaLibreriaTecnica" class="modal-list-container" style="max-height: 310px; overflow-y: auto; padding-right: 2px;"></div>
+            
+            <button type="button" class="corp-btn danger-btn" onclick="cerrarModalLibreria()" style="margin-top: 12px;">Cerrar</button>
         </div>
     </div>
     
