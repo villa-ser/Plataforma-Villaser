@@ -285,26 +285,99 @@ document.addEventListener('click', (e) => {
     } 
 });
 
+let editandoPerfil = false;
+
+function cambiarPreferenciaNotificaciones(estado) {
+    localStorage.setItem('villaser_notif_pref', estado);
+    // Listo para conectar con Firebase Cloud Messaging (FCM) en la próxima actualización
+}
+
+function establecerModoEdicionPerfil(activo) {
+    editandoPerfil = activo;
+
+    const campos = ['confNombre', 'confSlogan', 'confTelefono', 'confLogo'];
+    campos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !activo;
+    });
+
+    const grupoInputLogo = document.getElementById('grupoInputLogo');
+    const sinLogoTexto = document.getElementById('sinLogoTexto');
+    const logoPreview = document.getElementById('logoPreview');
+    const tieneLogo = logoPreview && logoPreview.src && logoPreview.src.startsWith('data:image');
+
+    if (grupoInputLogo) {
+        if (activo) {
+            grupoInputLogo.classList.remove('oculto');
+        } else {
+            grupoInputLogo.classList.add('oculto');
+        }
+    }
+
+    if (sinLogoTexto) {
+        sinLogoTexto.style.display = (!activo && !tieneLogo) ? 'block' : 'none';
+    }
+
+    const btn = document.getElementById('btnToggleEditConfig');
+    if (btn) {
+        if (activo) {
+            btn.classList.remove('secondary-btn');
+            btn.classList.add('primary-btn');
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cambios';
+        } else {
+            btn.classList.remove('primary-btn');
+            btn.classList.add('secondary-btn');
+            btn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar';
+        }
+    }
+}
+
+function manejarBotonPerfil() {
+    if (!editandoPerfil) {
+        establecerModoEdicionPerfil(true);
+        const inputNombre = document.getElementById('confNombre');
+        if (inputNombre) inputNombre.focus();
+    } else {
+        guardarConfiguracion();
+    }
+}
+
 async function abrirConfiguracion() {
     document.getElementById('modalConfig').classList.remove('oculto');
     document.getElementById('userDropdown').classList.add('oculto');
+
+    // Siempre inicia bloqueado para evitar modificaciones accidentales
+    establecerModoEdicionPerfil(false);
 
     // 1. Cargar rápido de memoria local
     document.getElementById('confNombre').value = localStorage.getItem('villaser_conf_nombre') || '';
     document.getElementById('confSlogan').value = localStorage.getItem('villaser_conf_slogan') || '';
     document.getElementById('confTelefono').value = localStorage.getItem('villaser_conf_telefono') || '';
+    document.getElementById('confLogo').value = '';
     
     const logoGuardado = localStorage.getItem('villaser_conf_logo');
-    if (logoGuardado) {
-        document.getElementById('logoPreview').src = logoGuardado;
-        document.getElementById('logoPreview').style.display = 'block';
+    const logoPreview = document.getElementById('logoPreview');
+    const sinLogoTexto = document.getElementById('sinLogoTexto');
+
+    if (logoGuardado && logoGuardado.startsWith('data:image')) {
+        logoPreview.src = logoGuardado;
+        logoPreview.style.display = 'block';
+        if (sinLogoTexto) sinLogoTexto.style.display = 'none';
     } else {
-        document.getElementById('logoPreview').style.display = 'none';
+        logoPreview.src = '';
+        logoPreview.style.display = 'none';
+        if (sinLogoTexto) sinLogoTexto.style.display = 'block';
     }
 
+    // Sincronizar Tema Visual
     const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
     const radioTema = document.getElementById(`tema_${temaGuardado}`);
-    if(radioTema) radioTema.checked = true;
+    if (radioTema) radioTema.checked = true;
+
+    // Sincronizar Preferencia de Notificaciones (por defecto 'off' hasta activar FCM)
+    const notifGuardada = localStorage.getItem('villaser_notif_pref') || 'off';
+    const radioNotif = document.getElementById(`notif_${notifGuardada}`);
+    if (radioNotif) radioNotif.checked = true;
 
     // 2. Si no hay datos locales, forzamos lectura a la nube
     const user = auth.currentUser;
@@ -317,8 +390,9 @@ async function abrirConfiguracion() {
                 if (data.slogan) { document.getElementById('confSlogan').value = data.slogan; localStorage.setItem('villaser_conf_slogan', data.slogan); }
                 if (data.telefono) { document.getElementById('confTelefono').value = data.telefono; localStorage.setItem('villaser_conf_telefono', data.telefono); }
                 if (data.logo) {
-                    document.getElementById('logoPreview').src = data.logo;
-                    document.getElementById('logoPreview').style.display = 'block';
+                    logoPreview.src = data.logo;
+                    logoPreview.style.display = 'block';
+                    if (sinLogoTexto) sinLogoTexto.style.display = 'none';
                     localStorage.setItem('villaser_conf_logo', data.logo);
                 }
             }
@@ -328,22 +402,10 @@ async function abrirConfiguracion() {
     }
 }
 
-function cerrarConfiguracion() { document.getElementById('modalConfig').classList.add('oculto'); }
-
-function abrirTerminos(desdeRegistro) {
-    document.getElementById('modalTerminos').classList.remove('oculto');
-    const contenedorDescarga = document.getElementById('btnDescargaPdfContainer');
-    
-    if (desdeRegistro) {
-        contenedorDescarga.style.display = 'block';
-    } else {
-        contenedorDescarga.style.display = 'none';
-        document.getElementById('userDropdown').classList.add('oculto');
-    }
+function cerrarConfiguracion() {
+    establecerModoEdicionPerfil(false);
+    document.getElementById('modalConfig').classList.add('oculto');
 }
-
-function cerrarTerminos() { document.getElementById('modalTerminos').classList.add('oculto'); }
-document.getElementById('modalTerminos').addEventListener('click', function(e) { if(e.target === this) cerrarTerminos(); });
 
 function guardarConfiguracion() {
     const nombre = document.getElementById('confNombre').value.trim();
@@ -361,6 +423,11 @@ function guardarConfiguracion() {
     localStorage.setItem('villaser_conf_slogan', slogan);
     localStorage.setItem('villaser_conf_telefono', telefono);
 
+    // Actualizar en vivo el primer nombre en la barra superior
+    const primerNombre = (nombre || 'Usuario').split(" ")[0];
+    const nameDisplay = document.getElementById('userFirstNameDisplay');
+    if (nameDisplay) nameDisplay.innerText = primerNombre;
+
     const perfilData = {
         nombre: nombre,
         slogan: slogan,
@@ -372,7 +439,8 @@ function guardarConfiguracion() {
         perfilData.logo = logoPreview;
     }
 
-    // Cerrar modal de config y abrir el Modal de Éxito Corporativo
+    // Volver a bloquear el perfil (botón regresa a "Editar"), cerrar config y mostrar éxito
+    establecerModoEdicionPerfil(false);
     cerrarConfiguracion();
     document.getElementById('modalExitoCorp').classList.remove('oculto');
 
@@ -384,10 +452,25 @@ function guardarConfiguracion() {
         });
 }
 
-// Función para cerrar el Modal de Éxito
 function cerrarModalExitoCorp() {
     document.getElementById('modalExitoCorp').classList.add('oculto');
 }
+
+function abrirTerminos(desdeRegistro) {
+    document.getElementById('modalTerminos').classList.remove('oculto');
+    const contenedorDescarga = document.getElementById('btnDescargaPdfContainer');
+    
+    if (desdeRegistro) {
+        contenedorDescarga.style.display = 'block';
+    } else {
+        contenedorDescarga.style.display = 'none';
+        document.getElementById('userDropdown').classList.add('oculto');
+    }
+}
+
+function cerrarTerminos() { document.getElementById('modalTerminos').classList.add('oculto'); }
+document.getElementById('modalTerminos').addEventListener('click', function(e) { if(e.target === this) cerrarTerminos(); });
+
 
 // ==========================================
 // 4. FUNCIONES DE FIREBASE (AUTH)
