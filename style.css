@@ -515,3 +515,27 @@ label {
 .corp-auth-tab:not(.active):active {
     background: var(--corp-card-bg);
 }
+
+/* ================== PERFIL BLOQUEADO Y SUBTÍTULOS DE CONFIG ================== */
+.corp-divider {
+    border: none;
+    border-top: var(--corp-border);
+    margin: 4px 0;
+}
+
+.field-sub-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--corp-text-faded);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.corp-input:disabled {
+    opacity: 0.68;
+    cursor: not-allowed;
+    border-color: transparent;
+    user-select: none;
+}
