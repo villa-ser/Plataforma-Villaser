@@ -124,6 +124,75 @@
             color: var(--ngc-text-faded);
             line-height: 1.3;
                 }
+                /* Estilos de bloques colapsables en Redacción */
+        .bloque-item-card {
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.85rem;
+            color: var(--ngc-text-main);
+            transition: border-color 0.2s;
+        }
+        .bloque-item-card.expandido {
+            border-color: var(--ngc-neon);
+        }
+        .bloque-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+        .bloque-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .bloque-item-tipo {
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: var(--ngc-neon);
+            margin-bottom: 2px;
+            text-transform: uppercase;
+        }
+        .bloque-item-preview {
+            font-size: 0.85rem;
+            color: var(--ngc-text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+        .btn-ver-mas-bloque {
+            background: rgba(35, 116, 225, 0.14);
+            border: 1px solid rgba(35, 116, 225, 0.35);
+            color: var(--ngc-neon);
+            border-radius: 6px;
+            padding: 5px 9px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .bloque-item-detalle {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--ngc-privacy-border);
+            line-height: 1.5;
+        }
+        .bloque-item-acciones {
+            display: flex;
+            gap: 14px;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid var(--ngc-privacy-border);
+            justify-content: flex-end;
+            align-items: center;
+        }
     </style>
 
     <script>
