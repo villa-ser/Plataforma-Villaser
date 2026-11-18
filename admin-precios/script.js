@@ -4,8 +4,8 @@
 const SHEET_ID = '1risNRvrxFiawgawi2XhENDqijZiNeW-jWzt8XE07aio';
 const URL_LECTURA = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
 
-// PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT AL IMPLEMENTAR:
-const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbxhMPmdUVDH-fyDpm8-MuP68T5IMc9jtUnMeAMCbdanpZumNjHCjMtZuImnQXL2fmemTw/exec';
+// URL DE TU GOOGLE APPS SCRIPT YA CONFIGURADA:
+const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbxzv9WJgbiL3kLaWG583ejcSxpQi6F9C1hY_huY80VHFn1fOABD7ObFic7B_vf98OOPqg/exec';
 const API_SECRET_TOKEN = 'VILLASER_ADMIN_2026_X99';
 
 // Definición de columnas editables (excluyendo Tema y Concepto que identifican la fila)
@@ -68,12 +68,10 @@ function renderizarCheckboxesColumnas() {
         chk.dataset.key = col.key;
 
         chk.addEventListener('change', () => {
-            // Si intenta desmarcar la única activa, la volvemos a marcar para que siempre haya 1
             if (!chk.checked) {
                 chk.checked = true;
                 return;
             }
-            // Desmarcamos todas las demás casillas
             cont.querySelectorAll('input[type="checkbox"]').forEach(otro => {
                 if (otro !== chk) {
                     otro.checked = false;
@@ -83,7 +81,6 @@ function renderizarCheckboxesColumnas() {
             label.classList.add('active');
             columnaSeleccionada = col;
             
-            // Si ya hay un tema seleccionado, refrescamos la lista mostrando la nueva columna
             if (document.getElementById('selTema').value) {
                 renderizarConceptosPorTema();
             }
@@ -106,7 +103,7 @@ async function cargarDatosSheet() {
     document.getElementById('app').classList.add('oculto');
 
     try {
-        const res = await fetch(`${URL_LECTURA}&t=${Date.now()}`); // Evita caché vieja
+        const res = await fetch(`${URL_LECTURA}&t=${Date.now()}`);
         const txt = await res.text();
         const json = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
         const rows = json.table?.rows || [];
@@ -119,12 +116,10 @@ async function cargarDatosSheet() {
             const tema = val(2);     // Col C
             const concepto = val(3); // Col D
 
-            // Ignorar fila de encabezados si viniera incluida
             if (!tema && !concepto) return;
             if (tema.toLowerCase() === 'tema' || concepto.toLowerCase() === 'concepto') return;
 
             dbDatos.push({
-                // Fila real en Google Sheets (Fila 1 son títulos, los datos arrancan en Fila 2)
                 rowNumber: idx + 2,
                 codigo: val(0),                  // A
                 fuentes: val(1),                 // B
@@ -191,7 +186,6 @@ function renderizarConceptosPorTema() {
         return;
     }
 
-    // Reseteamos el botón a estado "Editar"
     modoEdicion = false;
     actualizarVisualBotonEditarGuardar();
 
@@ -282,18 +276,26 @@ async function manejarBotonEditarGuardar() {
 
     try {
         const user = firebase.auth().currentUser;
-        await fetch(URL_APPS_SCRIPT, {
+        const emailActual = user ? user.email : 'contacto@villaser.com.ar';
+
+        const respuesta = await fetch(URL_APPS_SCRIPT, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 token: API_SECRET_TOKEN,
-                userEmail: user ? user.email : '',
+                userEmail: emailActual,
                 action: 'updateColumn',
                 columna: columnaSeleccionada.sheetCol,
                 cambios: cambios
             })
         });
+
+        const resultado = await respuesta.json();
+        if (resultado.status !== 'success') {
+            alert('Error desde Google Sheets: ' + resultado.message);
+            actualizarVisualBotonEditarGuardar();
+            return;
+        }
 
         // Actualizamos la memoria local inmediatamente
         cambios.forEach(c => {
@@ -309,13 +311,13 @@ async function manejarBotonEditarGuardar() {
         modoEdicion = false;
         actualizarVisualBotonEditarGuardar();
         
-        // CARTEL SOLICITADO
         mostrarToast('Lista de precios actualizada', `Se actualizaron ${cambios.length} registro(s) en Google Sheets.`);
         alert('Lista de precios actualizada');
 
     } catch (e) {
         console.error(e);
-        alert('Error al conectar con Google Sheets para guardar.');
+        alert('Error al conectar con Google Sheets para guardar: ' + e.message);
+        actualizarVisualBotonEditarGuardar();
     } finally {
         btn.disabled = false;
     }
@@ -325,7 +327,6 @@ async function manejarBotonEditarGuardar() {
 // 4. MODAL "NUEVO" Y GENERACIÓN AUTOMÁTICA DE CÓDIGO CORRELATIVO
 // ============================================================================
 function abrirModalNuevo() {
-    // Poblar selector de temas existentes dentro del modal
     const temasUnicos = [...new Set(dbDatos.map(i => i.tema))].filter(Boolean).sort();
     const listNuevoTema = document.getElementById('listNuevoTema');
     listNuevoTema.innerHTML = '';
@@ -343,7 +344,6 @@ function abrirModalNuevo() {
         listNuevoTema.appendChild(opt);
     });
 
-    // Resetear campos
     seleccionarTipoTema(true);
     document.getElementById('inputNuevoTemaSelect').value = '';
     document.getElementById('sumNuevoTema').innerText = '-- SELECCIONE TEMA --';
@@ -394,7 +394,6 @@ function seleccionarTipoTema(existe) {
     calcularCodigoCorrelativo();
 }
 
-// Lógica inteligente para seguir la correlación exacta de tus códigos en Columna A
 function calcularCodigoCorrelativo() {
     const inputCod = document.getElementById('newCodigo');
     const ayuda = document.getElementById('ayudaCodigo');
@@ -414,7 +413,6 @@ function calcularCodigoCorrelativo() {
             return;
         }
 
-        // Analizamos el último código de ese tema (ej: "TAB-012" o "105" o "A-12")
         const ultimoCodigo = itemsTema[itemsTema.length - 1].codigo;
         const match = ultimoCodigo.match(/^(.*?)(\d+)$/);
 
@@ -429,7 +427,6 @@ function calcularCodigoCorrelativo() {
             ayuda.innerText = `Basado en último código: ${ultimoCodigo}`;
         }
     } else {
-        // Tema Nuevo: busca prefijo de 3 letras del tema nuevo y arranca en 001 (o sigue numeración global si son solo números)
         const nuevoTemaTxt = document.getElementById('inputNuevoTemaTexto').value.trim();
         const todosCodigos = dbDatos.map(i => i.codigo).filter(Boolean);
         const sonNumericosPuros = todosCodigos.length > 0 && todosCodigos.every(c => /^\d+$/.test(c));
@@ -441,7 +438,6 @@ function calcularCodigoCorrelativo() {
             ayuda.innerText = `Correlativo numérico global siguiente al ${maxNum}.`;
         } else if (nuevoTemaTxt.length >= 2) {
             const prefijo = nuevoTemaTxt.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z]/g, '').substring(0, 3).toUpperCase();
-            // Detecta si usas guion en tus códigos existentes
             const usaGuion = todosCodigos.some(c => c.includes('-'));
             inputCod.value = usaGuion ? `${prefijo}-001` : `${prefijo}001`;
             ayuda.innerText = 'Código inicial sugerido para tema nuevo (editable si deseas).';
@@ -484,28 +480,34 @@ async function guardarNuevoRegistro() {
 
     try {
         const user = firebase.auth().currentUser;
-        await fetch(URL_APPS_SCRIPT, {
+        const emailActual = user ? user.email : 'contacto@villaser.com.ar';
+
+        const respuesta = await fetch(URL_APPS_SCRIPT, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 token: API_SECRET_TOKEN,
-                userEmail: user ? user.email : '',
+                userEmail: emailActual,
                 action: 'addNewRow',
                 datos: datosNuevos
             })
         });
 
+        const resultado = await respuesta.json();
+        if (resultado.status !== 'success') {
+            alert('Error desde Google Sheets: ' + resultado.message);
+            return;
+        }
+
         cerrarModalNuevo();
         mostrarToast('Lista de precios actualizada', 'Nuevo concepto guardado en Google Sheets.');
         alert('Lista de precios actualizada');
 
-        // Recargamos la planilla después de 1.5s para traer el número de fila real nuevo
-        setTimeout(() => cargarDatosSheet(), 1500);
+        setTimeout(() => cargarDatosSheet(), 1000);
 
     } catch (e) {
         console.error(e);
-        alert('Error al guardar el nuevo registro.');
+        alert('Error al guardar el nuevo registro: ' + e.message);
     } finally {
         btn.disabled = false;
         btn.innerHTML = htmlOriginal;
