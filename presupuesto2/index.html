@@ -458,64 +458,146 @@
         </div>
     </main>
 
-  <!-- VISTA PDF A4 -->
+    <!-- VISTA PDF A4 -->
     <aside class="preview-panel">
         <div id="plantilla-pdf">
             <div class="pdf-container" style="position: relative;">
                 
-                <!-- SELLO DE AGUA PROTECCIÓN (30%) -->
+                <!-- SELLO DE AGUA PROTECCIÓN (SE OCULTA AUTOMÁTICAMENTE AL DESCARGAR) -->
                 <div id="selloAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.25; z-index: 9999; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
                     <img src="../img/negro1024.png" alt="Sello Villaser" style="max-width: 500px; width: 70%; margin-bottom: 20px;">
                     <h1 style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 5rem; color: #000; margin: 0; font-weight: 900; letter-spacing: 4px; text-align: center; line-height: 1.1;">PLATAFORMA<br>VILLASER</h1>
                 </div>
-                
 
-                <header class="pdf-header" style="position: relative; z-index: 1;">
-                    <div class="pdf-info-box">
-                        <h2>PRESUPUESTO</h2>
-                        <div class="pdf-row"><b>Nro:</b> <span id="pdf-nro"></span></div>
-                        <div class="pdf-row"><b>Fecha:</b> <span id="pdf-fecha"></span></div>
-                        <div class="pdf-row"><b>Cliente:</b> <span id="pdf-cliente"></span></div>
-                        <div class="pdf-row"><b>Dirección:</b> <span id="pdf-direccion"></span></div>
-                        <div class="pdf-row"><b>Proyecto:</b> <span id="pdf-proyecto"></span></div>
+                <!-- BLOQUE SUPERIOR (ENCABEZADO + CLIENTE + TABLA + TOTALES) -->
+                <div class="pdf-top-section" style="position: relative; z-index: 1;">
+                    
+                    <!-- Encabezado Corporativo -->
+                    <header class="pdf-header">
+                        <div class="pdf-brand-col">
+                            <img id="pdf-img-logo" src="" alt="Logo" class="pdf-logo-img" style="display:none;">
+                            <h1 id="pdf-text-logo" class="pdf-logo-text" style="display:none;"></h1>
+                            <div id="headerMembrete" class="pdf-prof-name"></div>
+                            <div id="pdf-slogan" class="pdf-slogan"></div>
+                            <div class="pdf-contact-strip">
+                                <span id="pdf-tel" class="pdf-contact-item"></span>
+                                <span id="pdf-email" class="pdf-contact-item"></span>
+                                <span id="pdf-fiscal" class="pdf-contact-item"></span>
+                            </div>
+                        </div>
+
+                        <div class="pdf-doc-col">
+                            <div class="pdf-doc-badge">PRESUPUESTO</div>
+                            <div class="pdf-meta-table">
+                                <div class="pdf-meta-row"><span>N° Comprobante:</span><strong id="pdf-nro"></strong></div>
+                                <div class="pdf-meta-row"><span>Fecha de emisión:</span><strong id="pdf-fecha"></strong></div>
+                                <div class="pdf-meta-row"><span>Válido hasta:</span><strong id="pdf-validez-top"></strong></div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <!-- Tarjeta de Datos del Cliente -->
+                    <section class="pdf-client-card">
+                        <div class="pdf-client-header">PREPARADO PARA</div>
+                        <div class="pdf-client-grid">
+                            <div class="pdf-client-field">
+                                <span class="pdf-field-label">Cliente:</span>
+                                <span id="pdf-cliente" class="pdf-field-val"></span>
+                            </div>
+                            <div id="pdf-row-direccion" class="pdf-client-field">
+                                <span class="pdf-field-label">Dirección:</span>
+                                <span id="pdf-direccion" class="pdf-field-val"></span>
+                            </div>
+                            <div id="pdf-row-proyecto" class="pdf-client-field">
+                                <span class="pdf-field-label">Proyecto / Obra:</span>
+                                <span id="pdf-proyecto" class="pdf-field-val"></span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Tabla de Trabajos y Alcance Técnico -->
+                    <table class="pdf-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 52px; text-align: center;">Ítem</th>
+                                <th>Descripción y Alcance Técnico</th>
+                                <th style="width: 58px; text-align: center;">Cant.</th>
+                                <th style="width: 115px; text-align: right;">P. Unitario</th>
+                                <th style="width: 120px; text-align: right;">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pdf-tbody"></tbody>
+                    </table>
+
+                    <!-- Resumen Económico y Forma de Pago -->
+                    <div class="pdf-summary-grid">
+                        <div class="pdf-payment-col">
+                            <div id="pdf-forma-pago" class="pdf-payment-card" style="display: none;"></div>
+                        </div>
+                        <div class="pdf-totales-box">
+                            <div class="pdf-total-row">
+                                <span>Subtotal:</span>
+                                <span id="pdf-subtotal"></span>
+                            </div>
+                            <div id="pdf-row-descuentos" class="pdf-total-row pdf-discount-row" style="display: none;">
+                                <span>Bonificación:</span>
+                                <span id="pdf-descuentos"></span>
+                            </div>
+                            <div class="pdf-total-row final-total">
+                                <span>TOTAL FINAL</span>
+                                <b id="pdf-total"></b>
+                            </div>
+                        </div>
                     </div>
-                    <div class="pdf-logo-box">
-                        <img id="pdf-img-logo" src="" alt="Logo" style="max-width:100px; max-height:100px; float:right; display:none;">
-                        <h1 id="pdf-text-logo" style="margin:0; font-size:24px; color:#0088aa; display:none;"></h1>
-                    </div>
-                </header>
-                <table class="pdf-table" style="position: relative; z-index: 1;">
-                    <thead><tr><th>Cód</th><th>Descripción</th><th>Cant</th><th>P. Unitario</th><th>Subtotal</th></tr></thead>
-                    <tbody id="pdf-tbody"></tbody>
-                </table>
-                <div class="pdf-body-lower" style="position: relative; z-index: 1;">
-                    <div class="pdf-notas-box">
-                        <h3>Detalle Operativo</h3>
+
+                </div>
+
+                <!-- BLOQUE INFERIOR ANCLADO AL PIE DE PÁGINA -->
+                <div class="pdf-bottom-section" style="position: relative; z-index: 1;">
+                    
+                    <!-- Notas Globales (solo se muestra si hay texto) -->
+                    <div id="pdf-notas-box" class="pdf-notas-box" style="display: none;">
+                        <h3>Observaciones Generales</h3>
                         <div id="pdf-notas" class="pdf-notas-content"></div>
                     </div>
-                    <div class="pdf-totales-box">
-                        <div class="pdf-total-row"><span>Subtotal:</span> <span id="pdf-subtotal"></span></div>
-                        <div class="pdf-total-row" style="color: #d9534f;"><span>Descuentos:</span> <span id="pdf-descuentos"></span></div>
-                        <div class="pdf-total-row final-total"><span>TOTAL:</span> <b id="pdf-total"></b></div>
+
+                    <!-- Condiciones Comerciales -->
+                    <div class="pdf-conditions-block">
+                        <h4>Condiciones Comerciales</h4>
+                        <p>
+                            El presente presupuesto tiene validez hasta el <strong id="pdf-validez-fecha"></strong>. 
+                            Los valores expresados corresponden exclusivamente a las tareas detalladas y no incluyen trabajos de albañilería ni materiales adicionales salvo indicación expresa.
+                        </p>
                     </div>
+
+                    <!-- Bloque de Conformidad y Aceptación -->
+                    <div class="pdf-signature-grid">
+                        <div class="pdf-sig-box">
+                            <div class="pdf-sig-line"></div>
+                            <span>Firma del Cliente / Conformidad</span>
+                        </div>
+                        <div class="pdf-sig-box">
+                            <div class="pdf-sig-line"></div>
+                            <span>Aclaración y DNI</span>
+                        </div>
+                        <div class="pdf-sig-box" style="max-width: 140px;">
+                            <div class="pdf-sig-line"></div>
+                            <span>Fecha de Aceptación</span>
+                        </div>
+                    </div>
+
+                    <!-- Pie Institucional -->
+                    <footer class="pdf-footer">
+                        <span>Documento generado por <strong id="pdf-footer-brand"></strong></span>
+                        <span>Precios expresados en Pesos Argentinos (ARS)</span>
+                    </footer>
+
                 </div>
-                <footer class="pdf-footer" style="position: relative; z-index: 1;">
-                    <div class="pdf-pagos">
-                        <h4>Condiciones</h4>
-                        <div id="pdf-forma-pago" style="margin-bottom: 4px; font-size: 11px; color: #333; display: none;"></div>
-                        <p>Los precios están sujetos a modificaciones sin previo aviso.<br>Presupuesto válido hasta <span id="pdf-validez-fecha"></span>.</p>
-                    </div>
-                    
-                    <div class="pdf-right-footer">
-                        <div id="pdf-slogan" class="pdf-slogan"></div>
-                        <div id="headerMembrete" class="pdf-contacto" style="font-weight:bold;"></div>
-                        <div id="pdf-tel" class="pdf-contacto"></div>
-                        <div id="pdf-email" class="pdf-contacto"></div>
-                    </div>
-                </footer>
+
             </div>
         </div>
     </aside>
+    
 </div>
 
 <!-- NUEVO MENÚ INFERIOR TIPO APP -->
