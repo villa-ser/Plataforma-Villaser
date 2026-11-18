@@ -161,7 +161,9 @@ textarea.corp-input { resize: vertical; }
 .corp-nav-item span { font-size: 0.65rem; font-weight: 600; }
 .corp-nav-item.active { color: var(--ngc-neon); }
 
-/* VISTA A4 PDF (Se oculta en móvil) */
+/* ============================================================== */
+/* VISTA A4 PDF Y DISEÑO CORPORATIVO DE DOCUMENTOS (800px)        */
+/* ============================================================== */
 @media (min-width: 992px) {
     .layout-wrapper { max-width: 1600px; flex-direction: row; align-items: flex-start; gap: 40px; padding: 20px; }
     .container { flex: 0 0 450px; margin: 0; padding: 0; }
@@ -170,23 +172,439 @@ textarea.corp-input { resize: vertical; }
     .preview-panel::-webkit-scrollbar-thumb { background-color: var(--ngc-privacy-border); border-radius: 10px; }
     #plantilla-pdf { display: block !important; transform: scale(0.85); transform-origin: top center; box-shadow: 0 5px 15px rgba(0,0,0,0.2); margin-bottom: -10%; }
 }
-#plantilla-pdf { display: none; }
-.pdf-container { background: #ffffff; color: #000000; width: 210mm; min-height: 295mm; padding: 10mm 12mm; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; }
-.pdf-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #0088aa; padding-bottom: 15px; }
+
+#plantilla-pdf {
+    display: none;
+    width: 800px;
+    background: #ffffff;
+    color: #1e293b;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
+    margin: 0 auto;
+}
+
+.pdf-container {
+    width: 800px;
+    min-height: 1122px; /* Proporción A4 exacta con margen de seguridad para evitar 2da hoja vacía */
+    padding: 40px 46px 32px 46px;
+    background: #ffffff;
+    color: #1e293b;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+}
+
+/* ENCABEZADO */
+.pdf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #0f172a;
+    margin-bottom: 20px;
+}
+
+.pdf-brand-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.pdf-logo-img {
+    max-width: 155px;
+    max-height: 72px;
+    object-fit: contain;
+    margin-bottom: 8px;
+}
+
+.pdf-logo-text {
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: 0.5px;
+    margin: 0 0 4px 0;
+    line-height: 1.1;
+}
+
+.pdf-prof-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0.3px;
+}
+
+.pdf-slogan {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #475569;
+    margin-top: 2px;
+}
+
+.pdf-contact-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #334155;
+}
+
+.pdf-contact-item {
+    display: inline-flex;
+    align-items: center;
+}
+
+.pdf-doc-col {
+    width: 245px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.pdf-doc-badge {
+    display: inline-block;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    padding: 7px 16px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.pdf-meta-table {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.pdf-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11.5px;
+    line-height: 1.65;
+    color: #475569;
+}
+
+.pdf-meta-row strong {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+/* TARJETA DE CLIENTE */
+.pdf-client-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0f172a;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 22px;
+}
+
+.pdf-client-header {
+    font-size: 9.5px;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    color: #64748b;
+    margin-bottom: 6px;
+}
+
+.pdf-client-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pdf-client-field {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 12.5px;
+}
+
+.pdf-field-label {
+    font-weight: 700;
+    color: #475569;
+    min-width: 110px;
+}
+
+.pdf-field-val {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+/* TABLA DE TRABAJOS */
+.pdf-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 22px;
+}
+
+.pdf-table th,
+.pdf-table thead th {
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    padding: 10px;
+    text-align: left;
+}
+
+.pdf-table thead th:first-child { border-top-left-radius: 5px; }
+.pdf-table thead th:last-child { border-top-right-radius: 5px; }
+
+.pdf-table tbody tr {
+    border-bottom: 1px solid #e2e8f0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.pdf-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+
+.pdf-table td,
+.pdf-table tbody td {
+    padding: 11px 10px;
+    font-size: 12px;
+    color: #1e293b;
+    vertical-align: top;
+}
+
+.pdf-item-title {
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.pdf-item-obs {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.45;
+}
+
+.pdf-badge-desc {
+    display: inline-block;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+}
+
+.pdf-price-old {
+    display: block;
+    font-size: 10.5px;
+    color: #94a3b8;
+    text-decoration: line-through;
+    font-weight: 400;
+}
+
+/* RESUMEN ECONÓMICO Y FORMA DE PAGO */
+.pdf-summary-grid {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 24px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.pdf-payment-col {
+    flex: 1;
+}
+
+.pdf-payment-card {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 12px 14px;
+}
+
+.pdf-payment-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #334155;
+    margin-bottom: 5px;
+}
+
+.pdf-payment-methods {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.pdf-bank-box {
+    margin-top: 7px;
+    padding: 6px 10px;
+    background: #ffffff;
+    border: 1px dashed #94a3b8;
+    border-radius: 4px;
+    font-size: 11.5px;
+    color: #334155;
+}
+
+.pdf-bank-box code {
+    font-family: Consolas, Monaco, monospace;
+    font-weight: 700;
+    color: #0f172a;
+    font-size: 12px;
+}
+
+.pdf-payment-note {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.4;
+}
+
+.pdf-totales-box {
+    width: 270px;
+    flex-shrink: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #ffffff;
+}
+
+.pdf-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    color: #475569;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.pdf-discount-row {
+    color: #b91c1c;
+    font-weight: 600;
+    background: #fef2f2;
+}
+
+.pdf-total-row.final-total {
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 800;
+    padding: 12px 14px;
+    border-bottom: none;
+}
+
+/* BLOQUE INFERIOR (ANCLADO AL PIE DE HOJA) */
+.pdf-bottom-section {
+    margin-top: auto;
+    padding-top: 16px;
+}
+
+.pdf-notas-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.pdf-notas-box h3 {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #334155;
+    margin: 0 0 4px 0;
+}
+
+.pdf-notas-content {
+    font-size: 11.5px;
+    color: #334155;
+    line-height: 1.45;
+}
+
+.pdf-conditions-block {
+    margin-bottom: 22px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.pdf-conditions-block h4 {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #475569;
+    margin: 0 0 4px 0;
+}
+
+.pdf-conditions-block p {
+    font-size: 11px;
+    color: #475569;
+    line-height: 1.45;
+    margin: 0;
+}
+
+/* FIRMAS */
+.pdf-signature-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: 28px;
+    margin-top: 28px;
+    margin-bottom: 18px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+.pdf-sig-box {
+    flex: 1;
+    text-align: center;
+    font-size: 10.5px;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.pdf-sig-line {
+    border-top: 1px solid #94a3b8;
+    margin-bottom: 5px;
+}
+
+/* PIE INSTITUCIONAL */
+.pdf-footer {
+    border-top: 1px solid #cbd5e1;
+    padding-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 10.5px;
+    color: #64748b;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* COMPATIBILIDAD CON MÓDULOS MATERIALES, INFORMES Y POTENCIA */
 .pdf-info-box { width: 60%; }
 .pdf-row { display: grid; grid-template-columns: 120px 1fr; margin-bottom: 5px; font-size: 13px; }
 .pdf-row b { color: #555; }
 .pdf-logo-box { width: 35%; text-align: right; }
-.pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-.pdf-table th { background-color: #f0f0f0; color: #333; font-weight: bold; text-transform: uppercase; padding: 10px; text-align: left; border-bottom: 2px solid #ccc; font-size: 11px; }
-.pdf-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 10.5px; }
 .pdf-body-lower { display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px; }
-.pdf-notas-box { width: 55%; border: 1px solid #ddd; padding: 10px; border-radius: 4px; }
-.pdf-totales-box { width: 40%; background: #f9f9f9; padding: 15px; border-radius: 4px; border: 1px solid #ddd; }
-.pdf-total-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
-.final-total { margin-top: 10px; padding-top: 10px; border-top: 2px solid #333; font-size: 18px; color: #0088aa; }
-.pdf-footer { margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid #ddd; padding-top: 15px; }
-
+.pdf-right-footer { text-align: right; width: 100%; }
+.pdf-contacto { margin-bottom: 2px; font-size: 11px; color: #475569; }
+    
 /* ============================================================== */
 /* AJUSTES FINALES: MODAL Y DESPLEGABLES                          */
 /* ============================================================== */
