@@ -805,7 +805,7 @@ function actualizarPDFHeaders() {
         }
     }
 
-    // Datos fiscales y contacto limpios (sin emojis)
+    // Datos fiscales y contacto únicos en encabezado superior derecho
     const lineaRegistro = [
         profMatricula ? `Mat.: ${profMatricula}` : '',
         profCuit ? `CUIT: ${profCuit}` : ''
@@ -830,23 +830,14 @@ function actualizarPDFHeaders() {
         elFirmaProfMat.innerText = profMatricula ? `Mat.: ${profMatricula}` : 'Firma y Sello Profesional';
     }
 
-    // Pie de página corporativo
+    // Pie de página corporativo sin duplicar contacto ni nombre
     const elSlogan = document.getElementById('pdf-slogan');
     if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
 
-    const elCredenciales = document.getElementById('pdf-credenciales');
-    if (elCredenciales) elCredenciales.innerText = profNombre;
-
     const elTelFooter = document.getElementById('pdf-tel-footer');
-    if (elTelFooter) {
-        const partesFooter = [
-            profTel ? `Tel: ${profTel}` : '',
-            profEmail ? profEmail : '',
-            'villaser.com.ar'
-        ].filter(Boolean);
-        elTelFooter.innerText = partesFooter.join('  |  ');
-    }
-    }
+    if (elTelFooter) elTelFooter.innerText = 'villaser.com.ar';
+}
+
 
 
 let escalaBasePreview = 1;
