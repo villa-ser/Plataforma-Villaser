@@ -425,7 +425,6 @@ function prepararEnvioWhatsApp() {
     }
 }
 
-function sincronizarVistaPreviaPDF() {
 function actualizarPDFHeaders() {
     const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
     const profTel = localStorage.getItem('villaser_conf_telefono') || '';
