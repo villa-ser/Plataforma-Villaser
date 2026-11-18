@@ -426,66 +426,83 @@ function prepararEnvioWhatsApp() {
 }
 
 function actualizarPDFHeaders() {
-    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
-    const profTel = localStorage.getItem('villaser_conf_telefono') || '';
-    const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
+    const profNombre = (localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE').trim();
+    const profTel = (localStorage.getItem('villaser_conf_telefono') || '').trim();
+    const profSlogan = (localStorage.getItem('villaser_conf_slogan') || '').trim();
     const profLogo = localStorage.getItem('villaser_conf_logo') || '';
-    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
-    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
+    const profCuit = (localStorage.getItem('villaser_conf_cuit') || '').trim();
+    const profMatricula = (localStorage.getItem('villaser_conf_matricula') || '').trim();
 
-    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    let profEmail = (localStorage.getItem('villaser_conf_email') || '').trim();
     if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
         profEmail = firebase.auth().currentUser.email || '';
     }
 
-    // Logo o nombre en la esquina superior derecha
     const imgPdf = document.getElementById('pdf-img-logo');
     const txtPdf = document.getElementById('pdf-text-logo');
+    const elProfNombre = document.getElementById('pdf-prof-nombre');
+
     if (imgPdf && txtPdf) {
         if (profLogo && profLogo.startsWith('data:image')) {
             imgPdf.src = profLogo;
             imgPdf.style.display = 'block';
             txtPdf.style.display = 'none';
+            if (elProfNombre) {
+                elProfNombre.innerText = profNombre;
+                elProfNombre.style.display = 'block';
+            }
         } else {
             imgPdf.style.display = 'none';
             txtPdf.innerText = profNombre.toUpperCase();
             txtPdf.style.display = 'block';
+            if (elProfNombre) elProfNombre.style.display = 'none';
         }
     }
 
-    // Datos fiscales / contacto en encabezado y pie de página
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) {
+        if (profSlogan) {
+            elSlogan.innerText = profSlogan;
+            elSlogan.style.display = 'block';
+        } else {
+            elSlogan.style.display = 'none';
+        }
+    }
+
     const lineaRegistro = [
         profMatricula ? `Mat.: ${profMatricula}` : '',
         profCuit ? `CUIT: ${profCuit}` : ''
     ].filter(Boolean).join(' | ');
 
     const lineaContacto = [
-        profTel ? `📞 ${profTel}` : '',
-        profEmail ? `✉️ ${profEmail}` : ''
-    ].filter(Boolean).join('  •  ');
-
-    const detalleCompleto = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+        profTel ? `Tel: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join(' | ');
 
     const elHeaderContacto = document.getElementById('pdf-header-contacto');
-    if (elHeaderContacto) elHeaderContacto.innerHTML = detalleCompleto;
+    if (elHeaderContacto) {
+        elHeaderContacto.innerHTML = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+    }
 
-    const elSlogan = document.getElementById('pdf-slogan');
-    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
-
-    const elCredenciales = document.getElementById('pdf-credenciales');
-    if (elCredenciales) elCredenciales.innerText = profNombre;
-
-    const elTelFooter = document.getElementById('pdf-tel-footer');
-    if (elTelFooter) elTelFooter.innerHTML = detalleCompleto;
+    const elFooterBrand = document.getElementById('pdf-footer-brand');
+    if (elFooterBrand) elFooterBrand.innerText = profNombre;
 }
 
 function sincronizarVistaPreviaPDF() {
     actualizarPDFHeaders();
 
     document.getElementById('pdf-fecha').innerText = new Date().toLocaleDateString('es-AR');
-    document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value || 'Sin nombre';
-    document.getElementById('pdf-direccion').innerText = document.getElementById('cliDireccion').value || 'Sin dirección';
-    document.getElementById('pdf-proyecto').innerText = document.getElementById('cliProyecto').value || '-';
+    document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value.trim() || 'Sin nombre';
+
+    const dir = document.getElementById('cliDireccion').value.trim();
+    const rowDir = document.getElementById('pdf-row-direccion');
+    if (rowDir) rowDir.style.display = dir ? '' : 'none';
+    document.getElementById('pdf-direccion').innerText = dir;
+
+    const proy = document.getElementById('cliProyecto').value.trim();
+    const rowProy = document.getElementById('pdf-row-proyecto');
+    if (rowProy) rowProy.style.display = proy ? '' : 'none';
+    document.getElementById('pdf-proyecto').innerText = proy;
     
     const tbody = document.getElementById('pdf-tbody'); 
     tbody.innerHTML = '';
@@ -494,7 +511,10 @@ function sincronizarVistaPreviaPDF() {
         tbody.appendChild(Object.assign(document.createElement('tr'), { innerHTML: `<td>${i.material}</td><td>${i.nota}</td><td>${i.cantidad}</td><td>${i.unidad}</td>` })); 
     });
     
-    document.getElementById('pdf-notas').innerText = document.getElementById('obsGenerales').value || 'Sin notas.';
+    const notas = document.getElementById('obsGenerales').value.trim();
+    const notasBox = document.getElementById('pdf-notas-box');
+    if (notasBox) notasBox.style.display = notas ? 'block' : 'none';
+    document.getElementById('pdf-notas').innerText = notas;
 }
 
 let escalaBasePreview = 1;
