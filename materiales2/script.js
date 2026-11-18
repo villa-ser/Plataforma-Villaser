@@ -426,6 +426,63 @@ function prepararEnvioWhatsApp() {
 }
 
 function sincronizarVistaPreviaPDF() {
+function actualizarPDFHeaders() {
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
+    const profTel = localStorage.getItem('villaser_conf_telefono') || '';
+    const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
+    const profLogo = localStorage.getItem('villaser_conf_logo') || '';
+    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
+
+    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        profEmail = firebase.auth().currentUser.email || '';
+    }
+
+    // Logo o nombre en la esquina superior derecha
+    const imgPdf = document.getElementById('pdf-img-logo');
+    const txtPdf = document.getElementById('pdf-text-logo');
+    if (imgPdf && txtPdf) {
+        if (profLogo && profLogo.startsWith('data:image')) {
+            imgPdf.src = profLogo;
+            imgPdf.style.display = 'block';
+            txtPdf.style.display = 'none';
+        } else {
+            imgPdf.style.display = 'none';
+            txtPdf.innerText = profNombre.toUpperCase();
+            txtPdf.style.display = 'block';
+        }
+    }
+
+    // Datos fiscales / contacto en encabezado y pie de página
+    const lineaRegistro = [
+        profMatricula ? `Mat.: ${profMatricula}` : '',
+        profCuit ? `CUIT: ${profCuit}` : ''
+    ].filter(Boolean).join(' | ');
+
+    const lineaContacto = [
+        profTel ? `📞 ${profTel}` : '',
+        profEmail ? `✉️ ${profEmail}` : ''
+    ].filter(Boolean).join('  •  ');
+
+    const detalleCompleto = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) elHeaderContacto.innerHTML = detalleCompleto;
+
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
+    const elCredenciales = document.getElementById('pdf-credenciales');
+    if (elCredenciales) elCredenciales.innerText = profNombre;
+
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) elTelFooter.innerHTML = detalleCompleto;
+}
+
+function sincronizarVistaPreviaPDF() {
+    actualizarPDFHeaders();
+
     document.getElementById('pdf-fecha').innerText = new Date().toLocaleDateString('es-AR');
     document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value || 'Sin nombre';
     document.getElementById('pdf-direccion').innerText = document.getElementById('cliDireccion').value || 'Sin dirección';
