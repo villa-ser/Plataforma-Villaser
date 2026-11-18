@@ -16,7 +16,7 @@
 
     <!-- Guardián de Seguridad (Solo Administrador) -->
     <script>
-        const ADMIN_EMAIL = "sergio@villaser.com.ar"; // <-- MISMO CORREO QUE EN APPS SCRIPT
+        const ADMIN_EMAIL = "contacto@villaser.com.ar"; // <-- MISMO CORREO QUE EN APPS SCRIPT
         firebase.auth().onAuthStateChanged(user => {
             if (!user || !user.emailVerified || user.email !== ADMIN_EMAIL) {
                 window.location.replace('../index.html');
