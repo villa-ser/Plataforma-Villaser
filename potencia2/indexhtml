@@ -262,63 +262,179 @@
             </section>
         </main>
 
-     <!-- PANEL DERECHO: PDF A4 -->
+          <!-- PANEL DERECHO: PDF A4 -->
         <aside class="preview-panel">
             <div id="plantilla-pdf">
-                <div class="pdf-container" style="position: relative; background: #ffffff; padding: 20px; box-sizing: border-box; font-family: Arial, sans-serif;">
+                <style>
+                    #plantilla-pdf .pdf-container {
+                        position: relative;
+                        background: #ffffff;
+                        color: #0f172a;
+                        width: 210mm;
+                        min-height: 295mm;
+                        padding: 12mm 14mm;
+                        box-sizing: border-box;
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                    }
+                    #plantilla-pdf .pdf-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 12px;
+                        text-align: center;
+                    }
+                    #plantilla-pdf .pdf-table th {
+                        background: #0f172a;
+                        color: #ffffff;
+                        padding: 6px 4px;
+                        font-size: 9.5px;
+                        font-weight: 700;
+                        border: 1px solid #0f172a;
+                        letter-spacing: 0.3px;
+                    }
+                    #plantilla-pdf .pdf-table th.col-cs {
+                        background: #1e293b;
+                        border-color: #1e293b;
+                    }
+                    #plantilla-pdf .pdf-table td {
+                        padding: 5px 4px;
+                        font-size: 9.5px;
+                        color: #1e293b;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #f1f5f9;
+                        border-right: 1px solid #f1f5f9;
+                    }
+                    #plantilla-pdf .pdf-table tbody tr:nth-child(even) {
+                        background: #f8fafc;
+                    }
+                    #plantilla-pdf .pdf-table tfoot tr {
+                        background: #f8fafc;
+                        font-weight: 600;
+                    }
+                    #plantilla-pdf .pdf-table tfoot tr.row-destacada {
+                        background: #f1f5f9;
+                        font-weight: 700;
+                        border-top: 1.5px solid #94a3b8;
+                    }
+                    #plantilla-pdf .pdf-table td.col-cs {
+                        background: rgba(15, 23, 42, 0.04);
+                        font-weight: 700;
+                    }
+                    #plantilla-pdf tr, #plantilla-pdf .no-break {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
+                </style>
+
+                <div class="pdf-container">
                     
-                    <!-- SELLO DE AGUA PROTECTOR (Apunta a la raíz) -->
+                    <!-- SELLO DE AGUA PROTECTOR -->
                     <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.3; pointer-events: none; z-index: 10; width: 100%;">
                         <img src="../img/negro1024.png" style="width: 70%; max-width: 450px;" alt="Logo Agua">
                         <h1 style="font-size: 5rem; color: #000000; text-align: center; margin-top: 15px; font-weight: 900; font-family: 'Arial Black', sans-serif; line-height: 1.1; letter-spacing: 2px;">PLATAFORMA<br>VILLASER</h1>
                     </div>
 
-                    <!-- ENCABEZADO: Título y Datos del Cliente (Izquierda) / Logo (Derecha) -->
-                    <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0088aa; padding-bottom: 15px; margin-bottom: 20px;">
-                        <div class="pdf-info-box" style="text-align: left; flex: 1;">
-                            <h2 style="margin: 0 0 12px 0; color: #0088aa; font-size: 22px; text-transform: uppercase;">Cálculo de Cargas y Circuitos</h2>
-                            <div class="pdf-row" style="margin-bottom: 4px;"><b>Fecha:</b> <span id="pdf-fecha"></span></div>
-                            <div class="pdf-row" style="margin-bottom: 4px;"><b>Cliente:</b> <span id="pdf-cliente"></span></div>
-                            <div class="pdf-row" style="margin-bottom: 4px;"><b>Dirección:</b> <span id="pdf-dir"></span></div>
-                            <div class="pdf-row" style="margin-bottom: 4px;"><b>Proyecto:</b> <span id="pdf-proyecto"></span></div>
-                        </div>
-                        <div class="pdf-logo-box" style="text-align: right; max-width: 250px;">
-                            <b id="pdf-text-logo" style="color: #0088aa; font-size: 14px; display: block;"></b>
-                            <img id="pdf-img-logo" src="" style="max-width: 100%; max-height: 70px; display: none; margin-left: auto;">
-                        </div>
-                    </header>
+                    <!-- BLOQUE SUPERIOR Y CENTRAL -->
+                    <div style="position: relative; z-index: 1;">
+                        
+                        <!-- ENCABEZADO CORPORATIVO -->
+                        <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 16px;">
+                            
+                            <!-- Izquierda: Título y Datos del Proyecto -->
+                            <div class="pdf-info-box" style="text-align: left; flex: 1;">
+                                <div style="font-size: 17px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; text-transform: uppercase; margin: 0 0 2px 0;">
+                                    Cálculo de Cargas y Circuitos
+                                </div>
+                                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;">
+                                    Dimensionamiento Eléctrico • Reglamentación AEA 90364
+                                </div>
+                                <div style="display: grid; grid-template-columns: 78px 1fr; row-gap: 4px; font-size: 11px; color: #1e293b;">
+                                    <b style="color: #475569;">Fecha:</b> <span id="pdf-fecha"></span>
+                                    <b style="color: #475569;">Cliente:</b> <span id="pdf-cliente" style="font-weight: 600;"></span>
+                                    <b id="lbl-pdf-dir" style="color: #475569;">Dirección:</b> <span id="pdf-dir"></span>
+                                    <b id="lbl-pdf-proyecto" style="color: #475569;">Proyecto:</b> <span id="pdf-proyecto"></span>
+                                </div>
+                            </div>
 
-                    <!-- TABLA CENTRAL -->
-                    <table class="pdf-table" style="text-align: center; margin-top: 15px; width: 100%; border-collapse: collapse;">
-                        <thead id="pdf-thead"></thead>
-                        <tbody id="pdf-tbody"></tbody>
-                        <tfoot id="pdf-tfoot" style="font-weight: bold; background: #f0f0f0;"></tfoot>
-                    </table>
-                    
-                    <!-- TABLA SECUNDARIA (RESULTADOS) -->
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px;">
-                        <table class="pdf-table" style="text-align: center; width: 45%; margin-top: 0; border-collapse: collapse;">
-                            <tbody>
-                                <tr><td style="text-align:left; font-weight:bold; padding: 4px;">SLA</td><td id="pdf-sla-val" style="color:#0088aa; font-weight:bold; padding: 4px;">0.00 m²</td></tr>
-                                <tr><td style="text-align:left; font-weight:bold; padding: 4px;">Grado AEA</td><td id="pdf-grado-val" style="color:#0088aa; font-weight:bold; padding: 4px;">MÍNIMO</td></tr>
-                                <tr><td style="text-align:left; font-weight:bold; padding: 4px;">DPMS Total</td><td id="pdf-dpms-val" style="color:#0088aa; font-weight:bold; padding: 4px;">0 VA</td></tr>
-                                <tr><td style="text-align:left; font-weight:bold; padding: 4px;">Suministro</td><td id="pdf-sum-val" style="color:#0088aa; font-weight:bold; padding: 4px;">-</td></tr>
-                            </tbody>
+                            <!-- Derecha: Logo y Datos Profesionales -->
+                            <div class="pdf-logo-box" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 260px;">
+                                <img id="pdf-img-logo" src="" alt="Logo Profesional" style="max-width: 200px; max-height: 70px; object-fit: contain; display: none; margin-bottom: 6px;">
+                                <div id="pdf-text-logo" style="color: #0f172a; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"></div>
+                                <div id="pdf-header-contacto" style="font-size: 9.5px; color: #475569; line-height: 1.45;"></div>
+                            </div>
+                        </header>
+
+                        <!-- TABLA PRINCIPAL DE AMBIENTES Y CIRCUITOS -->
+                        <table class="pdf-table">
+                            <thead id="pdf-thead"></thead>
+                            <tbody id="pdf-tbody"></tbody>
+                            <tfoot id="pdf-tfoot"></tfoot>
                         </table>
-                    </div>
-
-                    <!-- PIE DE PÁGINA: Eslogan, Electricista y Contacto a la Derecha -->
-                    <footer class="pdf-footer" style="margin-top: 40px; display: flex; justify-content: flex-end; align-items: flex-end; border-top: 1px solid #ddd; padding-top: 15px;">
-                        <div class="pdf-right-footer" style="text-align: right;">
-                            <div id="pdf-slogan" style="font-size: 14px; font-weight: bold; color: #0088aa; font-style: italic; margin-bottom: 6px;"></div>
-                            <div class="pdf-contacto" style="font-size: 12px; color: #555; font-weight: 500;">
-                                <span id="pdf-credenciales"></span> &nbsp;|&nbsp; <span id="pdf-tel-footer"></span> &nbsp;|&nbsp; <span>🌐 villaser.com.ar</span>
+                        
+                        <!-- RESUMEN EJECUTIVO DE DIMENSIONAMIENTO (KPIs) -->
+                        <div class="no-break" style="margin-top: 18px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;">
+                                Síntesis de Dimensionamiento y Suministro
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Superficie Límite (SLA)</div>
+                                    <div id="pdf-sla-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">0.00 m²</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Grado Electrificación</div>
+                                    <div id="pdf-grado-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">MÍNIMO</div>
+                                    <div id="pdf-coef-val" style="font-size: 8.5px; color: #475569; margin-top: 1px;">Coef. simult.: 1.00</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">DPMS Total</div>
+                                    <div id="pdf-dpms-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">0 VA</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Suministro</div>
+                                    <div id="pdf-sum-val" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
+                                </div>
                             </div>
                         </div>
-                    </footer>
+
+                        <!-- NOTA TÉCNICA NORMATIVA -->
+                        <div class="no-break" style="margin-top: 14px; background: #f8fafc; border-left: 3px solid #334155; padding: 9px 12px; font-size: 9.5px; color: #334155; line-height: 1.45;">
+                            <strong style="color: #0f172a;">Criterio Técnico de Verificación:</strong> Planilla calculada conforme a los lineamientos de la Reglamentación AEA 90364-7-770 / 771. La selección de conductores (L;N / PE) y dispositivos de protección termomagnética (<em>In</em>) responde a la verificación térmica y de coordinación de protecciones (<em>Ib &le; In &le; Iz</em>) según la demanda de potencia máxima simultánea (DPMS) de cada circuito.
+                        </div>
+                    </div>
+
+                    <!-- BLOQUE INFERIOR: FIRMA Y PIE DE PÁGINA -->
+                    <div class="no-break" style="position: relative; z-index: 1; margin-top: 24px;">
+                        
+                        <!-- Espacio de Firma Técnica -->
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 18px;">
+                            <div style="width: 220px; text-align: center; padding-top: 28px;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 5px; font-size: 9.5px; font-weight: 700; color: #1e293b;">
+                                    Firma y Sello del Profesional
+                                </div>
+                                <div id="pdf-firma-sub" style="font-size: 8.5px; color: #64748b; margin-top: 2px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- PIE DE PÁGINA CORPORATIVO -->
+                        <footer class="pdf-footer" style="border-top: 1.5px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
+                            <div style="font-size: 8.5px; color: #64748b;">
+                                Documento técnico generado con <strong style="color: #334155;">Plataforma Villaser</strong> • villaser.com.ar
+                            </div>
+                            <div class="pdf-right-footer" style="text-align: right;">
+                                <div id="pdf-slogan" style="font-size: 11px; font-weight: 700; color: #0f172a; font-style: italic; margin-bottom: 2px;"></div>
+                                <div id="pdf-credenciales" style="font-size: 10.5px; font-weight: 700; color: #1e293b; margin-bottom: 2px;"></div>
+                                <div id="pdf-tel-footer" style="font-size: 9px; color: #475569; line-height: 1.35;"></div>
+                            </div>
+                        </footer>
+                    </div>
+
                 </div>
             </div>
         </aside>
+        
 
     <!-- MODALES COMUNES Y GLOBALES -->
     <div id="modalAgenda" class="modal-overlay oculto gpu-accel">
