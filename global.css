@@ -44,7 +44,7 @@
 body { 
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
     background-color: var(--bg-body); color: var(--ngc-text); 
-    padding: 15px 15px 85px 15px; 
+    padding: 12px 10px 85px 10px; 
     overflow-x: hidden; transition: 0.2s;
 }
 
@@ -61,7 +61,14 @@ body {
 .corp-accent-color { color: var(--ngc-neon); }
 
 /* TARJETAS */
-.corp-card { background: var(--ngc-glass); border: var(--ngc-border-glass); border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px var(--card-shadow); }
+.corp-card { 
+    background: var(--ngc-glass); 
+    border: var(--ngc-border-glass); 
+    border-radius: 12px; 
+    padding: 14px 12px; 
+    box-shadow: 0 1px 3px var(--card-shadow); 
+}
+
 .corp-card-title { color: var(--ngc-text-main); font-size: 1rem; font-weight: 700; margin: 0 0 15px 0; display:flex; align-items: center; gap:8px; }
 
 label { font-size: 0.8rem; color: var(--ngc-text-faded); font-weight: 600; margin-bottom: 6px; display: block; }
@@ -970,7 +977,7 @@ details[open] summary .acc-icon-indicator {
 .stepper-grid-3 {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
     align-items: center;
     margin-bottom: 15px;
 }
@@ -979,16 +986,17 @@ details[open] summary .acc-icon-indicator {
     min-width: 0;
 }
 .stepper-grid-3 .btn-step {
-    padding-left: 8px;
-    padding-right: 8px;
+    width: 28px;
     min-width: 28px;
+    padding: 0;
+    font-size: 1.05rem;
     flex-shrink: 0;
 }
 .stepper-grid-3 .corp-input-step {
     min-width: 0;
     width: 100%;
-    padding-left: 2px;
-    padding-right: 2px;
+    padding: 0 2px;
+    font-size: 0.85rem;
 }
 
 /* Estilos para opciones del modal Forma de Pago */
