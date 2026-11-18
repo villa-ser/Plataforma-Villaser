@@ -5,7 +5,7 @@ const SHEET_ID = '1risNRvrxFiawgawi2XhENDqijZiNeW-jWzt8XE07aio';
 const URL_LECTURA = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&headers=1`;
 
 // PEGA AQUÍ LA URL QUE TE DIO GOOGLE APPS SCRIPT AL IMPLEMENTAR:
-const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/PEGA_TU_URL_DE_APPS_SCRIPT_AQUI/exec';
+const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbxhMPmdUVDH-fyDpm8-MuP68T5IMc9jtUnMeAMCbdanpZumNjHCjMtZuImnQXL2fmemTw/exec';
 const API_SECRET_TOKEN = 'VILLASER_ADMIN_2026_X99';
 
 // Definición de columnas editables (excluyendo Tema y Concepto que identifican la fila)
