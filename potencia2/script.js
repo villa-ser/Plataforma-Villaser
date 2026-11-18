@@ -786,101 +786,202 @@ function calcularGradoYRenderizar() {
 // ==========================================
 // VISTA PREVIA Y PDF
 // ==========================================
+
+
 function actualizarPDFHeaders() {
     const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
     const profTel = localStorage.getItem('villaser_conf_telefono') || '';
     const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
     const profLogo = localStorage.getItem('villaser_conf_logo') || '';
+    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
+
+    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        profEmail = firebase.auth().currentUser.email || '';
+    }
+
+    const lineaRegistro = [
+        profMatricula ? `Mat.: ${profMatricula}` : '',
+        profCuit ? `CUIT: ${profCuit}` : ''
+    ].filter(Boolean).join(' | ');
+
+    const lineaContacto = [
+        profTel ? `Tel.: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join('  •  ');
+
+    const detalleCompleto = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) elHeaderContacto.innerHTML = detalleCompleto;
 
     const elTelFooter = document.getElementById('pdf-tel-footer');
-    if(elTelFooter) elTelFooter.innerText = profTel ? `📞 ${profTel}` : '';
+    if (elTelFooter) elTelFooter.innerHTML = [lineaRegistro, lineaContacto].filter(Boolean).join(' &nbsp;|&nbsp; ');
+
     const elSlogan = document.getElementById('pdf-slogan');
-    if(elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
     const elCredenciales = document.getElementById('pdf-credenciales');
-    if(elCredenciales) elCredenciales.innerText = profNombre;
+    if (elCredenciales) elCredenciales.innerText = profNombre;
+
+    const elFirmaSub = document.getElementById('pdf-firma-sub');
+    if (elFirmaSub) elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
 
     const imgPdf = document.getElementById('pdf-img-logo');
     const txtPdf = document.getElementById('pdf-text-logo');
-    
+
     if (imgPdf && txtPdf) {
         if (profLogo && profLogo.startsWith('data:image')) {
-            imgPdf.src = profLogo; imgPdf.style.display = 'block'; txtPdf.style.display = 'none';
+            imgPdf.src = profLogo;
+            imgPdf.style.display = 'block';
+            txtPdf.style.display = 'none';
         } else {
-            imgPdf.style.display = 'none'; txtPdf.innerText = profNombre.toUpperCase(); txtPdf.style.display = 'block';
+            imgPdf.style.display = 'none';
+            txtPdf.innerText = profNombre.toUpperCase();
+            txtPdf.style.display = 'block';
         }
     }
 }
 
 function sincronizarVistaPreviaPDF(areaTotal, grado, dpmsPonderado, suministro, totalesBocas, todosArr) {
     actualizarPDFHeaders();
-    
-    const cliNombre = document.getElementById('cliNombre').value || 'Sin Nombre';
+
+    const cliNombre = document.getElementById('cliNombre').value.trim() || 'Sin Nombre';
+    const cliDir = document.getElementById('cliDireccion').value.trim();
+    const cliProy = document.getElementById('cliProyecto').value.trim();
+
     document.getElementById('pdf-cliente').innerText = cliNombre;
-    document.getElementById('pdf-dir').innerText = document.getElementById('cliDireccion').value || '-';
-    document.getElementById('pdf-proyecto').innerText = document.getElementById('cliProyecto').value || '-';
     document.getElementById('pdf-fecha').innerText = new Date().toLocaleDateString('es-AR');
+
+    const lblDir = document.getElementById('lbl-pdf-dir');
+    const valDir = document.getElementById('pdf-dir');
+    if (cliDir) {
+        lblDir.style.display = 'block';
+        valDir.style.display = 'block';
+        valDir.innerText = cliDir;
+    } else {
+        lblDir.style.display = 'none';
+        valDir.style.display = 'none';
+    }
+
+    const lblProy = document.getElementById('lbl-pdf-proyecto');
+    const valProy = document.getElementById('pdf-proyecto');
+    if (cliProy) {
+        lblProy.style.display = 'block';
+        valProy.style.display = 'block';
+        valProy.innerText = cliProy;
+    } else {
+        lblProy.style.display = 'none';
+        valProy.style.display = 'none';
+    }
 
     const thead = document.getElementById('pdf-thead');
     const tbody = document.getElementById('pdf-tbody');
     const tfoot = document.getElementById('pdf-tfoot');
-    
-    let ths = `<tr><th style="text-align: left;">Ambiente</th><th>m²</th>`;
-    todosArr.forEach(c => ths += `<th>${c.id}${c.tipo.substring(0,4)}</th>`);
+
+    let ths = `<tr><th style="text-align: left; padding-left: 8px;">Ambiente / Carga</th><th>Sup. (m²)</th>`;
+    todosArr.forEach(c => {
+        const esCS = c.id === 'CS';
+        ths += `<th class="${esCS ? 'col-cs' : ''}">
+            <div style="font-size: 10px; font-weight: 800;">${esCS ? 'C.S.' : c.id}</div>
+            <div style="font-size: 7.5px; font-weight: 600; color: #cbd5e1; margin-top: 1px;">${c.tipo}</div>
+        </th>`;
+    });
     ths += `</tr>`;
     thead.innerHTML = ths;
     tbody.innerHTML = '';
-    
+
     listaAmbientes.forEach(i => {
         let celdas = "";
         circuitos.forEach(c => {
-            let cant = 0; let descArr = [];
+            let cant = 0;
+            let descArr = [];
             if (i.circIUG === c.id) cant += i.bIUG;
             if (i.circTUG === c.id) cant += i.bTUG;
-            
+
             if (i.esps && i.esps.length > 0) {
                 i.esps.forEach(esp => {
-                    if (esp.circ === c.id) { cant += esp.bocas; if (esp.desc) descArr.push(esp.desc); }
+                    if (esp.circ === c.id) {
+                        cant += esp.bocas;
+                        if (esp.desc) descArr.push(esp.desc);
+                    }
                 });
             } else if (i.circESP === c.id) {
-                cant += i.bESP; if (i.descESP) descArr.push(i.descESP);
+                cant += i.bESP;
+                if (i.descESP) descArr.push(i.descESP);
             }
-            
+
             let desc = descArr.join(', ');
-            let txt = cant > 0 ? cant : "-";
-            if (desc && cant > 0) txt += `<br><span style="font-size:7px;">${desc}</span>`;
+            let txt = cant > 0 ? `<strong>${cant}</strong>` : `<span style="color:#94a3b8;">-</span>`;
+            if (desc && cant > 0) txt += `<br><span style="font-size: 7.5px; color: #475569;">${desc}</span>`;
             celdas += `<td>${txt}</td>`;
         });
-        celdas += `<td>-</td>`; 
-        tbody.innerHTML += `<tr><td style="text-align: left;">${i.tipo}</td><td>${(i.area > 0 && !i.tipo.includes("Carga")) ? i.area.toFixed(2) : '-'}</td>${celdas}</tr>`;
+        celdas += `<td class="col-cs" style="color:#94a3b8;">-</td>`;
+        const supTxt = (i.area > 0 && !i.tipo.includes("Carga")) ? i.area.toFixed(2) : '-';
+        tbody.innerHTML += `<tr>
+            <td style="text-align: left; padding-left: 8px; font-weight: 500;">${i.tipo}</td>
+            <td>${supTxt}</td>
+            ${celdas}
+        </tr>`;
     });
 
     let tfootStr = ``;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">BOCAS</td>`;
-    circuitos.forEach(c => tfootStr += `<td>${totalesBocas[c.id]}</td>`); tfootStr += `<td>-</td></tr>`;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">DPMS (VA)</td>`;
-    todosArr.forEach(c => tfootStr += `<td>${c.id==='CS' ? c.dpms.toFixed(0) : c.dpms}</td>`); tfootStr += `</tr>`;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">Tensión (V)</td>`;
-    todosArr.forEach(c => tfootStr += `<td>${c.tension || '-'}</td>`); tfootStr += `</tr>`;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">Ib (A)</td>`;
-    todosArr.forEach(c => { 
+    tfootStr += `<tr class="row-destacada"><td colspan="2" style="text-align: right; padding-right: 8px;">TOTAL BOCAS</td>`;
+    circuitos.forEach(c => {
+        const b = totalesBocas[c.id];
+        const alertaBocas = b > 15 ? 'color: #b91c1c;' : '';
+        tfootStr += `<td style="${alertaBocas}">${b}</td>`;
+    });
+    tfootStr += `<td class="col-cs">-</td></tr>`;
+
+    tfootStr += `<tr class="row-destacada"><td colspan="2" style="text-align: right; padding-right: 8px;">DPMS (VA)</td>`;
+    todosArr.forEach(c => {
+        const esCS = c.id === 'CS';
+        tfootStr += `<td class="${esCS ? 'col-cs' : ''}">${esCS ? c.dpms.toFixed(0) : c.dpms}</td>`;
+    });
+    tfootStr += `</tr>`;
+
+    tfootStr += `<tr><td colspan="2" style="text-align: right; padding-right: 8px; color: #475569;">Tensión (V)</td>`;
+    todosArr.forEach(c => tfootStr += `<td class="${c.id === 'CS' ? 'col-cs' : ''}">${c.tension || '-'}</td>`);
+    tfootStr += `</tr>`;
+
+    tfootStr += `<tr><td colspan="2" style="text-align: right; padding-right: 8px; color: #475569;">Corriente Ib (A)</td>`;
+    todosArr.forEach(c => {
         let ib = "-";
-        if(c.tension) {
-            ib = (c.tension == 380) ? (c.dpms / (1.732 * 380)) : (c.dpms / c.tension); 
-            ib = ib.toFixed(1);
+        if (c.tension) {
+            ib = (c.tension == 380) ? (c.dpms / (1.732 * 380)) : (c.dpms / c.tension);
+            ib = ib.toFixed(2);
         }
-        tfootStr += `<td>${ib}</td>`; 
-    }); tfootStr += `</tr>`;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">Secc L;N / PE</td>`;
-    todosArr.forEach(c => tfootStr += `<td>${c.seccionLN || '-'}/${c.seccionPE || '-'}</td>`); tfootStr += `</tr>`;
-    tfootStr += `<tr><td colspan="2" style="text-align: right; padding: 5px;">Iz / In (A)</td>`;
-    todosArr.forEach(c => tfootStr += `<td>${c.iz || '-'}/${c.in || '-'}</td>`); tfootStr += `</tr>`;
+        tfootStr += `<td class="${c.id === 'CS' ? 'col-cs' : ''}">${ib}</td>`;
+    });
+    tfootStr += `</tr>`;
+
+    tfootStr += `<tr><td colspan="2" style="text-align: right; padding-right: 8px; color: #475569;">Sección L;N / PE (mm²)</td>`;
+    todosArr.forEach(c => {
+        const sec = (c.seccionLN || c.seccionPE) ? `${c.seccionLN || '-'} / ${c.seccionPE || '-'}` : '-';
+        tfootStr += `<td class="${c.id === 'CS' ? 'col-cs' : ''}">${sec}</td>`;
+    });
+    tfootStr += `</tr>`;
+
+    tfootStr += `<tr><td colspan="2" style="text-align: right; padding-right: 8px; color: #475569;">Iz / In (A)</td>`;
+    todosArr.forEach(c => {
+        const prot = (c.iz || c.in) ? `${c.iz || '-'} / ${c.in || '-'}` : '-';
+        tfootStr += `<td class="${c.id === 'CS' ? 'col-cs' : ''}">${prot}</td>`;
+    });
+    tfootStr += `</tr>`;
 
     tfoot.innerHTML = tfootStr;
+
+    const coef = (grado === 'SUPERIOR') ? '0.70' : (grado === 'ELEVADO' ? '0.80' : (grado === 'MEDIO' ? '0.90' : '1.00'));
     document.getElementById('pdf-sla-val').innerText = `${areaTotal.toFixed(2)} m²`;
     document.getElementById('pdf-grado-val').innerText = grado;
+    const elCoef = document.getElementById('pdf-coef-val');
+    if (elCoef) elCoef.innerText = `Coef. simult.: ${coef}`;
     document.getElementById('pdf-dpms-val').innerText = `${dpmsPonderado.toFixed(2)} VA`;
     document.getElementById('pdf-sum-val').innerText = suministro;
-                }
+                                  }
+            
                            
 
 // ==========================================
