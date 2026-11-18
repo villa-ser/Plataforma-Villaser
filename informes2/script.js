@@ -211,31 +211,34 @@ function renderizarBloqueHTML(item, esPDF = false) {
     const bloque = normalizarBloqueInforme(item);
 
     if (bloque.tipo === 'tabla') {
-        const borderColor = esPDF ? '#111111' : 'var(--ngc-text-faded)';
-        const textColor = esPDF ? '#111111' : 'inherit';
-        const tituloColor = esPDF ? '#111111' : 'var(--ngc-text-main)';
-        const fontSizeTabla = esPDF ? '12px' : '0.82rem';
-        const paddingCelda = esPDF ? '6px 10px' : '5px 8px';
-        const marginWrapper = esPDF ? '14px auto' : '12px auto';
+        const borderColor = esPDF ? '#94a3b8' : 'var(--ngc-text-faded)';
+        const textColor = esPDF ? '#1e293b' : 'inherit';
+        const tituloColor = esPDF ? '#0f172a' : 'var(--ngc-text-main)';
+        const fontSizeTabla = esPDF ? '11.5px' : '0.82rem';
+        const paddingCelda = esPDF ? '7px 10px' : '5px 8px';
+        const marginWrapper = esPDF ? '16px auto' : '12px auto';
 
         const tituloHTML = bloque.titulo.trim()
-            ? `<div style="text-align: center; font-weight: 700; font-size: ${esPDF ? '13.5px' : '0.9rem'}; margin-bottom: 5px; color: ${tituloColor};">${formatearTextoHTML(bloque.titulo)}</div>`
+            ? `<div style="text-align: center; font-weight: 700; font-size: ${esPDF ? '13px' : '0.9rem'}; margin-bottom: 6px; color: ${tituloColor}; text-transform: ${esPDF ? 'uppercase' : 'none'}; letter-spacing: ${esPDF ? '0.3px' : 'normal'};">${formatearTextoHTML(bloque.titulo)}</div>`
             : '';
 
         let filasHTML = '';
-        bloque.filas.forEach(fila => {
+        bloque.filas.forEach((fila, idxFila) => {
             let celdasHTML = '';
+            const esFilaEncabezado = esPDF && idxFila === 0 && bloque.filas.length > 1;
+            const bgFila = esFilaEncabezado ? 'background-color: #f1f5f9; font-weight: 700; color: #0f172a;' : '';
+
             fila.forEach(celda => {
                 const val = celda && celda.trim() !== '' ? formatearTextoHTML(celda) : '&nbsp;';
-                celdasHTML += `<td style="border: 1.5px solid ${borderColor}; padding: ${paddingCelda}; text-align: center; color: ${textColor}; word-break: break-word;">${val}</td>`;
+                celdasHTML += `<td style="border: 1px solid ${borderColor}; padding: ${paddingCelda}; text-align: center; color: ${textColor}; ${bgFila} word-break: break-word;">${val}</td>`;
             });
             filasHTML += `<tr>${celdasHTML}</tr>`;
         });
 
         return `
-            <div style="margin: ${marginWrapper}; width: 100%; overflow-x: auto; text-align: center; text-indent: 0;">
+            <div style="margin: ${marginWrapper}; width: 100%; overflow-x: auto; text-align: center; text-indent: 0; break-inside: avoid;">
                 ${tituloHTML}
-                <table style="margin: 0 auto; border-collapse: collapse; font-size: ${fontSizeTabla}; min-width: 65%; max-width: 100%;">
+                <table style="margin: 0 auto; border-collapse: collapse; font-size: ${fontSizeTabla}; min-width: 70%; max-width: 100%;">
                     <tbody>${filasHTML}</tbody>
                 </table>
             </div>
@@ -246,27 +249,32 @@ function renderizarBloqueHTML(item, esPDF = false) {
 
     if (bloque.tipo === 'titulo') {
         const estilo = esPDF
-            ? 'text-align: center; font-size: 17px; font-weight: 700; margin: 4px 0 14px 0; text-indent: 0; color: #111;'
+            ? 'text-align: center; font-size: 16px; font-weight: 800; margin: 6px 0 16px 0; padding-bottom: 6px; border-bottom: 1px solid #cbd5e1; text-indent: 0; color: #0f172a; text-transform: uppercase; letter-spacing: 0.4px;'
             : 'text-align: center; font-size: 1.15rem; font-weight: 700; margin: 4px 0 12px 0; text-indent: 0;';
         return `<div style="${estilo}">${contenido}</div>`;
     }
 
     if (bloque.tipo === 'subtitulo') {
         const estilo = esPDF
-            ? 'text-align: left; font-size: 14.5px; font-weight: 700; margin: 12px 0 6px 0; text-indent: 0; color: #111;'
+            ? 'text-align: left; font-size: 13.5px; font-weight: 700; margin: 16px 0 7px 0; padding-left: 8px; border-left: 3px solid #1e293b; text-indent: 0; color: #0f172a;'
             : 'text-align: left; font-size: 1rem; font-weight: 700; margin: 10px 0 6px 0; text-indent: 0;';
         return `<div style="${estilo}">${contenido}</div>`;
     }
 
     const tieneVinetas = bloque.texto.split('\n').some(linea => linea.trim().startsWith('•'));
     if (tieneVinetas) {
-        const padding = esPDF ? '14px' : '10px';
-        return `<div style="margin-bottom: 10px; text-indent: 0; padding-left: ${padding}; line-height: 1.55;">${contenido}</div>`;
+        const padding = esPDF ? '16px' : '10px';
+        const colorTexto = esPDF ? 'color: #1e293b; font-size: 12px;' : '';
+        return `<div style="margin-bottom: 11px; text-indent: 0; padding-left: ${padding}; line-height: 1.6; ${colorTexto}">${contenido}</div>`;
     }
 
-    const indent = esPDF ? '20px' : '15px';
-    return `<p style="margin-bottom: 10px; text-indent: ${indent};">${contenido}</p>`;
+    const indent = esPDF ? '18px' : '15px';
+    const estiloParrafo = esPDF
+        ? `margin-bottom: 11px; text-indent: ${indent}; text-align: justify; line-height: 1.6; color: #1e293b; font-size: 12px;`
+        : `margin-bottom: 10px; text-indent: ${indent};`;
+    return `<p style="${estiloParrafo}">${contenido}</p>`;
 }
+
 
 // ==========================================
 // CONTROLADOR DEL MODAL Y EDITOR DE TABLAS
@@ -701,10 +709,15 @@ function toggleAccionesMenu() {
 // ==========================================
 // RENDERIZADO, VISTA PREVIA, PDF Y MEMBRETE
 // ==========================================
+
 function actualizarVistaPreviews() {
-    const cliNombre = document.getElementById('cliNombre').value || 'Sin Nombre';
-    const cliDir = document.getElementById('cliDireccion').value || '-';
-    const cliProyecto = document.getElementById('cliProyecto').value || '-';
+    const cliNombreRaw = document.getElementById('cliNombre').value.trim();
+    const cliDirRaw = document.getElementById('cliDireccion').value.trim();
+    const cliProyectoRaw = document.getElementById('cliProyecto').value.trim();
+
+    const cliNombre = cliNombreRaw || 'Sin Nombre';
+    const cliDir = cliDirRaw || '-';
+    const cliProyecto = cliProyectoRaw || '-';
     
     const infoClientArea = document.getElementById('previewClientInfo');
     infoClientArea.innerHTML = `<strong>Cliente:</strong> ${cliNombre}<br><strong>Dirección:</strong> ${cliDir}<br><strong>Proyecto:</strong> ${cliProyecto}`;
@@ -724,16 +737,35 @@ function actualizarVistaPreviews() {
     const pdfFecha = document.getElementById('pdf-fecha');
     const pdfCliente = document.getElementById('pdf-cliente');
     const pdfDir = document.getElementById('pdf-dir');
+    const pdfRowDir = document.getElementById('pdf-row-dir');
     const pdfProyecto = document.getElementById('pdf-proyecto');
+    const pdfRowProyecto = document.getElementById('pdf-row-proyecto');
     const pdfTexto = document.getElementById('pdf-texto-contenido');
     const pdfNotasBox = document.getElementById('pdf-notas-box');
     const pdfNotas = document.getElementById('pdf-notas');
 
-    if(pdfFecha) pdfFecha.innerText = new Date().toLocaleDateString('es-AR');
-    if(pdfCliente) pdfCliente.innerText = cliNombre;
-    if(pdfDir) pdfDir.innerText = cliDir;
-    if(pdfProyecto) pdfProyecto.innerText = cliProyecto;
-    if(pdfTexto) pdfTexto.innerHTML = informeParrafos.map(p => renderizarBloqueHTML(p, true)).join('');
+    if (pdfFecha) pdfFecha.innerText = new Date().toLocaleDateString('es-AR');
+    if (pdfCliente) pdfCliente.innerText = cliNombre;
+
+    if (pdfRowDir && pdfDir) {
+        if (cliDirRaw) {
+            pdfDir.innerText = cliDirRaw;
+            pdfRowDir.style.display = 'flex';
+        } else {
+            pdfRowDir.style.display = 'none';
+        }
+    }
+
+    if (pdfRowProyecto && pdfProyecto) {
+        if (cliProyectoRaw) {
+            pdfProyecto.innerText = cliProyectoRaw;
+            pdfRowProyecto.style.display = 'flex';
+        } else {
+            pdfRowProyecto.style.display = 'none';
+        }
+    }
+
+    if (pdfTexto) pdfTexto.innerHTML = informeParrafos.map(p => renderizarBloqueHTML(p, true)).join('');
 
     if (og && pdfNotasBox && pdfNotas) {
         pdfNotas.innerText = og;
@@ -750,25 +782,72 @@ function actualizarPDFHeaders() {
     const profTel = localStorage.getItem('villaser_conf_telefono') || '';
     const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
     const profLogo = localStorage.getItem('villaser_conf_logo') || '';
+    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
 
-    const elTelFooter = document.getElementById('pdf-tel-footer');
-    if(elTelFooter) elTelFooter.innerText = profTel ? `📞 ${profTel}` : '';
-    const elSlogan = document.getElementById('pdf-slogan');
-    if(elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
-    const elCredenciales = document.getElementById('pdf-credenciales');
-    if(elCredenciales) elCredenciales.innerText = profNombre;
+    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        profEmail = firebase.auth().currentUser.email || '';
+    }
 
+    // Logo o nombre en esquina superior derecha
     const imgPdf = document.getElementById('pdf-img-logo');
     const txtPdf = document.getElementById('pdf-text-logo');
-    
     if (imgPdf && txtPdf) {
         if (profLogo && profLogo.startsWith('data:image')) {
-            imgPdf.src = profLogo; imgPdf.style.display = 'block'; txtPdf.style.display = 'none';
+            imgPdf.src = profLogo;
+            imgPdf.style.display = 'block';
+            txtPdf.style.display = 'none';
         } else {
-            imgPdf.style.display = 'none'; txtPdf.innerText = profNombre.toUpperCase(); txtPdf.style.display = 'block';
+            imgPdf.style.display = 'none';
+            txtPdf.innerText = profNombre.toUpperCase();
+            txtPdf.style.display = 'block';
         }
     }
-}
+
+    // Datos fiscales y contacto limpios (sin emojis)
+    const lineaRegistro = [
+        profMatricula ? `Mat.: ${profMatricula}` : '',
+        profCuit ? `CUIT: ${profCuit}` : ''
+    ].filter(Boolean).join(' | ');
+
+    const lineaContacto = [
+        profTel ? `Tel: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join('  |  ');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) {
+        elHeaderContacto.innerHTML = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+    }
+
+    // Bloque de firma profesional
+    const elFirmaProfNombre = document.getElementById('pdf-firma-prof-nombre');
+    if (elFirmaProfNombre) elFirmaProfNombre.innerText = profNombre.toUpperCase();
+
+    const elFirmaProfMat = document.getElementById('pdf-firma-prof-mat');
+    if (elFirmaProfMat) {
+        elFirmaProfMat.innerText = profMatricula ? `Mat.: ${profMatricula}` : 'Firma y Sello Profesional';
+    }
+
+    // Pie de página corporativo
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
+    const elCredenciales = document.getElementById('pdf-credenciales');
+    if (elCredenciales) elCredenciales.innerText = profNombre;
+
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) {
+        const partesFooter = [
+            profTel ? `Tel: ${profTel}` : '',
+            profEmail ? profEmail : '',
+            'villaser.com.ar'
+        ].filter(Boolean);
+        elTelFooter.innerText = partesFooter.join('  |  ');
+    }
+    }
+
 
 let escalaBasePreview = 1;
 let escalaActualPreview = 1;
