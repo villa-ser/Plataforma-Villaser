@@ -359,10 +359,10 @@
         </div>
     </main>
 
-        <!-- VISTA PREVIA PDF -->
+            <!-- VISTA PREVIA PDF -->
     <aside class="preview-panel">
         <div id="plantilla-pdf">
-            <div class="pdf-container" style="position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 1123px; box-sizing: border-box;">
+            <div class="pdf-container" style="position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 1080px; box-sizing: border-box;">
                 
                 <!-- SELLO DE AGUA PROTECCIÓN (30%) -->
                 <div id="selloAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.3; z-index: 9999; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
@@ -382,18 +382,20 @@
                             <div class="pdf-info-box">
                                 <div class="pdf-row"><b>Fecha</b> <span id="pdf-fecha"></span></div>
                                 <div class="pdf-row"><b>Cliente</b> <span id="pdf-cliente"></span></div>
-                                <div class="pdf-row"><b>Dirección</b> <span id="pdf-direccion"></span></div>
-                                <div class="pdf-row"><b>Proyecto</b> <span id="pdf-proyecto"></span></div>
+                                <div id="pdf-row-direccion" class="pdf-row"><b>Dirección</b> <span id="pdf-direccion"></span></div>
+                                <div id="pdf-row-proyecto" class="pdf-row"><b>Proyecto</b> <span id="pdf-proyecto"></span></div>
                             </div>
                         </div>
 
-                        <!-- Derecha: Logo y Datos del Profesional -->
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 260px;">
-                            <img id="pdf-img-logo" src="" alt="Logo Profesional" style="display: none; max-height: 75px; max-width: 200px; object-fit: contain; margin-bottom: 6px;">
-                            <div id="pdf-text-logo" style="font-size: 15px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                        <!-- Derecha: Membrete Completo del Profesional (Sin repetir en el pie) -->
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 270px;">
+                            <img id="pdf-img-logo" src="" alt="Logo Profesional" style="display: none; max-height: 70px; max-width: 200px; object-fit: contain; margin-bottom: 6px;">
+                            <div id="pdf-text-logo" style="font-size: 16px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;">
                                 PROFESIONAL INDEPENDIENTE
                             </div>
-                            <div id="pdf-header-contacto" style="font-size: 10px; color: #475569; line-height: 1.4;"></div>
+                            <div id="pdf-prof-nombre" style="font-size: 11px; font-weight: 700; color: #1e293b; margin-bottom: 2px;"></div>
+                            <div id="pdf-slogan" style="font-size: 10px; font-style: italic; color: #475569; margin-bottom: 5px;"></div>
+                            <div id="pdf-header-contacto" style="font-size: 10px; color: #334155; line-height: 1.4;"></div>
                         </div>
                     </header>
 
@@ -402,28 +404,22 @@
                         <tbody id="pdf-tbody"></tbody>
                     </table>
 
-                    <div class="pdf-notas-box" style="margin-top: 20px;">
+                    <div id="pdf-notas-box" class="pdf-notas-box" style="margin-top: 20px; display: none;">
                         <h3>Notas Adicionales</h3>
                         <div id="pdf-notas" class="pdf-notas-content"></div>
                     </div>
                 </div>
 
-                <!-- PIE DE PÁGINA PROFESIONAL -->
-                <footer class="pdf-footer" style="position: relative; z-index: 1; border-top: 1px solid #ccc; padding-top: 10px; margin-top: 30px; display: flex; justify-content: flex-end; width: 100%;">
-                    <div style="text-align: right; width: 100%;">
-                        <div id="pdf-slogan" style="font-weight: bold; color: #0088aa; margin-bottom: 4px; font-size: 12px;">
-                            ¡Electricidad Segura, Hogar Tranquilo!
-                        </div>
-                        <div id="pdf-credenciales" style="font-size: 11px; font-weight: bold; color: #222; margin-bottom: 2px;">
-                            PROFESIONAL INDEPENDIENTE
-                        </div>
-                        <div id="pdf-tel-footer" style="font-size: 10px; color: #666; line-height: 1.4;"></div>
-                    </div>
+                <!-- PIE DE PÁGINA LIMPIO (SIN DATOS DUPLICADOS) -->
+                <footer class="pdf-footer" style="position: relative; z-index: 1; border-top: 1px solid #cbd5e1; padding-top: 10px; margin-top: 25px; display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 10px; color: #64748b;">
+                    <span>Documento generado por <strong id="pdf-footer-brand" style="color: #0f172a;"></strong></span>
+                    <span>Listado sujeto a verificación en obra</span>
                 </footer>
 
             </div>
         </div>
     </aside>
+    
     
 </div>
 
