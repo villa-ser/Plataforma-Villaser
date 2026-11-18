@@ -770,46 +770,157 @@ function renderTabla() {
 function borrarItem(id) { listaItems = listaItems.filter(i => i.id !== id); guardarEstadoLocal(); renderTabla(); }
 
 function actualizarPDFHeaders() {
-    document.getElementById('headerMembrete').innerText = (localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL').toUpperCase();
-    document.getElementById('pdf-slogan').innerText = localStorage.getItem('villaser_conf_slogan') || '';
-    const t = localStorage.getItem('villaser_conf_telefono'); document.getElementById('pdf-tel').innerText = t ? `📞 ${t}` : '';
-    const e = localStorage.getItem('villaser_conf_email'); document.getElementById('pdf-email').innerText = e ? `✉️ ${e}` : '';
-    const logo = localStorage.getItem('villaser_conf_logo');
-    if (logo && logo.startsWith('data:image')) { 
-        document.getElementById('pdf-img-logo').src = logo; 
-        document.getElementById('pdf-img-logo').style.display = 'block'; 
-        document.getElementById('pdf-text-logo').style.display = 'none'; 
-    } else { 
-        document.getElementById('pdf-img-logo').style.display = 'none'; 
-        document.getElementById('pdf-text-logo').innerText = document.getElementById('headerMembrete').innerText; 
-        document.getElementById('pdf-text-logo').style.display = 'block'; 
+    const nombre = (localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL').toUpperCase();
+    const slogan = localStorage.getItem('villaser_conf_slogan') || '';
+    const tel = localStorage.getItem('villaser_conf_telefono') || '';
+    const email = localStorage.getItem('villaser_conf_email') || '';
+    const cuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const matricula = localStorage.getItem('villaser_conf_matricula') || '';
+    const logo = localStorage.getItem('villaser_conf_logo') || '';
+
+    document.getElementById('headerMembrete').innerText = nombre;
+    const footerBrand = document.getElementById('pdf-footer-brand');
+    if (footerBrand) footerBrand.innerText = nombre;
+
+    const sloganEl = document.getElementById('pdf-slogan');
+    sloganEl.innerText = slogan;
+    sloganEl.style.display = slogan ? 'block' : 'none';
+
+    // Íconos SVG monocromáticos (evita emojis de celular al renderizar el PDF)
+    const iconPhone = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-1px; margin-right:4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+    const iconMail = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-1px; margin-right:4px;"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>`;
+
+    const telEl = document.getElementById('pdf-tel');
+    telEl.innerHTML = tel ? `${iconPhone}${escaparHTML(tel)}` : '';
+    telEl.style.display = tel ? 'inline-flex' : 'none';
+
+    const emailEl = document.getElementById('pdf-email');
+    emailEl.innerHTML = email ? `${iconMail}${escaparHTML(email)}` : '';
+    emailEl.style.display = email ? 'inline-flex' : 'none';
+
+    const fiscalParts = [];
+    if (cuit) fiscalParts.push(`CUIT: ${escaparHTML(cuit)}`);
+    if (matricula) fiscalParts.push(`Mat.: ${escaparHTML(matricula)}`);
+    const fiscalEl = document.getElementById('pdf-fiscal');
+    if (fiscalEl) {
+        fiscalEl.innerText = fiscalParts.join(' | ');
+        fiscalEl.style.display = fiscalParts.length > 0 ? 'inline-flex' : 'none';
+    }
+
+    const imgLogo = document.getElementById('pdf-img-logo');
+    const txtLogo = document.getElementById('pdf-text-logo');
+    const membreteEl = document.getElementById('headerMembrete');
+
+    if (logo && logo.startsWith('data:image')) {
+        imgLogo.src = logo;
+        imgLogo.style.display = 'block';
+        txtLogo.style.display = 'none';
+        membreteEl.style.display = 'block';
+    } else {
+        imgLogo.style.display = 'none';
+        txtLogo.innerText = nombre;
+        txtLogo.style.display = 'block';
+        membreteEl.style.display = 'none';
     }
 }
 
 function sincronizarVistaPreviaPDF() {
     actualizarPDFHeaders();
-    document.getElementById('pdf-nro').innerText = nroPresupuestoGlobal; 
-    document.getElementById('pdf-fecha').innerText = new Date().toLocaleDateString('es-AR');
-    document.getElementById('pdf-cliente').innerText = inputCliNombre.value || 'Sin Nombre'; 
-    document.getElementById('pdf-direccion').innerText = document.getElementById('cliDireccion').value || 'A coordinar'; 
-    document.getElementById('pdf-proyecto').innerText = document.getElementById('cliProyecto').value || '-';
+
+    const hoyStr = new Date().toLocaleDateString('es-AR');
+    document.getElementById('pdf-nro').innerText = nroPresupuestoGlobal;
+    document.getElementById('pdf-fecha').innerText = hoyStr;
+
+    // Cálculo de fecha de validez
+    const dias = parseInt(document.getElementById('diasValidez').value) || 15;
+    const fechaVenc = new Date();
+    fechaVenc.setDate(fechaVenc.getDate() + dias);
+    const fechaVencStr = `${String(fechaVenc.getDate()).padStart(2, '0')}/${String(fechaVenc.getMonth() + 1).padStart(2, '0')}/${fechaVenc.getFullYear()}`;
     
-    const tbody = document.getElementById('pdf-tbody'); tbody.innerHTML = ''; let sub = 0; let desc = 0; let not = '';
+    document.getElementById('pdf-validez-fecha').innerText = fechaVencStr;
+    const validezTop = document.getElementById('pdf-validez-top');
+    if (validezTop) validezTop.innerText = fechaVencStr;
+
+    // Datos del cliente (oculta campos vacíos)
+    document.getElementById('pdf-cliente').innerText = inputCliNombre.value.trim() || 'Consumidor Final';
+
+    const dirVal = document.getElementById('cliDireccion').value.trim();
+    const rowDir = document.getElementById('pdf-row-direccion');
+    if (dirVal) {
+        document.getElementById('pdf-direccion').innerText = dirVal;
+        if (rowDir) rowDir.style.display = 'flex';
+    } else if (rowDir) {
+        rowDir.style.display = 'none';
+    }
+
+    const proyVal = document.getElementById('cliProyecto').value.trim();
+    const rowProy = document.getElementById('pdf-row-proyecto');
+    if (proyVal) {
+        document.getElementById('pdf-proyecto').innerText = proyVal;
+        if (rowProy) rowProy.style.display = 'flex';
+    } else if (rowProy) {
+        rowProy.style.display = 'none';
+    }
+
+    // Tabla de ítems con numeración correlativa y alcance integrado
+    const tbody = document.getElementById('pdf-tbody');
+    tbody.innerHTML = '';
+    let sub = 0;
+    let desc = 0;
 
     listaItems.forEach((i, idx) => {
-        const cod = `0${idx + 1}-0${Math.floor(Math.random() * 5) + 1}`; const fSub = i.unitario * i.qty;
-        sub += fSub; desc += (fSub - i.total);
-        tbody.innerHTML += `<tr><td>${cod}</td><td>${i.concepto}${i.desc > 0 ? ` <strong style="color: #ffc107;">(-${i.desc}%)</strong>` : ''}</td><td>${i.qty}</td><td>$&nbsp;${i.unitario.toLocaleString('es-AR')}</td><td>$&nbsp;${fSub.toLocaleString('es-AR')}</td></tr>`;
-        if(i.obs) not += `<b>${cod}</b> ${i.obs.replace(/\n/g, ' ')}<br>`;
+        const cod = String(idx + 1).padStart(2, '0');
+        const fSub = i.unitario * i.qty;
+        sub += fSub;
+        desc += (fSub - i.total);
+
+        const badgeDesc = i.desc > 0
+            ? `<span class="pdf-badge-desc">-${i.desc}% OFF</span>`
+            : '';
+
+        const obsHtml = i.obs && i.obs.trim() !== ''
+            ? `<div class="pdf-item-obs">${escaparHTML(i.obs.trim()).replace(/\n/g, '<br>')}</div>`
+            : '';
+
+        const importeHtml = i.desc > 0
+            ? `<strong>$&nbsp;${i.total.toLocaleString('es-AR')}</strong><span class="pdf-price-old">$&nbsp;${fSub.toLocaleString('es-AR')}</span>`
+            : `<strong>$&nbsp;${fSub.toLocaleString('es-AR')}</strong>`;
+
+        tbody.innerHTML += `
+            <tr>
+                <td style="text-align: center; font-weight: 600; color: #64748b;">${cod}</td>
+                <td>
+                    <div class="pdf-item-title">${escaparHTML(i.concepto)} ${badgeDesc}</div>
+                    ${obsHtml}
+                </td>
+                <td style="text-align: center; font-weight: 600;">${i.qty}</td>
+                <td style="text-align: right; white-space: nowrap;">$&nbsp;${i.unitario.toLocaleString('es-AR')}</td>
+                <td style="text-align: right; white-space: nowrap;">${importeHtml}</td>
+            </tr>`;
     });
-    const og = document.getElementById('obsGenerales').value; if(og) not += `<br><b>Gral:</b> ${og}`;
 
-    document.getElementById('pdf-subtotal').innerText = `$ ${sub.toLocaleString('es-AR')}`; 
-    document.getElementById('pdf-descuentos').innerText = `-$ ${desc.toLocaleString('es-AR')}`; 
-    document.getElementById('pdf-total').innerText = `$ ${(sub - desc).toLocaleString('es-AR')}`; 
-    document.getElementById('pdf-notas').innerHTML = not || 'Sin notas.';
+    // Totales (oculta fila de descuentos si es $0)
+    document.getElementById('pdf-subtotal').innerText = `$ ${sub.toLocaleString('es-AR')}`;
+    const rowDesc = document.getElementById('pdf-row-descuentos');
+    if (desc > 0) {
+        document.getElementById('pdf-descuentos').innerText = `-$ ${desc.toLocaleString('es-AR')}`;
+        if (rowDesc) rowDesc.style.display = 'flex';
+    } else if (rowDesc) {
+        rowDesc.style.display = 'none';
+    }
+    document.getElementById('pdf-total').innerText = `$ ${(sub - desc).toLocaleString('es-AR')}`;
 
-    // Forma de pago en PDF (arriba de la validez)
+    // Notas Globales (se oculta si está vacío)
+    const og = document.getElementById('obsGenerales').value.trim();
+    const notasBox = document.getElementById('pdf-notas-box');
+    if (og) {
+        document.getElementById('pdf-notas').innerHTML = escaparHTML(og).replace(/\n/g, '<br>');
+        if (notasBox) notasBox.style.display = 'block';
+    } else if (notasBox) {
+        notasBox.style.display = 'none';
+    }
+
+    // Tarjeta de Forma de Pago y Datos Bancarios
     const pdfPagoEl = document.getElementById('pdf-forma-pago');
     if (pdfPagoEl) {
         const metodos = [];
@@ -818,15 +929,21 @@ function sincronizarVistaPreviaPDF() {
             metodos.push(formaPago.cuotas ? `Tarjeta de Crédito (${escaparHTML(formaPago.cuotas)} cuotas)` : 'Tarjeta de Crédito');
         }
         if (formaPago.transferencia) {
-            metodos.push(formaPago.aliasCbu ? `Transferencia (Alias/CBU: ${escaparHTML(formaPago.aliasCbu)})` : 'Transferencia');
+            metodos.push('Transferencia Bancaria');
         }
 
         let htmlPago = '';
-        if (metodos.length > 0) {
-            htmlPago += `<b>Forma de pago:</b> ${metodos.join(' / ')}`;
-        }
-        if (formaPago.aclaracion) {
-            htmlPago += `${htmlPago ? '<br>' : ''}<b>Aclaración:</b> ${escaparHTML(formaPago.aclaracion).replace(/\n/g, ' ')}`;
+        if (metodos.length > 0 || formaPago.aclaracion) {
+            htmlPago += `<div class="pdf-payment-title">FORMA DE PAGO ACEPTADA</div>`;
+            if (metodos.length > 0) {
+                htmlPago += `<div class="pdf-payment-methods">${metodos.join('  •  ')}</div>`;
+            }
+            if (formaPago.transferencia && formaPago.aliasCbu) {
+                htmlPago += `<div class="pdf-bank-box"><span>Alias / CBU:</span> <code>${escaparHTML(formaPago.aliasCbu)}</code></div>`;
+            }
+            if (formaPago.aclaracion) {
+                htmlPago += `<div class="pdf-payment-note">${escaparHTML(formaPago.aclaracion).replace(/\n/g, '<br>')}</div>`;
+            }
         }
 
         if (htmlPago) {
@@ -837,17 +954,8 @@ function sincronizarVistaPreviaPDF() {
             pdfPagoEl.style.display = 'none';
         }
     }
-
-    // Fecha de validez calculada desde hoy + cantidad de días
-    const dias = parseInt(document.getElementById('diasValidez').value) || 15;
-    const fechaVenc = new Date();
-    fechaVenc.setDate(fechaVenc.getDate() + dias);
-    const diaStr = String(fechaVenc.getDate()).padStart(2, '0');
-    const mesStr = String(fechaVenc.getMonth() + 1).padStart(2, '0');
-    const anioStr = fechaVenc.getFullYear();
-    document.getElementById('pdf-validez-fecha').innerText = `${diaStr}/${mesStr}/${anioStr}`;
-                         }
-
+}
+    
 // ==========================================
 // VISTA PREVIA MÓVIL Y DESCARGA DE PDF
 // ==========================================
