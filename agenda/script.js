@@ -217,19 +217,41 @@ function abrirDetalle(id) {
     if (!c) return;
 
     document.getElementById('detNombre').innerText = c.nombre;
-    document.getElementById('detCodigo').innerText = `ID: ${c.id.substring(0,6).toUpperCase()}`;
     document.getElementById('detDir').innerText = c.dir || 'No especificada';
     document.getElementById('detTel').innerText = c.tel || 'No especificado';
     document.getElementById('detObs').innerText = c.obs || 'Sin observaciones';
 
-    document.getElementById('btnMap').disabled = !c.dir;
-    document.getElementById('btnMap').style.opacity = c.dir ? '1' : '0.4';
-    document.getElementById('btnWts').disabled = !c.tel;
-    document.getElementById('btnWts').style.opacity = c.tel ? '1' : '0.4';
-    
+    const btnMap = document.getElementById('btnMap');
+    const btnWts = document.getElementById('btnWts');
+    const btnCall = document.getElementById('btnCall');
+
+    if (btnMap) {
+        btnMap.disabled = !c.dir;
+        btnMap.style.opacity = c.dir ? '1' : '0.35';
+    }
+    if (btnWts) {
+        btnWts.disabled = !c.tel;
+        btnWts.style.opacity = c.tel ? '1' : '0.35';
+    }
+    if (btnCall) {
+        btnCall.disabled = !c.tel;
+        btnCall.style.opacity = c.tel ? '1' : '0.35';
+    }
+
+    // Resetea el scroll de la ficha al abrir un nuevo contacto
+    const bodyDetalle = document.querySelector('#modalDetalle .cliente-detail-body');
+    if (bodyDetalle) bodyDetalle.scrollTop = 0;
+
     buscarBorradoresNube(c);
 
     document.getElementById('modalDetalle').classList.remove('oculto');
+}
+
+function llamarContacto() {
+    const c = contactosArray.find(x => x.id === contactoSeleccionado);
+    if (!c || !c.tel) return;
+    const cleanNumber = c.tel.replace(/[^\d+]/g, '');
+    window.location.href = `tel:${cleanNumber}`;
 }
 
 async function buscarBorradoresNube(contacto) {
@@ -357,92 +379,6 @@ function obtenerResumenBorrador(moduloId, data) {
     }
 
     return partes.join(' • ');
-}
-
-function renderizarBorradoresSegmentados(contenedor, resultadosPorModulo, contacto) {
-    const segmentosConDatos = resultadosPorModulo.filter(r => r.items.length > 0);
-
-    if (segmentosConDatos.length === 0) {
-        contenedor.innerHTML = `
-            <span style="color: var(--ngc-text-faded); font-size: 0.8rem; font-style: italic;">
-                No hay borradores guardados en la nube para este cliente.
-            </span>
-        `;
-        return;
-    }
-
-    let html = `
-        <div style="font-size: 0.78rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ngc-text-faded); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
-            <i class="fa-solid fa-cloud" style="color: var(--ngc-neon);"></i> Borradores en la Nube
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 260px; overflow-y: auto; padding-right: 2px;">
-    `;
-
-    segmentosConDatos.forEach(({ modulo, items }) => {
-        html += `
-            <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--ngc-privacy-border); border-radius: 8px; padding: 10px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--ngc-privacy-border);">
-                    <span style="font-size: 0.8rem; font-weight: bold; color: ${modulo.color}; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid ${modulo.icon}"></i> ${modulo.titulo}
-                    </span>
-                    <span style="font-size: 0.7rem; background: rgba(255,255,255,0.08); color: var(--ngc-text-main); padding: 1px 7px; border-radius: 10px; font-weight: bold;">
-                        ${items.length}
-                    </span>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-        `;
-
-        items.forEach((item) => {
-            const cacheKey = `${modulo.id}__${item.colNombre}__${item.docId}`;
-            borradoresClienteCache[cacheKey] = {
-                modulo,
-                colTipo: item.colTipo,
-                colNombre: item.colNombre,
-                docId: item.docId,
-                data: item.data,
-                contacto
-            };
-
-            const tituloBorrador =
-                item.data.nombreBorrador ||
-                item.data.cliProyecto ||
-                item.data.proyecto ||
-                item.data.cliNombre ||
-                item.data.clienteNombre ||
-                item.docId;
-
-            const resumen = obtenerResumenBorrador(modulo.id, item.data);
-
-            html += `
-                <div id="borrador-card-${escapeHtml(cacheKey)}" style="background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); border-left: 3px solid ${modulo.color}; border-radius: 6px; padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 0.85rem; font-weight: 600; color: var(--ngc-text-main); word-break: break-word; line-height: 1.25;">
-                            ${escapeHtml(String(tituloBorrador))}
-                        </div>
-                        <div style="font-size: 0.72rem; color: var(--ngc-text-faded); margin-top: 3px;">
-                            ${escapeHtml(resumen)}
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                        <button type="button" class="corp-btn-small" style="border: 1px solid ${modulo.color}; color: ${modulo.color}; background: rgba(255,255,255,0.04); padding: 5px 10px; font-size: 0.75rem; font-weight: bold; cursor: pointer;" onclick="abrirBorradorEnModulo('${escapeHtml(cacheKey)}')">
-                            <i class="fa-solid fa-folder-open"></i> Abrir
-                        </button>
-                        <button type="button" class="corp-btn-small danger" style="border: 1px solid var(--error-red); color: var(--error-red); background: transparent; padding: 5px 8px; font-size: 0.75rem; cursor: pointer;" onclick="eliminarBorradorNubeAgenda('${escapeHtml(cacheKey)}')" title="Eliminar borrador">
-                            <i class="fa-solid fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        });
-
-        html += `
-                </div>
-            </div>
-        `;
-    });
-
-    html += `</div>`;
-    contenedor.innerHTML = html;
 }
 
 function abrirBorradorEnModulo(cacheKey) {
