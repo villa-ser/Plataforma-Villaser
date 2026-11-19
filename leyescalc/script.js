@@ -242,39 +242,52 @@ function leyesCalcular() {
     }
 
     let f1 = '', f2 = '';
+    let fOhm = '', fWatt = '';
     const fmt = n => Number(n.toFixed(2)).toString();
 
     try {
         if (v_ok && i_ok) {
             p = v * i;
             r = v / i;
-            f1 = `P = V × I = ${fmt(v)} × ${fmt(i)} = ${fmt(p)} W`;
-            f2 = `R = V / I = ${fmt(v)} / ${fmt(i)} = ${fmt(r)} Ω`;
+            fOhm = `R = V / I = ${fmt(v)} / ${fmt(i)} = ${fmt(r)} Ω`;
+            fWatt = `P = V × I = ${fmt(v)} × ${fmt(i)} = ${fmt(p)} W`;
+            f1 = fWatt;
+            f2 = fOhm;
         } else if (v_ok && r_ok) {
             i = v / r;
             p = (v * v) / r;
-            f1 = `I = V / R = ${fmt(v)} / ${fmt(r)} = ${fmt(i)} A`;
-            f2 = `P = V² / R = ${fmt(v)}² / ${fmt(r)} = ${fmt(p)} W`;
+            fOhm = `I = V / R = ${fmt(v)} / ${fmt(r)} = ${fmt(i)} A`;
+            fWatt = `P = V² / R = ${fmt(v)}² / ${fmt(r)} = ${fmt(p)} W`;
+            f1 = fOhm;
+            f2 = fWatt;
         } else if (v_ok && p_ok) {
             i = p / v;
             r = (v * v) / p;
-            f1 = `I = P / V = ${fmt(p)} / ${fmt(v)} = ${fmt(i)} A`;
-            f2 = `R = V² / P = ${fmt(v)}² / ${fmt(p)} = ${fmt(r)} Ω`;
+            fWatt = `I = P / V = ${fmt(p)} / ${fmt(v)} = ${fmt(i)} A`;
+            fOhm = `R = V² / P = ${fmt(v)}² / ${fmt(p)} = ${fmt(r)} Ω`;
+            f1 = fWatt;
+            f2 = fOhm;
         } else if (i_ok && r_ok) {
             v = i * r;
             p = (i * i) * r;
-            f1 = `V = I × R = ${fmt(i)} × ${fmt(r)} = ${fmt(v)} V`;
-            f2 = `P = I² × R = ${fmt(i)}² × ${fmt(r)} = ${fmt(p)} W`;
+            fOhm = `V = I × R = ${fmt(i)} × ${fmt(r)} = ${fmt(v)} V`;
+            fWatt = `P = I² × R = ${fmt(i)}² × ${fmt(r)} = ${fmt(p)} W`;
+            f1 = fOhm;
+            f2 = fWatt;
         } else if (i_ok && p_ok) {
             v = p / i;
             r = p / (i * i);
-            f1 = `V = P / I = ${fmt(p)} / ${fmt(i)} = ${fmt(v)} V`;
-            f2 = `R = P / I² = ${fmt(p)} / ${fmt(i)}² = ${fmt(r)} Ω`;
+            fWatt = `V = P / I = ${fmt(p)} / ${fmt(i)} = ${fmt(v)} V`;
+            fOhm = `R = P / I² = ${fmt(p)} / ${fmt(i)}² = ${fmt(r)} Ω`;
+            f1 = fWatt;
+            f2 = fOhm;
         } else if (r_ok && p_ok) {
             v = Math.sqrt(p * r);
             i = Math.sqrt(p / r);
             f1 = `V = √(P × R) = √(${fmt(p)} × ${fmt(r)}) = ${fmt(v)} V`;
             f2 = `I = √(P / R) = √(${fmt(p)} / ${fmt(r)}) = ${fmt(i)} A`;
+            fOhm = f1;
+            fWatt = f2;
         }
 
         if (!isFinite(v) || !isFinite(i) || !isFinite(r) || !isFinite(p)) {
@@ -300,13 +313,11 @@ function leyesCalcular() {
         let textoDesarrollo = `CÁLCULO DE LEYES ELÉCTRICAS (Modo ${leyesState.modo})\n`;
 
         if (leyesState.modo === 'OHM') {
-            const lineaOhm = f1.includes('R =') || f1.includes('I =') || f1.includes('V =') ? f1 : f2;
-            htmlDesarrollo += `<b>${lineaOhm}</b>`;
-            textoDesarrollo += `Fórmula y reemplazo:\n• ${lineaOhm}\n\nResultados:\n• Tensión (V): ${leyesState.vals.v} V\n• Corriente (A): ${leyesState.vals.i} A\n• Resistencia (Ω): ${leyesState.vals.r} Ω`;
+            htmlDesarrollo += `<b>${fOhm}</b>`;
+            textoDesarrollo += `Fórmula y reemplazo:\n• ${fOhm}\n\nResultados:\n• Tensión (V): ${leyesState.vals.v} V\n• Corriente (A): ${leyesState.vals.i} A\n• Resistencia (Ω): ${leyesState.vals.r} Ω`;
         } else if (leyesState.modo === 'WATT') {
-            const lineaWatt = f1.includes('P =') ? f1 : (f2.includes('P =') ? f2 : f1);
-            htmlDesarrollo += `<b>${lineaWatt}</b>`;
-            textoDesarrollo += `Fórmula y reemplazo:\n• ${lineaWatt}\n\nResultados:\n• Tensión (V): ${leyesState.vals.v} V\n• Corriente (A): ${leyesState.vals.i} A\n• Potencia (W): ${leyesState.vals.p} W`;
+            htmlDesarrollo += `<b>${fWatt}</b>`;
+            textoDesarrollo += `Fórmula y reemplazo:\n• ${fWatt}\n\nResultados:\n• Tensión (V): ${leyesState.vals.v} V\n• Corriente (A): ${leyesState.vals.i} A\n• Potencia (W): ${leyesState.vals.p} W`;
         } else {
             htmlDesarrollo += `• <b>${f1}</b><br>• <b>${f2}</b>`;
             textoDesarrollo += `Fórmulas y reemplazos:\n• ${f1}\n• ${f2}\n\nResultados:\n• Tensión (V): ${leyesState.vals.v} V\n• Corriente (A): ${leyesState.vals.i} A\n• Resistencia (Ω): ${leyesState.vals.r} Ω\n• Potencia (W): ${leyesState.vals.p} W`;
@@ -319,7 +330,8 @@ function leyesCalcular() {
     } catch (error) {
         mostrarToast("Error Matemático", "Operación imposible (verifique ceros).", true);
     }
-}
+        }
+
 
 // ==========================================================================
 // 2. MÓDULO CAÍDA DE TENSIÓN (AEA 90364-5-52)
