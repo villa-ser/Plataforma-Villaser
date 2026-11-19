@@ -801,32 +801,29 @@ function actualizarPDFHeaders() {
         profEmail = firebase.auth().currentUser.email || '';
     }
 
-    const lineaRegistro = [
-        profMatricula ? `Mat.: ${profMatricula}` : '',
-        profCuit ? `CUIT: ${profCuit}` : ''
-    ].filter(Boolean).join(' | ');
-
+    // 1. Cabecera superior derecha: Solo contacto directo debajo del logo/marca
     const lineaContacto = [
         profTel ? `Tel.: ${profTel}` : '',
         profEmail ? `Email: ${profEmail}` : ''
-    ].filter(Boolean).join('  •  ');
-
-    const detalleCompleto = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
+    ].filter(Boolean).join('<br>');
 
     const elHeaderContacto = document.getElementById('pdf-header-contacto');
-    if (elHeaderContacto) elHeaderContacto.innerHTML = detalleCompleto;
+    if (elHeaderContacto) elHeaderContacto.innerHTML = lineaContacto;
 
-    const elTelFooter = document.getElementById('pdf-tel-footer');
-    if (elTelFooter) elTelFooter.innerHTML = [lineaRegistro, lineaContacto].filter(Boolean).join(' &nbsp;|&nbsp; ');
+    // 2. Bloque de Firma: Nombre del profesional y matrícula habilitante
+    const elFirmaSub = document.getElementById('pdf-firma-sub');
+    if (elFirmaSub) {
+        elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
+    }
 
+    // 3. Pie de página inferior derecho: Eslogan y dato fiscal (CUIT)
     const elSlogan = document.getElementById('pdf-slogan');
     if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
 
-    const elCredenciales = document.getElementById('pdf-credenciales');
-    if (elCredenciales) elCredenciales.innerText = profNombre;
-
-    const elFirmaSub = document.getElementById('pdf-firma-sub');
-    if (elFirmaSub) elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) {
+        elTelFooter.innerText = profCuit ? `CUIT: ${profCuit}` : '';
+    }
 
     const imgPdf = document.getElementById('pdf-img-logo');
     const txtPdf = document.getElementById('pdf-text-logo');
@@ -843,6 +840,7 @@ function actualizarPDFHeaders() {
         }
     }
 }
+
 
 function sincronizarVistaPreviaPDF(areaTotal, grado, dpmsPonderado, suministro, totalesBocas, todosArr) {
     actualizarPDFHeaders();
