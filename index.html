@@ -203,55 +203,75 @@
 
     </main>
 
-    <!-- MODAL DE CONFIGURACIÓN DE PERFIL -->
+        <!-- MODAL DE CONFIGURACIÓN DE PERFIL -->
     <div id="modalConfig" class="corp-modal oculto">
-        <div class="corp-modal-card" style="max-height: 88svh; overflow-y: auto;">
-            <button class="corp-modal-close" onclick="cerrarConfiguracion()"><i class="fa-solid fa-xmark"></i></button>
+        <div class="corp-modal-card config-modal-shell">
             
-            <h3 class="corp-modal-title"><i class="fa-solid fa-gear"></i> Configuración</h3>
-            
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 14px;">
+            <!-- CABECERA FIJA -->
+            <div class="config-modal-header">
+                <h3 class="corp-modal-title"><i class="fa-solid fa-gear"></i> Configuración</h3>
+                <button class="corp-modal-close" onclick="cerrarConfiguracion()" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- CUERPO SCROLLEABLE -->
+            <div class="config-modal-body">
                 
                 <!-- SELECTOR INTELIGENTE 3 OPCIONES: TEMA -->
-                <label style="margin-bottom: 2px;"><i class="fa-solid fa-circle-half-stroke"></i> Aspecto Visual</label>
-                <div class="corp-theme-switch">
-                    <input type="radio" id="tema_dark" name="tema_app" value="dark" onchange="cambiarTemaManual('dark')" style="display:none">
-                    <label for="tema_dark">OSCURO</label>
-                    <input type="radio" id="tema_system" name="tema_app" value="system" onchange="cambiarTemaManual('system')" style="display:none">
-                    <label for="tema_system">SISTEMA</label>
-                    <input type="radio" id="tema_light" name="tema_app" value="light" onchange="cambiarTemaManual('light')" style="display:none">
-                    <label for="tema_light">CLARO</label>
+                <div>
+                    <label style="display: block; margin-bottom: 6px;"><i class="fa-solid fa-circle-half-stroke"></i> Aspecto Visual</label>
+                    <div class="corp-theme-switch">
+                        <input type="radio" id="tema_dark" name="tema_app" value="dark" onchange="cambiarTemaManual('dark')" style="display:none">
+                        <label for="tema_dark">OSCURO</label>
+                        <input type="radio" id="tema_system" name="tema_app" value="system" onchange="cambiarTemaManual('system')" style="display:none">
+                        <label for="tema_system">SISTEMA</label>
+                        <input type="radio" id="tema_light" name="tema_app" value="light" onchange="cambiarTemaManual('light')" style="display:none">
+                        <label for="tema_light">CLARO</label>
+                    </div>
                 </div>
 
-                <!-- SELECTOR DE NOTIFICACIONES (Preparado para próxima actualización) -->
-                <label style="margin-top: 4px; margin-bottom: 2px;"><i class="fa-solid fa-bell"></i> Notificaciones de la App</label>
-                <div class="corp-theme-switch">
-                    <input type="radio" id="notif_on" name="notif_app" value="on" onchange="cambiarPreferenciaNotificaciones('on')" style="display:none">
-                    <label for="notif_on">ACTIVADAS</label>
-                    <input type="radio" id="notif_off" name="notif_app" value="off" onchange="cambiarPreferenciaNotificaciones('off')" style="display:none">
-                    <label for="notif_off">DESACTIVADAS</label>
+                <!-- SELECTOR DE NOTIFICACIONES -->
+                <div>
+                    <label style="display: block; margin-bottom: 6px;"><i class="fa-solid fa-bell"></i> Notificaciones de la App</label>
+                    <div class="corp-theme-switch">
+                        <input type="radio" id="notif_on" name="notif_app" value="on" onchange="cambiarPreferenciaNotificaciones('on')" style="display:none">
+                        <label for="notif_on">ACTIVADAS</label>
+                        <input type="radio" id="notif_off" name="notif_app" value="off" onchange="cambiarPreferenciaNotificaciones('off')" style="display:none">
+                        <label for="notif_off">DESACTIVADAS</label>
+                    </div>
                 </div>
 
-                <hr class="corp-divider">
+                <hr class="corp-divider" style="margin: 4px 0;">
 
                 <!-- SECCIÓN DE PERFIL PROFESIONAL (Bloqueada por defecto) -->
-                <label style="margin-bottom: 2px; color: var(--corp-text-main); font-size: 0.85rem;">
+                <label style="margin-bottom: 0; color: var(--corp-text-main); font-size: 0.85rem;">
                     <i class="fa-solid fa-id-card"></i> Perfil Profesional (se usará en los PDFs)
                 </label>
 
                 <div>
-                    <span class="field-sub-label">Nombre</span>
+                    <span class="field-sub-label">Nombre o Razón Social</span>
                     <input type="text" id="confNombre" class="corp-input" placeholder="Ej: Sergio Villagra" disabled>
                 </div>
 
                 <div>
-                    <span class="field-sub-label">Slogan</span>
+                    <span class="field-sub-label">Slogan / Especialidad</span>
                     <input type="text" id="confSlogan" class="corp-input" placeholder="Ej: Electricidad segura, hogar tranquilo." disabled>
                 </div>
 
                 <div>
                     <span class="field-sub-label">Teléfono</span>
                     <input type="tel" id="confTelefono" class="corp-input" placeholder="Ej: 3513559347" disabled>
+                </div>
+
+                <!-- CUIT Y MATRÍCULA EN 2 COLUMNAS -->
+                <div class="config-grid-2col">
+                    <div>
+                        <span class="field-sub-label">CUIT</span>
+                        <input type="text" id="confCuit" class="corp-input" inputmode="numeric" placeholder="Ej: 20-30405060-7" disabled>
+                    </div>
+                    <div>
+                        <span class="field-sub-label">Matrícula</span>
+                        <input type="text" id="confMatricula" class="corp-input" placeholder="Ej: ERSeP 12345" disabled>
+                    </div>
                 </div>
                 
                 <div>
@@ -262,16 +282,18 @@
                     <p id="sinLogoTexto" style="font-size: 0.78rem; color: var(--corp-text-faded); font-style: italic; margin-top: 4px;">Sin logo cargado</p>
                     <img id="logoPreview" src="" style="max-height: 65px; object-fit: contain; margin: 6px auto 0 auto; display: none; border-radius: 6px;">
                 </div>
-                
-                <!-- BOTÓN DINÁMICO: EDITAR / GUARDAR CAMBIOS -->
-                <button type="button" id="btnToggleEditConfig" class="corp-btn secondary-btn" style="margin-top: 8px;" onclick="manejarBotonPerfil()">
+            </div>
+
+            <!-- PIE FIJO CON ACCIÓN PRINCIPAL -->
+            <div class="config-modal-footer">
+                <button type="button" id="btnToggleEditConfig" class="corp-btn secondary-btn" style="width: 100%; margin: 0;" onclick="manejarBotonPerfil()">
                     <i class="fa-solid fa-pen-to-square"></i> Editar
                 </button>
             </div>
+
         </div>
     </div>
     
-
     <!-- MODAL DE TÉRMINOS Y CONDICIONES -->
     <div id="modalTerminos" class="corp-modal oculto">
         <div class="corp-modal-card" style="max-height: 85vh; display: flex; flex-direction: column;">
