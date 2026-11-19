@@ -989,7 +989,7 @@ async function generarPDF() {
         filename:     `${shortName}_Informe_Tecnico.pdf`,
         image:        { type: 'png', quality: 0.98 },
         html2canvas:  { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' compress: true }
     };
 
     if(permiteGuardarNube) { guardarBorradorFirebase(false, true); }
