@@ -339,6 +339,101 @@ async function buscarBorradoresNube(contacto) {
     }
 }
 
+function renderizarBorradoresSegmentados(contenedor, resultadosPorModulo, contacto) {
+    const segmentosConDatos = resultadosPorModulo.filter(r => r.items.length > 0);
+    const totalBorradores = segmentosConDatos.reduce((acc, seg) => acc + seg.items.length, 0);
+
+    if (segmentosConDatos.length === 0) {
+        contenedor.innerHTML = `
+            <div style="background: var(--ngc-bg-input); border: 1px dashed var(--ngc-privacy-border); border-radius: 12px; padding: 18px; text-align: center;">
+                <i class="fa-solid fa-cloud" style="color: var(--ngc-text-faded); font-size: 1.4rem; margin-bottom: 6px;"></i>
+                <p style="margin: 0; color: var(--ngc-text-faded); font-size: 0.85rem;">
+                    Este cliente aún no tiene borradores guardados en la nube.
+                </p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ngc-text-faded); margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-cloud" style="color: var(--ngc-neon);"></i> Historial de Borradores
+            </span>
+            <span style="background: rgba(35, 116, 225, 0.15); color: var(--ngc-neon); padding: 2px 8px; border-radius: 10px; font-size: 0.72rem;">
+                ${totalBorradores} total
+            </span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+    `;
+
+    segmentosConDatos.forEach(({ modulo, items }) => {
+        html += `
+            <div style="background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); border-radius: 12px; padding: 12px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--ngc-privacy-border);">
+                    <span style="font-size: 0.8rem; font-weight: 700; color: ${modulo.color}; text-transform: uppercase; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid ${modulo.icon}"></i> ${modulo.titulo}
+                    </span>
+                    <span style="font-size: 0.72rem; background: rgba(128,128,128,0.15); color: var(--ngc-text-main); padding: 2px 8px; border-radius: 10px; font-weight: 700;">
+                        ${items.length}
+                    </span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+        `;
+
+        items.forEach((item) => {
+            const cacheKey = `${modulo.id}__${item.colNombre}__${item.docId}`;
+            borradoresClienteCache[cacheKey] = {
+                modulo,
+                colTipo: item.colTipo,
+                colNombre: item.colNombre,
+                docId: item.docId,
+                data: item.data,
+                contacto
+            };
+
+            const tituloBorrador =
+                item.data.nombreBorrador ||
+                item.data.cliProyecto ||
+                item.data.proyecto ||
+                item.data.cliNombre ||
+                item.data.clienteNombre ||
+                item.docId;
+
+            const resumen = obtenerResumenBorrador(modulo.id, item.data);
+
+            html += `
+                <div id="borrador-card-${escapeHtml(cacheKey)}" style="background: var(--bg-body); border: 1px solid var(--ngc-privacy-border); border-left: 3px solid ${modulo.color}; border-radius: 8px; padding: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 0.88rem; font-weight: 600; color: var(--ngc-text-main); word-break: break-word; line-height: 1.3;">
+                            ${escapeHtml(String(tituloBorrador))}
+                        </div>
+                        <div style="font-size: 0.75rem; color: var(--ngc-text-faded); margin-top: 4px;">
+                            ${escapeHtml(resumen)}
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        <button type="button" class="corp-btn-small" style="border: 1px solid ${modulo.color}; color: ${modulo.color}; background: transparent; padding: 7px 11px; font-size: 0.78rem; font-weight: 700; cursor: pointer; border-radius: 6px;" onclick="abrirBorradorEnModulo('${escapeHtml(cacheKey)}')">
+                            <i class="fa-solid fa-folder-open"></i> Abrir
+                        </button>
+                        <button type="button" class="corp-btn-small danger" style="border: 1px solid var(--error-red); color: var(--error-red); background: transparent; padding: 7px 9px; font-size: 0.78rem; cursor: pointer; border-radius: 6px;" onclick="eliminarBorradorNubeAgenda('${escapeHtml(cacheKey)}')" title="Eliminar borrador">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>`;
+    contenedor.innerHTML = html;
+}
+
 function obtenerTimestampBorrador(data) {
     if (!data) return 0;
     if (typeof data.fechaGuardado === 'number') return data.fechaGuardado;
