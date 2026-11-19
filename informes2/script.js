@@ -983,48 +983,84 @@ function cerrarVistaPrevia() {
     document.body.style.overflow = '';
 }
 
-async function generarPDF() {
-    if (informeParrafos.length === 0) {
-        mostrarAlertaCorp("Sin Contenido", "Agregue al menos un párrafo al informe.");
+// ==========================================
+// GENERACIÓN DE PDF CON MODAL CORPORATIVO
+// ==========================================
+function generarPDF() {
+    if (typeof informeParrafos !== 'undefined' && informeParrafos.length === 0) {
+        mostrarAlertaCorp("Informe Vacío", "Agregá al menos un bloque de texto o tabla antes de generar el PDF.");
         return;
     }
-    actualizarVistaPreviews();
+
+    if (typeof sincronizarVistaPreviaPDF === 'function') {
+        sincronizarVistaPreviaPDF();
+    }
+
+    // Sugerir nombre con sufijo único para evitar alertas de archivo repetido
+    const inputNombre = document.getElementById('cliNombre');
+    const sugerido = (inputNombre && inputNombre.value.trim())
+        ? inputNombre.value.trim().replace(/\s+/g, '_')
+        : 'Cliente';
+    const uniqueSuffix = Math.floor(Math.random() * 9000) + 1000;
+
+    document.getElementById('nombreArchivoPDF').value = `${sugerido}_Informe_Tecnico_${uniqueSuffix}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    document.getElementById('btnConfirmarDescargaPDF').innerHTML = "Descargar";
+}
+
+async function ejecutarDescargaPDF() {
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+
+    // Auto-guardado silencioso en Nube si corresponde
+    if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube && typeof guardarBorradorFirebase === 'function') {
+        guardarBorradorFirebase(false, true);
+    }
+
+    const panelPreview = document.querySelector('.preview-panel');
     const element = document.getElementById('plantilla-pdf');
+    const sello = document.getElementById('selloAguaPDF');
 
-    // Ocultar Sello de Agua dinámico durante generación PDF final
-    const selloAgua = document.getElementById('selloAguaPDF');
-    if (selloAgua) selloAgua.style.display = 'none';
+    const prevPanelDisplay = panelPreview ? panelPreview.style.display : '';
+    const prevElementDisplay = element.style.display;
 
+    if (panelPreview && window.innerWidth <= 900) {
+        panelPreview.style.display = 'block';
+    }
     element.style.display = 'block';
+    if (sello) sello.style.display = 'none';
+
     window.scrollTo(0, 0);
-    
-    const shortName = (document.getElementById('cliNombre').value || "Cliente").split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
+
+    const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Informe_Tecnico';
+
     const opt = {
-        margin:       0, 
-        filename:     `${shortName}_Informe_Tecnico.pdf`,
-        image:        { type: 'png' },
-        html2canvas:  { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+        margin: 0,
+        filename: `${nombreFinal}.pdf`,
+        image: { type: 'png', quality: 0.98 },
+        html2canvas: { scale: 3, useCORS: true, scrollY: 0 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
     };
 
-    if(permiteGuardarNube) { guardarBorradorFirebase(false, true); }
-    
     try {
         await html2pdf().set(opt).from(element).save();
-        mostrarToast("Éxito", "PDF generado correctamente.");
-    } catch (error) {
-        mostrarAlertaCorp("Error", "Ocurrió un error al generar el PDF.");
+    } catch (e) {
+        console.error("Error al generar PDF:", e);
+        mostrarAlertaCorp("Error", "No se pudo generar el archivo PDF.");
     } finally {
-        if (window.innerWidth < 992) {
-            element.style.display = 'none'; 
-        } else {
-            element.style.display = '';
+        if (sello) sello.style.display = 'flex';
+        element.style.display = prevElementDisplay;
+        if (panelPreview && window.innerWidth <= 900) {
+            panelPreview.style.display = prevPanelDisplay;
         }
-
-        // Restaurar Sello de Agua para vista en vivo / Vista Previa
-        if (selloAgua) selloAgua.style.display = 'flex';
+        cerrarModalPDF();
     }
-        }
+}
+
 
 // ==========================================
 // WHATSAPP (INTEGRACIÓN GLOBAL)
