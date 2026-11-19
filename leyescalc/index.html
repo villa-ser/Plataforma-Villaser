@@ -24,7 +24,27 @@
             }
         })();
     </script>
-  
+
+    <script>
+    if (new URLSearchParams(window.location.search).get('modal') === '1') {
+        document.documentElement.classList.add('modo-modal-embebido');
+    }
+    </script>
+    <style>
+    html.modo-modal-embebido .corp-bottom-nav {
+        display: none !important;
+    }
+    html.modo-modal-embebido .corp-top-nav a,
+    html.modo-modal-embebido .corp-top-nav button[onclick*="index.html"] {
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    html.modo-modal-embebido .layout-wrapper,
+    html.modo-modal-embebido main.container {
+        padding-bottom: 16px !important;
+    }
+    </style>
+    
 </head>
 <body>
 
