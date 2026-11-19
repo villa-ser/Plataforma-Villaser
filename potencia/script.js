@@ -1174,9 +1174,9 @@ async function generarPDF() {
     const opt = {
         margin:       0,
         filename:     `Carga_Circuitos_${shortName}_${uniqueSuffix}.pdf`,
-        image:        { type: 'png', quality: 0.98 },
+        image:        { type: 'png' },
         html2canvas:  { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' compress: true } 
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true } 
     };
     
     try { 
