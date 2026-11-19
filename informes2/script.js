@@ -137,6 +137,21 @@ function ejecutarNuevoInforme() {
     permiteGuardarNube = true;
     nombreBorradorActual = null;
     telefonoClienteActual = "";
+    cursorCalcStart = null;
+    cursorCalcEnd = null;
+
+    const modalCalc = document.getElementById('modalCalculadora');
+    if (modalCalc) modalCalc.classList.add('oculto');
+    document.body.style.overflow = '';
+
+    const iframeCalc = document.getElementById('iframeCalculadoraModal');
+    if (iframeCalc) {
+        iframeCalc.removeAttribute('src');
+        iframeCalc.style.opacity = '0';
+    }
+
+    const loaderCalc = document.getElementById('loaderCalculadoraModal');
+    if (loaderCalc) loaderCalc.style.display = 'block';
 
     const contenedorAcciones = document.getElementById('contenedorAcciones');
     if (contenedorAcciones) contenedorAcciones.classList.add('oculto');
@@ -1482,3 +1497,55 @@ function insertarDesdeLibreria(textoAInsertar) {
     textarea.focus();
     textarea.setSelectionRange(nuevaPosicion, nuevaPosicion);
          }
+
+// ==========================================
+// MODAL CALCULADORA TÉCNICA (PANTALLA COMPLETA)
+// ==========================================
+let cursorCalcStart = null;
+let cursorCalcEnd = null;
+
+function abrirModalCalculadora() {
+    const textarea = document.getElementById('textoInforme');
+    if (textarea && !modoEditorTabla) {
+        cursorCalcStart = textarea.selectionStart ?? textarea.value.length;
+        cursorCalcEnd = textarea.selectionEnd ?? textarea.value.length;
+    }
+
+    const modal = document.getElementById('modalCalculadora');
+    const iframe = document.getElementById('iframeCalculadoraModal');
+    const loader = document.getElementById('loaderCalculadoraModal');
+
+    if (!modal || !iframe) return;
+
+    modal.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+
+    // Carga la URL con ?modal=1 solo la primera vez (mantiene el cálculo si vuelves a abrir)
+    if (!iframe.getAttribute('src')) {
+        if (loader) loader.style.display = 'block';
+        iframe.style.opacity = '0';
+        iframe.src = '../leyescalc/index.html?modal=1';
+    }
+}
+
+function ocultarLoaderCalculadoraModal() {
+    const iframe = document.getElementById('iframeCalculadoraModal');
+    const loader = document.getElementById('loaderCalculadoraModal');
+    if (iframe && iframe.getAttribute('src')) {
+        if (loader) loader.style.display = 'none';
+        iframe.style.opacity = '1';
+    }
+}
+
+function cerrarModalCalculadora() {
+    const modal = document.getElementById('modalCalculadora');
+    if (modal) modal.classList.add('oculto');
+    document.body.style.overflow = '';
+
+    // Devuelve el foco y cursor al cuadro de redacción para pegar rápido
+    const textarea = document.getElementById('textoInforme');
+    if (textarea && !modoEditorTabla && cursorCalcStart !== null) {
+        textarea.focus();
+        textarea.setSelectionRange(cursorCalcStart, cursorCalcEnd ?? cursorCalcStart);
+    }
+}
