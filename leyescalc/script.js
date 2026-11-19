@@ -1041,6 +1041,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // MENÚ INFERIOR SCROLL (MATCH GLOBAL)
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
+    if (new URLSearchParams(window.location.search).get('modal') === '1') return;
+
     const footer = document.getElementById('corpFooterMenu'); if (!footer) return;
     const modulos = [
         { nombre: 'Inicio', icon: 'fa-house', url: '../index.html' },
@@ -1061,7 +1063,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.onclick = () => { if(!mod.active) window.location.replace(mod.url); };
         footer.appendChild(btn);
     });
-        // Centra automáticamente el botón activo en la vista
+    // Centra automáticamente el botón activo en la vista
     requestAnimationFrame(() => {
         const btnActivo = footer.querySelector('.corp-nav-item.active');
         if (btnActivo) {
@@ -1070,5 +1072,4 @@ document.addEventListener("DOMContentLoaded", () => {
             footer.scrollLeft += (btnRect.left - footerRect.left) - (footerRect.width / 2) + (btnRect.width / 2);
         }
     });
-    
 });
