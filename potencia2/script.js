@@ -1135,15 +1135,32 @@ function cerrarVistaPrevia() {
 }
 
 // ==========================================
-// GENERADOR DE PDF CON CONTROL DE SELLO
+// GENERADOR DE PDF CON MODAL CORPORATIVO Y CONTROL DE SELLO
 // ==========================================
-async function generarPDF() {
+function generarPDF() {
     if (listaAmbientes.length === 0) {
         mostrarAlertaCorp("Sin Contenido", "Debe cargar ambientes para generar el PDF.");
         return;
     }
     
     calcularGradoYRenderizar();
+
+    const shortName = (document.getElementById('cliNombre').value || "Proyecto").trim().split(' ')[0].replace(/[^a-zA-Z0-9_-]/g, '') || "Proyecto";
+    const uniqueSuffix = Math.floor(Math.random() * 9000) + 1000;
+    
+    document.getElementById('nombreArchivoPDF').value = `Carga_Circuitos_${shortName}_${uniqueSuffix}`;
+    document.getElementById('btnConfirmarDescargaPDF').innerHTML = "Descargar";
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    document.getElementById('btnConfirmarDescargaPDF').innerHTML = "Descargar";
+}
+
+async function ejecutarDescargaPDF() {
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
 
     if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube && typeof guardarBorradorFirebase === 'function') { 
         guardarBorradorFirebase(false, true); 
@@ -1166,12 +1183,11 @@ async function generarPDF() {
     const marcaAgua = document.getElementById('marcaAguaPDF');
     if (marcaAgua) marcaAgua.style.display = 'none';
 
-    const shortName = (document.getElementById('cliNombre').value || "Proyecto").split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
-    const uniqueSuffix = Math.floor(Math.random() * 9000) + 1000;
+    const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Carga_Circuitos';
     
     const opt = {
         margin:       0,
-        filename:     `Carga_Circuitos_${shortName}_${uniqueSuffix}.pdf`,
+        filename:     `${nombreFinal}.pdf`,
         image:        { type: 'png' },
         html2canvas:  { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true } 
@@ -1179,10 +1195,12 @@ async function generarPDF() {
     
     try { 
         await html2pdf().set(opt).from(element).save(); 
+        cerrarModalPDF();
         mostrarToast("Éxito", "PDF generado correctamente.");
     } 
     catch (error) { 
         mostrarAlertaCorp("Error", "Ocurrió un error al generar el PDF.");
+        btn.innerHTML = "Descargar";
     } 
     finally { 
         if (marcaAgua) marcaAgua.style.display = 'flex';
@@ -1194,7 +1212,6 @@ async function generarPDF() {
         } 
     }
 }
-
 
 // ==========================================
 // WHATSAPP (INTEGRACIÓN GLOBAL)
