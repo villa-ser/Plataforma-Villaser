@@ -56,11 +56,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Descargamos de Firebase silenciosamente y actualizamos local
                 try {
                     const doc = await db.collection('perfiles').doc(user.uid).get();
-                    if (doc.exists) {
+                     if (doc.exists) {
                         const data = doc.data();
                         if (data.nombre) localStorage.setItem('villaser_conf_nombre', data.nombre);
                         if (data.slogan) localStorage.setItem('villaser_conf_slogan', data.slogan);
                         if (data.telefono) localStorage.setItem('villaser_conf_telefono', data.telefono);
+                        if (data.cuit) localStorage.setItem('villaser_conf_cuit', data.cuit);
+                        if (data.matricula) localStorage.setItem('villaser_conf_matricula', data.matricula);
                         if (data.logo) localStorage.setItem('villaser_conf_logo', data.logo);
                     }
                 } catch (error) {
@@ -354,10 +356,20 @@ function cambiarPreferenciaNotificaciones(estado) {
     // Listo para conectar con Firebase Cloud Messaging (FCM) en la próxima actualización
 }
 
+function manejarBotonPerfil() {
+    if (!editandoPerfil) {
+        establecerModoEdicionPerfil(true);
+        const inputNombre = document.getElementById('confNombre');
+        if (inputNombre) inputNombre.focus();
+    } else {
+        guardarConfiguracion();
+    }
+}
+
 function establecerModoEdicionPerfil(activo) {
     editandoPerfil = activo;
 
-    const campos = ['confNombre', 'confSlogan', 'confTelefono', 'confLogo'];
+    const campos = ['confNombre', 'confSlogan', 'confTelefono', 'confCuit', 'confMatricula', 'confLogo'];
     campos.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = !activo;
@@ -407,6 +419,7 @@ function manejarBotonPerfil() {
 async function abrirConfiguracion() {
     document.getElementById('modalConfig').classList.remove('oculto');
     document.getElementById('userDropdown').classList.add('oculto');
+    document.body.style.overflow = 'hidden';
 
     // Siempre inicia bloqueado para evitar modificaciones accidentales
     establecerModoEdicionPerfil(false);
@@ -415,6 +428,8 @@ async function abrirConfiguracion() {
     document.getElementById('confNombre').value = localStorage.getItem('villaser_conf_nombre') || '';
     document.getElementById('confSlogan').value = localStorage.getItem('villaser_conf_slogan') || '';
     document.getElementById('confTelefono').value = localStorage.getItem('villaser_conf_telefono') || '';
+    document.getElementById('confCuit').value = localStorage.getItem('villaser_conf_cuit') || '';
+    document.getElementById('confMatricula').value = localStorage.getItem('villaser_conf_matricula') || '';
     document.getElementById('confLogo').value = '';
     
     const logoGuardado = localStorage.getItem('villaser_conf_logo');
@@ -436,14 +451,14 @@ async function abrirConfiguracion() {
     const radioTema = document.getElementById(`tema_${temaGuardado}`);
     if (radioTema) radioTema.checked = true;
 
-    // Sincronizar Preferencia de Notificaciones (por defecto 'off' hasta activar FCM)
+    // Sincronizar Preferencia de Notificaciones
     const notifGuardada = localStorage.getItem('villaser_notif_pref') || 'off';
     const radioNotif = document.getElementById(`notif_${notifGuardada}`);
     if (radioNotif) radioNotif.checked = true;
 
-    // 2. Si no hay datos locales, forzamos lectura a la nube
+    // 2. Si faltan datos locales, forzamos lectura a la nube
     const user = auth.currentUser;
-    if (user && !document.getElementById('confNombre').value) {
+    if (user && (!document.getElementById('confNombre').value || !document.getElementById('confCuit').value || !document.getElementById('confMatricula').value)) {
         try {
             const doc = await db.collection('perfiles').doc(user.uid).get();
             if (doc.exists) {
@@ -451,6 +466,8 @@ async function abrirConfiguracion() {
                 if (data.nombre) { document.getElementById('confNombre').value = data.nombre; localStorage.setItem('villaser_conf_nombre', data.nombre); }
                 if (data.slogan) { document.getElementById('confSlogan').value = data.slogan; localStorage.setItem('villaser_conf_slogan', data.slogan); }
                 if (data.telefono) { document.getElementById('confTelefono').value = data.telefono; localStorage.setItem('villaser_conf_telefono', data.telefono); }
+                if (data.cuit) { document.getElementById('confCuit').value = data.cuit; localStorage.setItem('villaser_conf_cuit', data.cuit); }
+                if (data.matricula) { document.getElementById('confMatricula').value = data.matricula; localStorage.setItem('villaser_conf_matricula', data.matricula); }
                 if (data.logo) {
                     logoPreview.src = data.logo;
                     logoPreview.style.display = 'block';
@@ -467,12 +484,15 @@ async function abrirConfiguracion() {
 function cerrarConfiguracion() {
     establecerModoEdicionPerfil(false);
     document.getElementById('modalConfig').classList.add('oculto');
+    document.body.style.overflow = '';
 }
 
 function guardarConfiguracion() {
     const nombre = document.getElementById('confNombre').value.trim();
     const slogan = document.getElementById('confSlogan').value.trim();
     const telefono = document.getElementById('confTelefono').value.trim();
+    const cuit = document.getElementById('confCuit').value.trim();
+    const matricula = document.getElementById('confMatricula').value.trim();
     const logoPreview = document.getElementById('logoPreview').src;
 
     const user = auth.currentUser;
@@ -484,6 +504,8 @@ function guardarConfiguracion() {
     localStorage.setItem('villaser_conf_nombre', nombre);
     localStorage.setItem('villaser_conf_slogan', slogan);
     localStorage.setItem('villaser_conf_telefono', telefono);
+    localStorage.setItem('villaser_conf_cuit', cuit);
+    localStorage.setItem('villaser_conf_matricula', matricula);
 
     // Actualizar en vivo el primer nombre en la barra superior
     const primerNombre = (nombre || 'Usuario').split(" ")[0];
@@ -493,7 +515,9 @@ function guardarConfiguracion() {
     const perfilData = {
         nombre: nombre,
         slogan: slogan,
-        telefono: telefono
+        telefono: telefono,
+        cuit: cuit,
+        matricula: matricula
     };
 
     if (logoPreview && logoPreview.startsWith('data:image')) {
@@ -501,7 +525,7 @@ function guardarConfiguracion() {
         perfilData.logo = logoPreview;
     }
 
-    // Volver a bloquear el perfil (botón regresa a "Editar"), cerrar config y mostrar éxito
+    // Volver a bloquear el perfil, cerrar config y mostrar éxito
     establecerModoEdicionPerfil(false);
     cerrarConfiguracion();
     document.getElementById('modalExitoCorp').classList.remove('oculto');
@@ -512,7 +536,7 @@ function guardarConfiguracion() {
         .catch((error) => {
             console.error("Error nube:", error);
         });
-}
+                    }
 
 function cerrarModalExitoCorp() {
     document.getElementById('modalExitoCorp').classList.add('oculto');
@@ -608,6 +632,8 @@ function cerrarSesion() {
     localStorage.removeItem('villaser_conf_nombre');
     localStorage.removeItem('villaser_conf_slogan');
     localStorage.removeItem('villaser_conf_telefono');
+    localStorage.removeItem('villaser_conf_cuit');
+    localStorage.removeItem('villaser_conf_matricula');
     localStorage.removeItem('villaser_conf_logo');
     
     auth.signOut().then(() => window.location.reload());
