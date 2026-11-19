@@ -152,62 +152,87 @@
         </div>
     </div>
 
-    <!-- MODAL DETALLES DEL CONTACTO -->
+        <!-- MODAL DETALLES DEL CONTACTO (CRM FULL-SCREEN EN MÓVIL) -->
     <div id="modalDetalle" class="modal-overlay oculto gpu-accel">
-        <div class="corp-modal-card" style="max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: flex-end; margin-bottom: -15px; position: relative; z-index: 2;">
-                <button onclick="cerrarModal('modalDetalle')" class="corp-btn-icon"><i class="fa-solid fa-xmark"></i></button>
-            </div>
+        <div class="corp-modal-card cliente-detail-shell">
             
-            <div style="text-align: center; margin-bottom: 20px;">
-                <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(35, 116, 225, 0.1); border: 2px solid var(--ngc-neon); display: inline-flex; justify-content: center; align-items: center; font-size: 2rem; color: var(--ngc-neon); margin-bottom: 10px; box-shadow: 0 0 15px rgba(35, 116, 225, 0.2);">
-                    <i class="fa-solid fa-user"></i>
-                </div>
-                <h3 id="detNombre" style="margin: 0; color: var(--ngc-text-main); font-size: 1.4rem; text-transform: uppercase;">Nombre</h3>
-                <p id="detCodigo" style="margin: 5px 0 0 0; font-size: 0.75rem; color: var(--ngc-text-faded); text-transform: uppercase; letter-spacing: 1px;">ID: </p>
-            </div>
-            
-            <div style="background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); border-radius: 12px; padding: 16px; margin-bottom: 18px; text-align: left;">
-                <p style="margin: 0 0 10px 0; font-size: 0.92rem; display: flex; gap: 10px; align-items: flex-start;">
-                    <i class="fa-solid fa-location-dot" style="color: var(--ngc-neon); width: 20px; text-align: center; font-size: 1.05rem; margin-top: 2px;"></i> 
-                    <span id="detDir" style="color: var(--ngc-text-main); word-break: break-word;">-</span>
-                </p>
-                <p style="margin: 0 0 10px 0; font-size: 0.92rem; display: flex; gap: 10px; align-items: center;">
-                    <i class="fa-solid fa-phone" style="color: var(--success-green); width: 20px; text-align: center; font-size: 1.05rem;"></i> 
-                    <span id="detTel" style="color: var(--ngc-text-main);">-</span>
-                </p>
-                <p style="margin: 0; font-size: 0.92rem; display: flex; gap: 10px; align-items: flex-start;">
-                    <i class="fa-solid fa-comment-dots" style="color: var(--ngc-warning); width: 20px; text-align: center; font-size: 1.05rem; margin-top: 2px;"></i> 
-                    <span id="detObs" style="color: var(--ngc-text-main); word-break: break-word;">-</span>
-                </p>
-                
-                <!-- BORRADORES SEGMENTADOS EN LA NUBE (JS inserta el HTML aquí) -->
-                <div id="detHistorial" style="margin-top: 15px; border-top: 1px dashed var(--ngc-privacy-border); padding-top: 15px;">
+            <!-- BARRA SUPERIOR FIJA -->
+            <div class="cliente-detail-header">
+                <button type="button" onclick="cerrarModal('modalDetalle')" class="corp-btn" style="width: auto; padding: 6px 12px; margin: 0; font-size: 0.82rem; background: transparent; border: 1px solid var(--ngc-privacy-border);">
+                    <i class="fa-solid fa-arrow-left"></i> Volver
+                </button>
+                <span class="cliente-header-title">Ficha de Cliente</span>
+                <div style="display: flex; gap: 6px;">
+                    <button type="button" onclick="abrirModalFormulario(true)" class="corp-btn-icon" title="Editar contacto" style="width: 36px; height: 36px;">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button type="button" onclick="eliminarContacto()" class="corp-btn-icon danger" title="Eliminar contacto" style="width: 36px; height: 36px;">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
                 </div>
             </div>
 
-            <!-- Botonera Principal -->
-            <div class="action-grid-main">
-                <button id="btnMap" class="corp-btn primary-action" onclick="abrirMaps()">
-                    <i class="fa-solid fa-map-location-dot"></i> Mapa
-                </button>
-                <button id="btnWts" class="corp-btn success-btn" onclick="abrirWhatsApp()">
-                    <i class="fa-brands fa-whatsapp"></i> WhatsApp
-                </button>
-            </div>
-            
-            <!-- Botonera Secundaria -->
-            <div class="action-grid-main">
-                <button class="corp-btn" onclick="abrirModalFormulario(true)">
-                    <i class="fa-solid fa-pen"></i> Editar
-                </button>
-                <button class="corp-btn danger-btn" onclick="eliminarContacto()">
-                    <i class="fa-solid fa-trash"></i> Eliminar
-                </button>
+            <!-- CUERPO CON SCROLL ÚNICO NATURAL -->
+            <div class="cliente-detail-body">
+                
+                <!-- CABECERA DEL CLIENTE -->
+                <div class="cliente-hero">
+                    <div class="cliente-avatar">
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+                    <h3 id="detNombre" style="margin: 0; color: var(--ngc-text-main); font-size: 1.35rem; line-height: 1.2;">Nombre</h3>
+                </div>
+
+                <!-- ACCIONES RÁPIDAS DIRECTAS (ABOVE THE FOLD) -->
+                <div class="cliente-quick-actions">
+                    <button type="button" id="btnWts" class="quick-action-pill" onclick="abrirWhatsApp()" style="border-color: rgba(37, 211, 102, 0.4);">
+                        <i class="fa-brands fa-whatsapp" style="color: #25D366;"></i>
+                        <span>WhatsApp</span>
+                    </button>
+                    <button type="button" id="btnCall" class="quick-action-pill" onclick="llamarContacto()" style="border-color: rgba(49, 162, 76, 0.4);">
+                        <i class="fa-solid fa-phone" style="color: var(--success-green);"></i>
+                        <span>Llamar</span>
+                    </button>
+                    <button type="button" id="btnMap" class="quick-action-pill" onclick="abrirMaps()" style="border-color: rgba(35, 116, 225, 0.4);">
+                        <i class="fa-solid fa-map-location-dot" style="color: var(--ngc-neon);"></i>
+                        <span>Mapa</span>
+                    </button>
+                </div>
+
+                <!-- DATOS DE CONTACTO -->
+                <div class="cliente-info-card">
+                    <div class="cliente-info-row">
+                        <i class="fa-solid fa-location-dot cliente-info-icon" style="color: var(--ngc-neon);"></i>
+                        <div style="flex: 1; min-width: 0;">
+                            <span class="cliente-info-label">Dirección</span>
+                            <span id="detDir" class="cliente-info-value">-</span>
+                        </div>
+                    </div>
+
+                    <div class="cliente-info-row">
+                        <i class="fa-solid fa-phone cliente-info-icon" style="color: var(--success-green);"></i>
+                        <div style="flex: 1; min-width: 0;">
+                            <span class="cliente-info-label">Teléfono</span>
+                            <span id="detTel" class="cliente-info-value">-</span>
+                        </div>
+                    </div>
+
+                    <div class="cliente-info-row">
+                        <i class="fa-solid fa-comment-dots cliente-info-icon" style="color: var(--ngc-warning);"></i>
+                        <div style="flex: 1; min-width: 0;">
+                            <span class="cliente-info-label">Observaciones</span>
+                            <span id="detObs" class="cliente-info-value">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BORRADORES SEGMENTADOS EN LA NUBE (SIN DOBLE SCROLL) -->
+                <div id="detHistorial"></div>
+
             </div>
         </div>
     </div>
-
+    
     <!-- ================================================== -->
     <!-- MODAL VISOR DE MAPA A PANTALLA COMPLETA (WEB)      -->
     <!-- ================================================== -->
