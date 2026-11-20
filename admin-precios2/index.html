@@ -1,0 +1,292 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Editor de Precios - Villaser</title>
+    
+    <!-- CSS Global de tu PWA -->
+    <link rel="stylesheet" href="../global.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="../firebase-config.js"></script>
+
+    <!-- Guardián de Seguridad (Solo Administrador) -->
+    <script>
+        const ADMIN_EMAIL = "contacto@villaser.com.ar";
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified || user.email !== ADMIN_EMAIL) {
+                window.location.replace('../index.html');
+            }
+        });
+    </script>
+</head>
+
+<body>
+
+    <!-- PANTALLA DE CARGA -->
+    <div id="loading" class="loading-screen">
+        <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2.5rem; color: var(--ngc-neon); margin-bottom: 15px;"></i>
+        <p style="color: var(--ngc-text-main); font-weight: 600;">Sincronizando Lista de Precios...</p>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div id="app" class="layout-wrapper oculto ap-main-container">
+        
+        <!-- APP BAR NATIVA DE 1 LÍNEA -->
+        <header class="ap-topbar">
+            <button type="button" class="ap-nav-btn" onclick="window.location.href='../index.html'">
+                <i class="fa-solid fa-arrow-left"></i> Inicio
+            </button>
+            <h1 class="ap-topbar-title">
+                <i class="fa-solid fa-tags" style="color: var(--ngc-neon);"></i> Editor de Precios
+            </h1>
+            <button type="button" class="ap-nav-btn icon-only" onclick="cargarDatosSheet()" title="Sincronizar planilla">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </header>
+
+        <!-- TARJETA 1: FILTRO COMPACTO (PÍLDORAS + SELECTOR DE RUBRO) -->
+        <div class="corp-card gpu-accel" style="margin-bottom: 12px;">
+            <div class="ap-section-label">
+                <span>1. Columna a editar</span>
+                <span style="color: var(--ngc-neon);"><i class="fa-solid fa-arrows-left-right"></i> Deslizá</span>
+            </div>
+            
+            <!-- Píldoras horizontales exclusivas -->
+            <div id="contenedorColumnas" class="ap-chips-scroll"></div>
+
+            <!-- Selector de Tema / Rubro -->
+            <div class="ap-section-label" style="margin-top: 4px;">
+                <span>2. Tema / Rubro</span>
+                <span id="totalTemasLabel"></span>
+            </div>
+            <button type="button" id="btnAbrirSelectorTema" class="ap-tema-trigger placeholder" onclick="abrirModalTemas('filtro')">
+                <span id="textoTemaSeleccionado">Seleccionar tema o rubro...</span>
+                <i class="fa-solid fa-chevron-down" style="color: var(--ngc-text-faded);"></i>
+            </button>
+            <input type="hidden" id="selTema" value="">
+        </div>
+
+        <!-- TARJETA 2: LISTADO DE CONCEPTOS -->
+        <div id="cardResultados" class="corp-card gpu-accel oculto">
+            <div class="ap-toolbar-resultados">
+                <div class="ap-resultados-header">
+                    <h4 class="corp-card-title" style="margin: 0;">
+                        Conceptos (<span id="contadorConceptos">0</span>)
+                    </h4>
+                    <span id="badgeColumnaActiva" class="ap-badge-campo">Importe Neto</span>
+                </div>
+
+                <!-- Buscador rápido dentro del rubro -->
+                <div class="ap-search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="filtroConceptoInput" class="corp-input" placeholder="Filtrar concepto o código..." oninput="filtrarConceptosVisibles()">
+                </div>
+
+                <!-- Herramienta de ajuste masivo % (visible solo al editar columnas numéricas) -->
+                <div id="boxAjusteMasivo" class="ap-bulk-box oculto">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--ngc-warning);">
+                            <i class="fa-solid fa-percent"></i> Ajuste masivo al rubro
+                        </span>
+                        <div style="display: flex; gap: 5px;">
+                            <button type="button" class="ap-bulk-quick" onclick="aplicarPorcentajeMasivo(5)">+5%</button>
+                            <button type="button" class="ap-bulk-quick" onclick="aplicarPorcentajeMasivo(10)">+10%</button>
+                            <button type="button" class="ap-bulk-quick" onclick="aplicarPorcentajeMasivo(15)">+15%</button>
+                        </div>
+                    </div>
+                    <div class="ap-bulk-row">
+                        <input type="number" id="inputPorcentajeCustom" class="corp-input" inputmode="decimal" placeholder="Ej: 12 o -5" style="height: 36px; font-size: 0.85rem;">
+                        <button type="button" class="ap-bulk-apply" onclick="aplicarPorcentajeCustom()">Aplicar %</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="listaConceptos"></div>
+        </div>
+
+    </div>
+
+    <!-- BARRA INFERIOR FIJA (THUMB ZONE) -->
+    <div id="stickyActionBar" class="ap-sticky-bar oculto">
+        <div class="ap-sticky-inner">
+            <button type="button" id="btnCancelarEdicion" class="ap-btn-cancel oculto" onclick="cancelarModoEdicion()">
+                Cancelar
+            </button>
+            <button type="button" id="btnEditarGuardar" class="ap-btn-primary oculto" onclick="manejarBotonEditarGuardar()">
+                <i class="fa-solid fa-pen-to-square"></i> Editar valores
+            </button>
+            <button type="button" id="btnNuevoConcepto" class="ap-btn-new-trigger" onclick="abrirModalNuevo()">
+                <i class="fa-solid fa-plus"></i> Nuevo
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL SELECTOR DE TEMA / RUBRO CON BUSCADOR                           -->
+    <!-- ===================================================================== -->
+    <div id="modalSelectorTema" class="modal-overlay oculto gpu-accel">
+        <div class="ap-sheet-shell">
+            <div class="ap-sheet-header">
+                <h3 style="margin: 0; font-size: 1rem; color: var(--ngc-text-main);">
+                    <i class="fa-solid fa-folder-open" style="color: var(--ngc-neon);"></i> Elegir Tema / Rubro
+                </h3>
+                <button type="button" class="ap-nav-btn icon-only" onclick="cerrarModalTemas()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div style="padding: 12px 16px 6px 16px; flex-shrink: 0;">
+                <div class="ap-search-box">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="buscadorTemaModal" class="corp-input" placeholder="Buscar rubro (ej: Acometida, Tablero)..." oninput="renderizarListaTemasModal()">
+                </div>
+            </div>
+            <div id="contenedorListaTemasModal" class="ap-sheet-body"></div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL: NUEVO TEMA O NUEVO CONCEPTO (FULLSCREEN MÓVIL)                 -->
+    <!-- ===================================================================== -->
+    <div id="modalNuevo" class="modal-overlay oculto gpu-accel">
+        <div class="ap-sheet-shell">
+            <div class="ap-sheet-header">
+                <h3 style="margin: 0; font-size: 1rem; color: var(--ngc-text-main);">
+                    <i class="fa-solid fa-circle-plus" style="color: var(--success-green);"></i> Nuevo Ítem en Planilla
+                </h3>
+                <button type="button" class="ap-nav-btn icon-only" onclick="cerrarModalNuevo()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="ap-sheet-body">
+                <!-- PASO 1: ¿TEMA EXISTENTE O NUEVO? -->
+                <div class="row-group">
+                    <label style="color: var(--ngc-warning); font-weight: 700;">¿El Tema ya existe en la planilla?</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px;">
+                        <button type="button" id="btnTemaExistente" class="corp-btn" onclick="seleccionarTipoTema(true)">
+                            <i class="fa-solid fa-check"></i> Sí, ya existe
+                        </button>
+                        <button type="button" id="btnTemaNuevo" class="corp-btn" onclick="seleccionarTipoTema(false)">
+                            <i class="fa-solid fa-plus"></i> No, tema nuevo
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BLOQUE TEMA EXISTENTE -->
+                <div id="bloqueTemaExistente" class="row-group">
+                    <label>Tema / Rubro Existente (Col C) *</label>
+                    <button type="button" id="btnSelectTemaNuevoModal" class="ap-tema-trigger placeholder" onclick="abrirModalTemas('nuevo')">
+                        <span id="textoTemaNuevoModal">Seleccionar tema existente...</span>
+                        <i class="fa-solid fa-chevron-down" style="color: var(--ngc-text-faded);"></i>
+                    </button>
+                    <input type="hidden" id="inputNuevoTemaSelect" value="">
+                </div>
+
+                <!-- BLOQUE TEMA NUEVO -->
+                <div id="bloqueTemaNuevo" class="row-group oculto">
+                    <label>Nombre del Nuevo Tema (Col C) *</label>
+                    <input type="text" id="inputNuevoTemaTexto" class="corp-input" placeholder="Ej: AUTOMATIZACIÓN Y DOMÓTICA" oninput="calcularCodigoCorrelativo()">
+                </div>
+
+                <!-- CÓDIGO CORRELATIVO AUTOMÁTICO -->
+                <div class="row-group">
+                    <label>Código Correlativo Automático (Col A)</label>
+                    <input type="text" id="newCodigo" class="corp-input" style="font-weight: 700; color: var(--ngc-neon);" placeholder="Se genera al elegir tema...">
+                    <small id="ayudaCodigo" style="color: var(--ngc-text-faded); font-size: 0.72rem; display: block; margin-top: 3px;"></small>
+                </div>
+
+                <!-- CONCEPTO PRINCIPAL -->
+                <div class="row-group">
+                    <label>Concepto / Descripción del Trabajo (Col D) *</label>
+                    <textarea id="newConcepto" class="corp-input" rows="2" placeholder="Ej: Instalación de interruptor inteligente WiFi"></textarea>
+                </div>
+
+                <!-- IMPORTE Y HORAS (CAMPOS PRINCIPALES) -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="row-group" style="margin-bottom: 0;">
+                        <label>Importe Neto $ (Col E)</label>
+                        <input type="number" id="newImporte" class="corp-input" inputmode="decimal" placeholder="0">
+                    </div>
+                    <div class="row-group" style="margin-bottom: 0;">
+                        <label>Minutos / Horas (Col G)</label>
+                        <input type="number" id="newHoras" class="corp-input" inputmode="numeric" placeholder="Ej: 60">
+                    </div>
+                </div>
+
+                <!-- CAMPOS OPCIONALES / AVANZADOS PLEGABLES -->
+                <details class="ap-advanced-details">
+                    <summary>
+                        <span><i class="fa-solid fa-sliders"></i> Campos adicionales (Notas, Fuentes, Mostrar)</span>
+                        <i class="fa-solid fa-chevron-down"></i>
+                    </summary>
+                    <div style="margin-top: 12px;">
+                        <div class="row-group">
+                            <label>Notas Aclaratorias en Presupuesto (Col K)</label>
+                            <textarea id="newNotasPresupuesto" class="corp-input" rows="2" placeholder="Texto visible en PDF..."></textarea>
+                        </div>
+
+                        <div class="row-group">
+                            <label>Notas Aclaratorias Internas (Col F)</label>
+                            <textarea id="newNotas" class="corp-input" rows="2" placeholder="Notas técnicas internas..."></textarea>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="row-group">
+                                <label>Fuentes (Col B)</label>
+                                <input type="text" id="newFuentes" class="corp-input" placeholder="Ej: AEA / Propia">
+                            </div>
+                            <div class="row-group">
+                                <label>Código 2 (Col H)</label>
+                                <input type="text" id="newCodigo2" class="corp-input" placeholder="Opcional">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="row-group">
+                                <label>Portabilidad (Col I)</label>
+                                <input type="text" id="newPortabilidad" class="corp-input" placeholder="Opcional">
+                            </div>
+                            <div class="row-group">
+                                <label>Amp. Portabilidad (Col J)</label>
+                                <input type="text" id="newAmpPortabilidad" class="corp-input" placeholder="Opcional">
+                            </div>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0;">
+                            <div class="row-group" style="margin-bottom: 0;">
+                                <label>Organización (Col L)</label>
+                                <input type="text" id="newOrganizacion" class="corp-input" placeholder="Ej: Villaser">
+                            </div>
+                            <div class="row-group" style="margin-bottom: 0;">
+                                <label>Mostrar (Col M)</label>
+                                <input type="text" id="newMostrar" class="corp-input" value="SI">
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="ap-sheet-footer">
+                <button type="button" class="ap-btn-cancel" style="flex: 1;" onclick="cerrarModalNuevo()">Cancelar</button>
+                <button type="button" id="btnGuardarNuevo" class="ap-btn-primary saving-state" style="flex: 2;" onclick="guardarNuevoRegistro()">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar en Planilla
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST / CARTEL FLOTANTE DE NOTIFICACIÓN -->
+    <div id="toastNotificacion" class="toast-corp oculto">
+        <i id="toastIcon" class="fa-solid fa-check-circle"></i>
+        <div>
+            <strong id="toastTitle" style="display: block; font-size: 0.85rem;">Listo</strong>
+            <span id="toastMessage" style="font-size: 0.78rem; color: var(--ngc-text-faded);"></span>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+  </html>
