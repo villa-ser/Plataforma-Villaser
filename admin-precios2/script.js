@@ -10,8 +10,8 @@ const API_SECRET_TOKEN = 'VILLASER_ADMIN_2026_X99';
 const COLUMNAS_EDITABLES = [
     { key: 'importeNeto', label: 'Importe Neto', sheetCol: 'Importe Neto', tipo: 'number', esMoneda: true },
     { key: 'horas', label: 'Horas / Min', sheetCol: 'Horas', tipo: 'number', esMoneda: false },
-    { key: 'notasPresupuesto', label: 'Notas Presupuesto', sheetCol: 'Notas Aclaratorias en presupuesto', tipo: 'text', esMoneda: false },
-    { key: 'notasAclaratorias', label: 'Notas Internas', sheetCol: 'Notas Aclaratorias', tipo: 'text', esMoneda: false },
+    { key: 'notasPresupuesto', label: 'Notas internas', sheetCol: 'Notas Aclaratorias en presupuesto', tipo: 'text', esMoneda: false },
+    { key: 'notasAclaratorias', label: 'Notas Aclaratorias', sheetCol: 'Notas Aclaratorias', tipo: 'text', esMoneda: false },
     { key: 'mostrar', label: 'Mostrar', sheetCol: 'Mostrar', tipo: 'text', esMoneda: false },
     { key: 'fuentes', label: 'Fuentes', sheetCol: 'Fuentes', tipo: 'text', esMoneda: false },
     { key: 'codigo', label: 'Código', sheetCol: 'Codigo', tipo: 'text', esMoneda: false },
