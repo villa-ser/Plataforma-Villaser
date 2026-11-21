@@ -8,17 +8,17 @@ const URL_APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbxzv9WJgbiL3kLa
 const API_SECRET_TOKEN = 'VILLASER_ADMIN_2026_X99';
 
 const COLUMNAS_EDITABLES = [
-    { key: 'importeNeto', label: 'Importe Neto', sheetCol: 'Importe Neto', tipo: 'number', esMoneda: true },
-    { key: 'horas', label: 'Horas / Min', sheetCol: 'Horas', tipo: 'number', esMoneda: false },
-    { key: 'notasPresupuesto', label: 'Notas internas', sheetCol: 'Notas Aclaratorias en presupuesto', tipo: 'text', esMoneda: false },
-    { key: 'notasAclaratorias', label: 'Notas Aclaratorias', sheetCol: 'Notas Aclaratorias', tipo: 'text', esMoneda: false },
-    { key: 'mostrar', label: 'Mostrar', sheetCol: 'Mostrar', tipo: 'text', esMoneda: false },
-    { key: 'fuentes', label: 'Fuentes', sheetCol: 'Fuentes', tipo: 'text', esMoneda: false },
-    { key: 'codigo', label: 'Código', sheetCol: 'Codigo', tipo: 'text', esMoneda: false },
-    { key: 'codigo2', label: 'Código 2', sheetCol: 'Codigo 2', tipo: 'text', esMoneda: false },
-    { key: 'portabilidad', label: 'Portabilidad', sheetCol: 'Portabilidad', tipo: 'text', esMoneda: false },
-    { key: 'ampliacionPortabilidad', label: 'Amp. Portab.', sheetCol: 'Ampliacion Portabilidad', tipo: 'text', esMoneda: false },
-    { key: 'organizacion', label: 'Organización', sheetCol: 'Organizacion', tipo: 'text', esMoneda: false }
+    { key: 'importeNeto', label: 'Importe Neto', sheetCol: 'Importe Neto', colIndex: 5, tipo: 'number', esMoneda: true },
+    { key: 'horas', label: 'Horas / Min', sheetCol: 'Horas', colIndex: 7, tipo: 'number', esMoneda: false },
+    { key: 'notasPresupuesto', label: 'Notas Internas', sheetCol: 'Notas Aclaratorias en presupuesto', colIndex: 11, tipo: 'text', esMoneda: false },
+    { key: 'notasAclaratorias', label: 'Notas Presupuesto', sheetCol: 'Notas Aclaratorias', colIndex: 6, tipo: 'text', esMoneda: false },
+    { key: 'mostrar', label: 'Mostrar', sheetCol: 'Mostrar', colIndex: 13, tipo: 'text', esMoneda: false },
+    { key: 'fuentes', label: 'Fuentes', sheetCol: 'Fuentes', colIndex: 2, tipo: 'text', esMoneda: false },
+    { key: 'codigo', label: 'Código', sheetCol: 'Codigo', colIndex: 1, tipo: 'text', esMoneda: false },
+    { key: 'codigo2', label: 'Código 2', sheetCol: 'Codigo 2', colIndex: 8, tipo: 'text', esMoneda: false },
+    { key: 'portabilidad', label: 'Portabilidad', sheetCol: 'Portabilidad', colIndex: 9, tipo: 'text', esMoneda: false },
+    { key: 'ampliacionPortabilidad', label: 'Amp. Portab.', sheetCol: 'Ampliacion Portabilidad', colIndex: 10, tipo: 'text', esMoneda: false },
+    { key: 'organizacion', label: 'Organización', sheetCol: 'Organizacion', colIndex: 12, tipo: 'text', esMoneda: false }
 ];
 
 let dbDatos = [];
@@ -59,7 +59,7 @@ function renderizarChipsColumnas() {
         btn.addEventListener('click', () => {
             if (columnaSeleccionada.key === col.key) return;
 
-            cont.querySelectorAll('.ap-chip').forEach((c, idx) => {
+            cont.querySelectorAll('.ap-chip').forEach(c => {
                 c.classList.remove('active');
                 const icon = c.querySelector('i');
                 if (icon) icon.className = 'fa-solid fa-tag';
@@ -262,7 +262,6 @@ function renderizarConceptosPorTema() {
         card.className = 'concepto-edit-card';
         card.dataset.searchText = `${item.concepto} ${item.codigo}`.toLowerCase();
 
-        // Header de tarjeta
         const header = document.createElement('div');
         header.className = 'concepto-edit-header';
 
@@ -277,12 +276,10 @@ function renderizarConceptosPorTema() {
         header.appendChild(spanTitulo);
         header.appendChild(spanCod);
 
-        // Caja de lectura formateada
         const lecturaDiv = document.createElement('div');
         lecturaDiv.className = 'ap-valor-lectura' + (valorActual === '' ? ' vacio' : '');
         lecturaDiv.textContent = formatearValorLectura(valorActual);
 
-        // Contenedor de edición (oculto hasta tocar Editar)
         const editWrap = document.createElement('div');
         editWrap.className = 'ap-edit-wrap oculto';
 
@@ -294,6 +291,9 @@ function renderizarConceptosPorTema() {
         }
         input.className = 'corp-input input-editable';
         input.dataset.row = item.rowNumber;
+        input.dataset.codigo = item.codigo || '';
+        input.dataset.tema = item.tema || '';
+        input.dataset.concepto = item.concepto || '';
         input.dataset.original = String(valorActual);
         input.value = String(valorActual);
 
@@ -389,7 +389,7 @@ function aplicarPorcentajeMasivo(porcentaje) {
     let afectados = 0;
 
     document.querySelectorAll('#listaConceptos .concepto-edit-card').forEach(card => {
-        if (card.style.display === 'none') return; // Respeta el filtro si está activo
+        if (card.style.display === 'none') return;
         const inp = card.querySelector('.input-editable');
         const diffHint = card.querySelector('.ap-diff-hint');
         const valActual = parseFloat(inp.value);
@@ -421,7 +421,7 @@ function aplicarPorcentajeCustom() {
 }
 
 // ============================================================================
-// 6. GUARDADO EN GOOGLE SHEETS (SIN ALERTAS NATIVAS)
+// 6. GUARDADO EN GOOGLE SHEETS (CON IDENTIFICACIÓN EXACTA DE FILA Y COLUMNA)
 // ============================================================================
 async function manejarBotonEditarGuardar() {
     const cards = document.querySelectorAll('#listaConceptos .concepto-edit-card');
@@ -454,6 +454,9 @@ async function manejarBotonEditarGuardar() {
         if (valorNuevo !== valorOriginal) {
             cambios.push({
                 rowNumber: parseInt(inp.dataset.row, 10),
+                codigo: inp.dataset.codigo,
+                tema: inp.dataset.tema,
+                concepto: inp.dataset.concepto,
                 valor: columnaSeleccionada.tipo === 'number' && valorNuevo !== '' ? Number(valorNuevo) : valorNuevo
             });
         }
@@ -472,39 +475,49 @@ async function manejarBotonEditarGuardar() {
 
     try {
         const user = firebase.auth().currentUser;
-        const emailActual = user ? user.email : 'contacto@villaser.com.ar';
+        const emailActual = (user && user.email) ? user.email.trim().toLowerCase() : 'contacto@villaser.com.ar';
 
         const respuesta = await fetch(URL_APPS_SCRIPT, {
             method: 'POST',
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 token: API_SECRET_TOKEN,
                 userEmail: emailActual,
                 action: 'updateColumn',
                 columna: columnaSeleccionada.sheetCol,
+                colIndex: columnaSeleccionada.colIndex,
                 cambios: cambios
             })
         });
 
-        const resultado = await respuesta.json();
+        const textoRespuesta = await respuesta.text();
+        let resultado;
+        try {
+            resultado = JSON.parse(textoRespuesta);
+        } catch (parseErr) {
+            throw new Error('Respuesta inesperada de Google Apps Script. Verificá que la implementación tenga acceso "Cualquier usuario".');
+        }
+
         if (resultado.status !== 'success') {
-            mostrarToast('Error en Google Sheets', resultado.message || 'No se pudo actualizar.');
+            alert('Error desde Google Sheets: ' + (resultado.message || 'No se pudo actualizar.'));
             actualizarBarraInferior();
             return;
         }
 
         // Actualizar memoria local y volver a vista de lectura limpia
         cambios.forEach(c => {
-            const reg = dbDatos.find(d => d.rowNumber === c.rowNumber);
+            const reg = dbDatos.find(d => d.rowNumber === c.rowNumber && d.concepto === c.concepto);
             if (reg) reg[columnaSeleccionada.key] = String(c.valor);
         });
 
         renderizarConceptosPorTema();
-        mostrarToast('Lista de precios actualizada', `Se guardaron ${cambios.length} registro(s) en Google Sheets.`);
+        const cantReal = resultado.actualizados || cambios.length;
+        mostrarToast('Lista de precios actualizada', `Se guardaron ${cantReal} registro(s) en Google Sheets.`);
 
     } catch (e) {
-        console.error(e);
-        mostrarToast('Error de conexión', 'Verificá tu señal e intentá nuevamente.');
+        console.error('Error guardando en Google Sheets:', e);
+        alert('No se pudo guardar en Google Sheets: ' + e.message);
         actualizarBarraInferior();
     } finally {
         btn.disabled = false;
@@ -673,10 +686,11 @@ async function guardarNuevoRegistro() {
 
     try {
         const user = firebase.auth().currentUser;
-        const emailActual = user ? user.email : 'contacto@villaser.com.ar';
+        const emailActual = (user && user.email) ? user.email.trim().toLowerCase() : 'contacto@villaser.com.ar';
 
         const respuesta = await fetch(URL_APPS_SCRIPT, {
             method: 'POST',
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
                 token: API_SECRET_TOKEN,
@@ -686,9 +700,16 @@ async function guardarNuevoRegistro() {
             })
         });
 
-        const resultado = await respuesta.json();
+        const textoRespuesta = await respuesta.text();
+        let resultado;
+        try {
+            resultado = JSON.parse(textoRespuesta);
+        } catch (parseErr) {
+            throw new Error('Respuesta inesperada de Google Apps Script.');
+        }
+
         if (resultado.status !== 'success') {
-            mostrarToast('Error en Google Sheets', resultado.message || 'No se pudo guardar.');
+            alert('Error desde Google Sheets: ' + (resultado.message || 'No se pudo guardar.'));
             return;
         }
 
@@ -702,8 +723,8 @@ async function guardarNuevoRegistro() {
         setTimeout(() => cargarDatosSheet(), 900);
 
     } catch (e) {
-        console.error(e);
-        mostrarToast('Error de conexión', 'No se pudo guardar el nuevo registro.');
+        console.error('Error guardando nuevo registro:', e);
+        alert('Error al guardar el nuevo registro: ' + e.message);
     } finally {
         btn.disabled = false;
         btn.innerHTML = htmlOriginal;
