@@ -975,6 +975,19 @@ details[open] summary .acc-icon-indicator {
 /* ESTILOS PARA CALCULADORAS ELÉCTRICAS UNIFICADAS                */
 /* ============================================================== */
 
+html.modo-modal-embebido .corp-bottom-nav {
+    display: none !important;
+}
+html.modo-modal-embebido .corp-top-nav a,
+html.modo-modal-embebido .corp-top-nav button[onclick*="index.html"] {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+html.modo-modal-embebido .layout-wrapper,
+html.modo-modal-embebido main.container {
+    padding-bottom: 16px !important;
+}
+
 .nav-calc-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -982,18 +995,18 @@ details[open] summary .acc-icon-indicator {
 }
 
 .nav-calc-btn {
-    padding: 10px 4px;
+    padding: 9px 4px;
     font-size: 0.72rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
     border-radius: 8px;
 }
 
 .nav-calc-btn i {
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 .modo-activo { 
@@ -1003,6 +1016,7 @@ details[open] summary .acc-icon-indicator {
 }
 
 .calc-box {
+    position: relative;
     background: var(--ngc-bg-input);
     border: 1px solid var(--ngc-privacy-border);
     border-radius: 8px;
@@ -1021,7 +1035,30 @@ details[open] summary .acc-icon-indicator {
 
 .calc-box.solved {
     border-color: var(--success-green);
-    box-shadow: 0 0 0 2px rgba(49, 162, 76, 0.18);
+    background: rgba(49, 162, 76, 0.08);
+    box-shadow: 0 0 0 2px rgba(49, 162, 76, 0.16);
+}
+
+.calc-box-tag {
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    font-size: 0.56rem;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.calc-box-tag.dato {
+    background: rgba(35, 116, 225, 0.18);
+    color: var(--ngc-neon);
+}
+
+.calc-box-tag.calc {
+    background: rgba(49, 162, 76, 0.2);
+    color: var(--success-green);
 }
 
 .calc-box label {
@@ -1046,17 +1083,47 @@ details[open] summary .acc-icon-indicator {
 
 .results-banner {
     background: var(--ngc-bg-input);
-    padding: 12px 10px;
+    padding: 10px 8px;
     border-radius: 8px;
     border: 1px solid var(--ngc-privacy-border);
     text-align: center;
+}
+
+.calc-status-pill {
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-bg-input);
+    color: var(--ngc-text-faded);
+    line-height: 1.35;
+    text-align: center;
+}
+
+.calc-status-pill.ok {
+    border-color: rgba(49, 162, 76, 0.45);
+    background: rgba(49, 162, 76, 0.12);
+    color: var(--success-green);
+}
+
+.calc-status-pill.warn {
+    border-color: rgba(245, 195, 59, 0.5);
+    background: rgba(245, 195, 59, 0.12);
+    color: var(--ngc-warning);
+}
+
+.calc-status-pill.err {
+    border-color: rgba(228, 30, 63, 0.5);
+    background: rgba(228, 30, 63, 0.12);
+    color: var(--error-red);
 }
 
 .formula-box {
     background: var(--ngc-bg-input);
     border: 1px dashed var(--ngc-privacy-border);
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: 9px 11px;
     font-size: 0.78rem;
     color: var(--ngc-text-main);
     line-height: 1.45;
@@ -1075,6 +1142,8 @@ details[open] summary .acc-icon-indicator {
 .circuits-list {
     max-height: 135px;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     background: var(--ngc-bg-input);
     border: 1px solid var(--ngc-privacy-border);
     border-radius: 8px;
@@ -1114,6 +1183,17 @@ details[open] summary .acc-icon-indicator {
     border: 1px solid var(--ngc-neon);
 }
 
+.calc-dup-btn {
+    background: rgba(35, 116, 225, 0.14);
+    border: 1px solid rgba(35, 116, 225, 0.35);
+    color: var(--ngc-neon);
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
 .ref-table {
     width: 100%;
     border-collapse: collapse;
@@ -1131,28 +1211,78 @@ details[open] summary .acc-icon-indicator {
     color: var(--ngc-text-faded);
 }
 
+/* Barra de accesos rápidos y teclado táctico */
+.calc-pad-wrapper {
+    background: var(--ngc-glass);
+    border: var(--ngc-border-glass);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.calc-pad-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.calc-quick-strip {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+}
+
+.calc-quick-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.calc-quick-chip {
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 7px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-bg-input);
+    color: var(--ngc-text-main);
+    font-size: 0.74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+
+.calc-quick-chip:active {
+    transform: scale(0.95);
+    border-color: var(--ngc-neon);
+    color: var(--ngc-neon);
+}
+
 .teclado-grid {
     display: grid; 
     grid-template-columns: repeat(4, 1fr); 
-    gap: 8px; 
-    margin-top: 4px;
+    gap: 7px; 
 }
 
 .teclado-grid .corp-btn {
-    padding: 15px 10px;
+    padding: 13px 8px;
     font-size: 1.15rem;
 }
 
 .export-actions {
-    display: flex;
-    gap: 8px;
-    margin-top: 4px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    margin-top: 2px;
 }
 
 .export-actions .corp-btn {
-    flex: 1;
-    font-size: 0.78rem;
-    padding: 10px 8px;
+    font-size: 0.75rem;
+    padding: 10px 6px;
+    gap: 5px;
 }
 
 .sub-cat-grid {
@@ -1168,6 +1298,42 @@ details[open] summary .acc-icon-indicator {
 .sub-cat-grid.cols-1 {
     grid-template-columns: 1fr;
 }
+
+.calc-helper-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.74rem;
+}
+
+.calc-mini-pills {
+    display: flex;
+    gap: 4px;
+}
+
+.calc-mini-pill {
+    padding: 4px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-glass);
+    color: var(--ngc-text-faded);
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.calc-mini-pill.active {
+    background: var(--ngc-neon);
+    border-color: var(--ngc-neon);
+    color: #ffffff;
+}
+
 
 /* ============================================================== */
 /* LISTA DE SUGERENCIAS - BÚSQUEDA AVANZADA (MÓDULO COSTOS)       */
