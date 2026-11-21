@@ -2048,3 +2048,167 @@ details[open] summary .acc-icon-indicator {
     }
     }
     
+/* ============================================================== */
+/* MEJORAS DE INTERFAZ MÓDULO PRESUPUESTOS (AISLADAS .pres-*)     */
+/* ============================================================== */
+.pres-card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.pres-btn-manual {
+    background: rgba(245, 195, 59, 0.14);
+    color: var(--ngc-warning);
+    border: 1px solid rgba(245, 195, 59, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+.pres-select-search-wrap {
+    position: sticky;
+    top: -6px;
+    background: var(--bg-body);
+    padding: 4px 0 6px 0;
+    z-index: 2;
+    border-bottom: 1px solid var(--ngc-privacy-border);
+    margin-bottom: 4px;
+}
+
+.pres-select-search {
+    padding: 9px 10px !important;
+    font-size: 0.82rem !important;
+}
+
+.pres-select-empty {
+    padding: 12px;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--ngc-text-faded);
+}
+
+.pres-line-preview {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--ngc-text-faded);
+    font-weight: 600;
+    margin-top: 2px;
+}
+
+.pres-metrics-box {
+    text-align: right;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    background: var(--ngc-bg-input);
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    flex-shrink: 0;
+}
+
+.pres-btn-edit-client {
+    margin-top: 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+    border: 1px solid rgba(35, 116, 225, 0.35);
+    padding: 5px 10px;
+    font-size: 0.75rem;
+}
+
+.pres-item-actions-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.pres-mini-act {
+    background: var(--ngc-btn-bg);
+    border: 1px solid var(--ngc-privacy-border);
+    color: var(--ngc-text-main);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.pres-mini-act:active {
+    transform: scale(0.96);
+}
+
+.pres-subtotals-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ngc-text-faded);
+    background: var(--ngc-glass);
+    border-radius: 6px;
+    border: 1px solid var(--ngc-privacy-border);
+}
+
+.pres-modal-total-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    color: var(--ngc-text-main);
+}
+
+.pres-modal-total-bar strong {
+    color: var(--ngc-neon);
+    font-size: 1.05rem;
+}
+
+.pres-cloud-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--ngc-privacy-border);
+}
+
+.pres-cloud-pill.local {
+    background: rgba(176, 179, 184, 0.12);
+    color: var(--ngc-text-faded);
+}
+
+.pres-cloud-pill.ready {
+    background: rgba(35, 116, 225, 0.12);
+    color: var(--ngc-neon);
+    border-color: rgba(35, 116, 225, 0.35);
+}
+
+.pres-cloud-pill.syncing {
+    background: rgba(245, 195, 59, 0.14);
+    color: var(--ngc-warning);
+    border-color: rgba(245, 195, 59, 0.4);
+}
+
+.pres-cloud-pill.synced {
+    background: rgba(49, 162, 76, 0.14);
+    color: var(--success-green);
+    border-color: rgba(49, 162, 76, 0.4);
+}
