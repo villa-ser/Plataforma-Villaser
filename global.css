@@ -2481,3 +2481,185 @@ details[open] summary .acc-icon-indicator {
     break-inside: avoid;
     page-break-inside: avoid;
                        }
+
+/* ============================================================== */
+/* ESTILOS MÓDULO CATÁLOGOS (.cat-*)                              */
+/* ============================================================== */
+.cat-header-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cat-count-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+    white-space: nowrap;
+}
+
+.cat-recents-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+.cat-recents-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.cat-recent-pill {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    color: var(--ngc-text-main);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s ease;
+}
+.cat-recent-pill:active {
+    transform: scale(0.97);
+}
+
+.cat-group-card {
+    padding: 14px 12px;
+}
+
+.cat-group-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.cat-group-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cat-group-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    color: var(--ngc-text-faded);
+}
+
+.cat-items-stack {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cat-sub-acc {
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 12px;
+}
+.cat-sub-acc[open] {
+    border-color: var(--ngc-neon);
+}
+
+.cat-sub-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.cat-sub-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ngc-text-main);
+    font-weight: 600;
+    font-size: 0.92rem;
+    min-width: 0;
+}
+
+.cat-sub-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cat-sub-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.cat-star-btn {
+    background: transparent;
+    border: none;
+    color: var(--ngc-text-faded);
+    font-size: 0.95rem;
+    padding: 4px;
+    cursor: pointer;
+    line-height: 1;
+}
+.cat-star-btn.active {
+    color: var(--ngc-warning);
+}
+
+.cat-tag-pending {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(245, 195, 59, 0.14);
+    color: var(--ngc-warning);
+    border: 1px solid rgba(245, 195, 59, 0.35);
+}
+
+.cat-sub-body {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--ngc-privacy-border);
+}
+
+.cat-desc {
+    font-size: 0.84rem;
+    color: var(--ngc-text-faded);
+    line-height: 1.45;
+    margin-bottom: 12px;
+}
+
+.cat-actions-grid {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr auto;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.cat-actions-grid .corp-btn {
+    padding: 11px 10px;
+    font-size: 0.84rem;
+    text-decoration: none;
+}
+
+.cat-share-btn {
+    width: 44px !important;
+    padding: 0 !important;
+    background: var(--ngc-glass) !important;
+    border: 1px solid var(--ngc-privacy-border) !important;
+}
