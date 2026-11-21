@@ -2212,3 +2212,272 @@ details[open] summary .acc-icon-indicator {
     color: var(--success-green);
     border-color: rgba(49, 162, 76, 0.4);
 }
+
+/* ============================================================== */
+/* MÓDULO POTENCIA: CARGA Y CIRCUITOS (.pot-*)                    */
+/* ============================================================== */
+.pot-project-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    background: var(--ngc-glass);
+    border: var(--ngc-border-glass);
+    border-left: 4px solid var(--ngc-neon);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 3px var(--card-shadow);
+}
+.pot-project-info {
+    flex: 1;
+    min-width: 0;
+}
+.pot-project-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ngc-text-main);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pot-project-sub {
+    font-size: 0.76rem;
+    color: var(--ngc-text-faded);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pot-project-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.pot-bocas-panel {
+    background: rgba(35, 116, 225, 0.05);
+    border: 1px dashed rgba(35, 116, 225, 0.35);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.pot-bocas-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.pot-boca-box {
+    background: var(--ngc-glass);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 8px;
+}
+.pot-boca-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--ngc-neon);
+    text-align: center;
+    margin-bottom: 6px;
+    display: block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.pot-stepper-compact {
+    height: 38px !important;
+    border-radius: 6px !important;
+}
+.pot-stepper-compact .btn-step {
+    width: 34px !important;
+    font-size: 1.1rem !important;
+    color: var(--ngc-warning) !important;
+    flex-shrink: 0;
+}
+.pot-esp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.pot-esp-row {
+    display: grid;
+    grid-template-columns: 104px 1fr 1fr;
+    gap: 6px;
+    align-items: center;
+    background: var(--ngc-glass);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 7px;
+}
+.pot-esp-row.has-delete {
+    grid-template-columns: 100px 1fr 1fr 28px;
+}
+.pot-esp-del {
+    width: 28px;
+    height: 34px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(228, 30, 63, 0.12);
+    color: var(--error-red);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+}
+.pot-puntual-badge {
+    background: rgba(245, 195, 59, 0.12);
+    border: 1px solid rgba(245, 195, 59, 0.35);
+    color: var(--ngc-warning);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.pot-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 10px;
+}
+@media (min-width: 440px) {
+    .pot-kpi-grid {
+        grid-template-columns: 1fr 1fr 1.2fr 1.2fr;
+    }
+}
+.pot-kpi-card {
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.pot-kpi-lbl {
+    font-size: 0.68rem;
+    color: var(--ngc-text-faded);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+}
+.pot-aea-banner {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-bg-input);
+    line-height: 1.35;
+}
+.pot-aea-banner.ok {
+    border-color: rgba(49, 162, 76, 0.45);
+    background: rgba(49, 162, 76, 0.1);
+    color: var(--success-green);
+}
+.pot-aea-banner.warn {
+    border-color: rgba(245, 195, 59, 0.5);
+    background: rgba(245, 195, 59, 0.1);
+    color: var(--ngc-warning);
+}
+.pot-circ-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+.pot-circ-id {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--ngc-neon);
+    min-width: 28px;
+}
+.pot-circ-meta {
+    font-size: 0.72rem;
+    color: var(--ngc-text-faded);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+#tablaMain .circ-input {
+    width: 50px !important;
+    margin: 0 auto;
+    display: block;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    color: inherit;
+    text-align: center;
+    border-radius: 5px;
+    padding: 4px 3px;
+    font-family: inherit;
+    font-size: 0.75rem;
+}
+
+/* Plantilla PDF de Potencia */
+#plantilla-pdf .pdf-container {
+    position: relative;
+    background: #ffffff;
+    color: #0f172a;
+    width: 210mm;
+    min-height: 295mm;
+    padding: 12mm 14mm;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+#plantilla-pdf .pdf-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    text-align: center;
+}
+#plantilla-pdf .pdf-table th {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 6px 4px;
+    font-size: 9.5px;
+    font-weight: 700;
+    border: 1px solid #0f172a;
+    letter-spacing: 0.3px;
+}
+#plantilla-pdf .pdf-table th.col-cs {
+    background: #1e293b;
+    border-color: #1e293b;
+}
+#plantilla-pdf .pdf-table td {
+    padding: 5px 4px;
+    font-size: 9.5px;
+    color: #1e293b;
+    border-bottom: 1px solid #e2e8f0;
+    border-left: 1px solid #f1f5f9;
+    border-right: 1px solid #f1f5f9;
+}
+#plantilla-pdf .pdf-table tbody tr:nth-child(even) {
+    background: #f8fafc;
+}
+#plantilla-pdf .pdf-table tfoot tr {
+    background: #f8fafc;
+    font-weight: 600;
+}
+#plantilla-pdf .pdf-table tfoot tr.row-destacada {
+    background: #f1f5f9;
+    font-weight: 700;
+    border-top: 1.5px solid #94a3b8;
+}
+#plantilla-pdf .pdf-table td.col-cs {
+    background: rgba(15, 23, 42, 0.04);
+    font-weight: 700;
+}
+#plantilla-pdf tr, #plantilla-pdf .no-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+                       }
