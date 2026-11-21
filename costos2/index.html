@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#18191A">
+    
+    <title>Costos Mano de Obra | Villaser</title>
+    
+    <!-- Iconos y CSS Global -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../global.css">
+
+    <!-- Script de ejecución inmediata para el tema -->
+    <script>
+    (function() {
+        const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+        
+        if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Guardián de Seguridad -->
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyB993KWlnMrN5hwRKjL-OmTZ95F7v_FFk0",
+            authDomain: "villaser-gestion.firebaseapp.com",
+            projectId: "villaser-gestion",
+            storageBucket: "villaser-gestion.firebasestorage.app",
+            messagingSenderId: "1032102638132",
+            appId: "1:1032102638132:web:dd3a89e1c6a67de7d35061"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified) {
+                window.location.replace('../index.html'); 
+            }
+        });
+    </script>
+
+    <style>
+        /* Ajustes locales aislados para el módulo Costos */
+        .costos-search-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .costos-search-wrap i.icon-left {
+            position: absolute;
+            left: 12px;
+            color: var(--ngc-text-faded);
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+        .costos-search-wrap input {
+            padding-left: 36px !important;
+            padding-right: 38px !important;
+        }
+        .costos-clear-input {
+            position: absolute;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--ngc-text-faded);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .costos-quick-match {
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            border-left: 3px solid var(--ngc-neon);
+            border-radius: 8px;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: transform 0.12s ease, border-color 0.2s ease;
+        }
+        .costos-quick-match:active {
+            transform: scale(0.985);
+            border-color: var(--ngc-neon);
+        }
+        .costos-option-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-top: 4px;
+            font-size: 0.74rem;
+            color: var(--ngc-text-faded);
+        }
+        .costos-price-hero {
+            background: rgba(49, 162, 76, 0.1);
+            border: 1px solid rgba(49, 162, 76, 0.32);
+            border-radius: 12px;
+            padding: 14px 12px;
+            margin-bottom: 14px;
+        }
+        .costos-compare-pill {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            color: var(--ngc-text-main);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOAST CORPORATIVO -->
+<div id="corpToast" class="toast-corp">
+    <i class="fa-solid fa-circle-check toast-icon"></i>
+    <div>
+        <div id="toastTitle" class="toast-title">Listo</div>
+        <div id="toastMsg" class="toast-msg">Operación completada.</div>
+    </div>
+</div>
+
+<!-- SPLASH DE CARGA FLOTANTE (EVITA LAYOUT SHIFT) -->
+<div id="loading" class="modal-overlay" style="background: var(--bg-body); z-index: 9998;">
+    <div class="corp-card" style="text-align: center; padding: 32px 24px; max-width: 300px; border-bottom: 4px solid var(--ngc-neon);">
+        <i class="fa-solid fa-hand-holding-dollar" style="color: var(--ngc-neon); font-size: 2.3rem; margin-bottom: 12px;"></i>
+        <h3 style="font-size: 1rem; color: var(--ngc-text-main); text-transform: uppercase; margin-bottom: 8px;">Mano de Obra</h3>
+        <span style="color: var(--ngc-text-faded); font-size: 0.82rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <i class="fa-solid fa-circle-notch fa-spin" style="color: var(--ngc-neon);"></i> Sincronizando precios...
+        </span>
+    </div>
+</div>
+
+<div class="layout-wrapper">
+    <main class="container">
+
+        <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
+        <nav class="corp-top-nav">
+            <button type="button" id="btnSyncForce" class="corp-btn-icon" onclick="sincronizarDatos(true)" title="Actualizar lista de precios" aria-label="Actualizar precios">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+            </button>
+            <div class="corp-nav-title">
+                <i class="fa-solid fa-hand-holding-dollar corp-accent-color"></i> MANO DE OBRA
+            </div>
+            <button type="button" class="corp-btn-icon danger" onclick="resetForm()" title="Reiniciar consulta" aria-label="Reiniciar">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </nav>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div id="app" class="oculto flex-column gap-15">
+
+            <!-- BARRA DE ESTADO DE BASE DE DATOS -->
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 2px;">
+                <span id="syncPill" class="pres-cloud-pill local">
+                    <i class="fa-solid fa-database"></i> Cargando...
+                </span>
+                <button type="button" class="pres-mini-act" onclick="window.location.href='busquedaavanzada/index.html'">
+                    <i class="fa-solid fa-magnifying-glass-plus" style="color: var(--ngc-neon);"></i> Modo Avanzado
+                </button>
+            </div>
+
+            <!-- RECIENTES (CONSULTADOS EN OBRA) -->
+            <section id="recentsSection" class="corp-card oculto" style="padding: 10px 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--ngc-text-faded); letter-spacing: 0.4px;">
+                        <i class="fa-solid fa-clock-rotate-left corp-accent-color"></i> Consultados recientemente
+                    </span>
+                    <button type="button" onclick="limpiarRecientes()" style="background: transparent; border: none; color: var(--ngc-text-faded); font-size: 0.72rem; cursor: pointer;">Limpiar</button>
+                </div>
+                <div id="recentsList" class="cat-recents-strip"></div>
+            </section>
+
+            <!-- BUSCADOR RÁPIDO INTEGRADO -->
+            <section class="corp-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 class="corp-card-title" style="margin: 0;">
+                        <i class="fa-solid fa-magnifying-glass corp-accent-color"></i> Búsqueda Rápida
+                    </h4>
+                    <span id="quickResultsCount" class="cat-count-badge oculto">0</span>
+                </div>
+
+                <div class="costos-search-wrap">
+                    <i class="fa-solid fa-magnifying-glass icon-left"></i>
+                    <input type="text" id="quickSearchInput" class="corp-input" placeholder="Ej: pilar trifásico, tablero, jabalina, toma..." autocomplete="off">
+                    <button type="button" id="btnClearQuickSearch" class="costos-clear-input oculto" onclick="limpiarBusquedaRapida()" title="Borrar texto">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                    <ul id="quickSuggestionsList" class="corp-suggestions-list oculto"></ul>
+                </div>
+
+                <!-- Accesos rápidos táctiles -->
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+                    <button type="button" class="corp-btn-small" onclick="aplicarChipRapido('Apto electrico')">Apto Eléctrico</button>
+                    <button type="button" class="corp-btn-small" onclick="aplicarChipRapido('Armado de Pilar')">Pilar</button>
+                    <button type="button" class="corp-btn-small" onclick="aplicarChipRapido('Tablero')">Tableros</button>
+                    <button type="button" class="corp-btn-small" onclick="aplicarChipRapido('Toma')">Tomas</button>
+                    <button type="button" class="corp-btn-small" onclick="aplicarChipRapido('Jabalina')">PAT / Jabalina</button>
+                </div>
+
+                <!-- Resultados directos de búsqueda rápida -->
+                <div id="quickResultsBox" class="oculto" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ngc-privacy-border);">
+                    <div id="quickResultsList" class="flex-column" style="gap: 8px;"></div>
+                </div>
+            </section>
+            
+            <!-- TARJETA DE EXPLORACIÓN POR FUENTES Y RUBROS (ACORDEÓN) -->
+            <section class="corp-card" style="padding: 12px;">
+                <details id="acordeonFiltros" class="corp-filtros-details" open>
+                    <summary class="corp-btn" style="width: 100%; display: flex; justify-content: space-between; align-items: center; background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); color: var(--ngc-text-main); margin-bottom: 0;">
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-layer-group corp-accent-color"></i> Explorar por Rubro y Fuente
+                        </span>
+                        <span style="display: flex; align-items: center; gap: 8px;">
+                            <span id="badgeFuentesActivas" class="cat-count-badge">Todas</span>
+                            <i class="fa-solid fa-chevron-down acc-icon-indicator"></i>
+                        </span>
+                    </summary>
+                    
+                    <div style="padding-top: 16px; display: flex; flex-direction: column; gap: 14px;">
+                        
+                        <div class="row-group" style="margin-bottom: 0;">
+                            <label>Organización / Fuente (Filtro activo para toda la pantalla)</label>
+                            <div id="fuente-container" class="fuentes-list-container">
+                                <span style="color: var(--ngc-text-faded); font-size: 0.8rem;">Cargando fuentes...</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Categoría / Rubro -->
+                        <div class="row-group" style="margin-bottom: 0;">
+                            <label>Categoría / Rubro</label>
+                            <details id="detTema" class="corp-custom-select" disabled>
+                                <summary id="sumTema" class="corp-input">Aguarde un momento...</summary>
+                                <div id="listTema" class="corp-select-list">
+                                    <div class="pres-select-search-wrap">
+                                        <input type="text" id="searchTema" class="corp-input pres-select-search" placeholder="Filtrar rubro..." autocomplete="off">
+                                    </div>
+                                    <div id="optionsTema"></div>
+                                </div>
+                            </details>
+                            <input type="hidden" id="selTema" value="">
+                        </div>
+
+                        <!-- Concepto Específico -->
+                        <div class="row-group" style="margin-bottom: 0;">
+                            <label>Concepto Específico</label>
+                            <details id="detConcepto" class="corp-custom-select" disabled>
+                                <summary id="sumConcepto" class="corp-input">Seleccione categoría primero...</summary>
+                                <div id="listConcepto" class="corp-select-list">
+                                    <div class="pres-select-search-wrap">
+                                        <input type="text" id="searchConcepto" class="corp-input pres-select-search" placeholder="Filtrar trabajo..." autocomplete="off">
+                                    </div>
+                                    <div id="optionsConcepto"></div>
+                                </div>
+                            </details>
+                            <input type="hidden" id="selConcepto" value="">
+                        </div>
+                    
+                    </div>
+                </details>
+            </section>
+
+            <!-- TARJETA DE RESULTADOS Y ESTIMADOR RÁPIDO -->
+            <section id="result-card" class="corp-card oculto" style="transition: opacity 0.2s ease, transform 0.2s ease;">
+                <h4 class="corp-card-title" style="justify-content: space-between; align-items: center; border-bottom: 1px solid var(--ngc-privacy-border); padding-bottom: 10px; margin-bottom: 14px;">
+                    <span style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-money-bill-wave corp-accent-color"></i> Cotización Referencial
+                    </span>
+                    <span id="res-codigo" style="font-size: 0.75rem; background: var(--ngc-neon); color: #fff; padding: 4px 9px; border-radius: 6px; font-weight: 700;">---</span>
+                </h4>
+
+                <!-- BLOQUE ECONÓMICO + MULTIPLICADOR DE CANTIDAD -->
+                <div class="costos-price-hero">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 12px;">
+                        <div>
+                            <span style="display: block; font-size: 0.7rem; color: var(--ngc-text-faded); text-transform: uppercase; font-weight: 700;">Valor Unitario</span>
+                            <div id="res-precio-unit" style="font-size: 1.25rem; font-weight: 800; color: var(--ngc-text-main);">$ 0</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="display: block; font-size: 0.7rem; color: var(--success-green); text-transform: uppercase; font-weight: 700;">Total Estimado (<span id="res-cant-badge">x1</span>)</span>
+                            <div id="res-precio-total" style="font-size: 1.95rem; font-weight: 900; color: var(--success-green); line-height: 1.1;">$ 0</div>
+                        </div>
+                    </div>
+
+                    <!-- Control de Cantidad (Stepper + Presets) -->
+                    <div style="display: flex; align-items: center; gap: 8px; padding-top: 10px; border-top: 1px dashed rgba(49, 162, 76, 0.35);">
+                        <div class="corp-stepper pot-stepper-compact" style="width: 125px; flex-shrink: 0;">
+                            <button type="button" class="btn-step" onclick="cambiarCantidadCotizacion(-1)">-</button>
+                            <input type="number" id="res-cantidad" class="corp-input-step" value="1" min="1" readonly>
+                            <button type="button" class="btn-step" onclick="cambiarCantidadCotizacion(1)">+</button>
+                        </div>
+                        <div style="display: flex; gap: 5px; flex: 1; justify-content: flex-end;">
+                            <button type="button" class="pres-mini-act" onclick="setCantidadCotizacion(1)">x1</button>
+                            <button type="button" class="pres-mini-act" onclick="setCantidadCotizacion(5)">x5</button>
+                            <button type="button" class="pres-mini-act" onclick="setCantidadCotizacion(10)">x10</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row-group">
+                    <label>Descripción del Trabajo</label>
+                    <div id="res-concepto-full" style="background: var(--ngc-bg-input); padding: 12px 14px; border-radius: 8px; border: 1px solid var(--ngc-privacy-border); color: var(--ngc-text-main); font-weight: 700; font-size: 0.92rem; line-height: 1.45;">---</div>
+                </div>
+
+                <div class="row-group-stretch">
+                    <div class="flex-1">
+                        <label>Categoría / Rubro</label>
+                        <div id="res-tema" style="background: var(--ngc-bg-input); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--ngc-privacy-border); font-size: 0.82rem; color: var(--ngc-text-main);">---</div>
+                    </div>
+                    <div class="flex-1">
+                        <label>Fuente Info</label>
+                        <div id="res-org" style="background: var(--ngc-bg-input); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--ngc-privacy-border); font-size: 0.82rem; color: var(--ngc-neon); font-weight: 700;">---</div>
+                    </div>
+                </div>
+
+                <!-- Comparativa automática si existe en otras fuentes -->
+                <div id="res-compare-wrapper" class="row-group oculto">
+                    <label>Mismo trabajo en otras fuentes</label>
+                    <div id="res-compare-box" class="flex-column" style="gap: 6px;"></div>
+                </div>
+
+                <div class="row-group">
+                    <label>Notas Aclaratorias / Condiciones</label>
+                    <div id="res-notes-content" style="background: rgba(245, 195, 59, 0.1); padding: 12px 14px; border-radius: 8px; border-left: 4px solid var(--ngc-warning); font-size: 0.84rem; color: var(--ngc-text-main); line-height: 1.55; white-space: pre-wrap;">Sin observaciones.</div>
+                </div>
+
+                <!-- ACCIONES RÁPIDAS EN OBRA -->
+                <div class="action-grid-main" style="margin-top: 14px;">
+                    <button type="button" class="corp-btn primary-action" onclick="copiarCotizacionActual()">
+                        <i class="fa-regular fa-copy"></i> Copiar Detalle
+                    </button>
+                    <button type="button" class="corp-btn success-btn" onclick="compartirCotizacionWhatsApp()">
+                        <i class="fa-brands fa-whatsapp"></i> Enviar WTS
+                    </button>
+                </div>
+            </section>
+            
+        </div>
+    </main>
+</div>
+
+<nav class="corp-bottom-nav">
+    <div class="corp-scroll-container" id="corpFooterMenu"></div>
+</nav>
+
+<script src="script.js"></script>
+</body>
+                      </html>
+  
