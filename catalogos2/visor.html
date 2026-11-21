@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <!-- Habilita zoom táctil fluido en el PDF -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#18191A">
+    
+    <title>Visor de Catálogo | Villaser</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Detección de Tema Inmediato -->
+    <script>
+        (function() {
+            const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+            const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+            if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
+    <!-- SDKs de Firebase y Guardián -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="../firebase-config.js"></script>
+    <script>
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified) window.location.replace('../index.html');
+        });
+    </script>
+    
+    <!-- CSS encapsulado sin márgenes para ocupar el 100% real de la pantalla -->
+    <style>
+        :root {
+            --v-bg-bar: #18191A;
+            --v-border: #3E4042;
+            --v-text: #E4E6EB;
+            --v-faded: #B0B3B8;
+            --v-accent: #2374E1;
+            --v-success: #31A24C;
+            --v-danger: #E41E3F;
+            --v-surface: #242526;
+        }
+
+        [data-theme="light"] {
+            --v-bg-bar: #FFFFFF;
+            --v-border: #CED0D4;
+            --v-text: #050505;
+            --v-faded: #65676B;
+            --v-accent: #1877F2;
+            --v-surface: #F0F2F5;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100vw;
+            height: 100dvh;
+            overflow: hidden;
+            background-color: var(--v-bg-bar);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            inset: 0;
+        }
+
+        .visor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background-color: var(--v-bg-bar);
+            border-bottom: 1px solid var(--v-border);
+            padding: calc(8px + env(safe-area-inset-top)) 12px 8px 12px;
+            min-height: 58px;
+            width: 100%;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .visor-title {
+            color: var(--v-text);
+            font-weight: 700;
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .visor-title span {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .visor-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-visor-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid rgba(49, 162, 76, 0.4);
+            background: rgba(49, 162, 76, 0.12);
+            color: var(--v-success);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .btn-volver {
+            background: rgba(228, 30, 63, 0.12);
+            color: var(--v-danger);
+            border: 1px solid rgba(228, 30, 63, 0.4);
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .iframe-container {
+            flex: 1;
+            width: 100vw;
+            position: relative;
+            background-color: var(--v-surface);
+            overflow: hidden;
+        }
+
+        .iframe-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+            position: relative;
+            z-index: 2;
+        }
+
+        .loader-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: var(--v-accent);
+            text-align: center;
+            width: 86%;
+            max-width: 340px;
+            z-index: 1;
+        }
+
+        .loader-msg {
+            margin-top: 12px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: var(--v-text);
+        }
+
+        .fallback-box {
+            display: none;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 10px;
+            background: var(--v-bg-bar);
+            border: 1px solid var(--v-border);
+        }
+
+        .fallback-box p {
+            font-size: 0.78rem;
+            color: var(--v-faded);
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .btn-fallback {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--v-accent);
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- BARRA SUPERIOR FIJA -->
+    <header class="visor-header">
+        <div class="visor-title">
+            <i class="fa-solid fa-book-open" style="color: var(--v-accent);"></i>
+            <span id="docTitleText">Catálogo</span>
+        </div>
+        <div class="visor-actions">
+            <a id="btnDescargarVisor" href="#" target="_blank" rel="noopener" class="btn-visor-icon" title="Descargar PDF">
+                <i class="fa-solid fa-download"></i>
+            </a>
+            <button type="button" onclick="window.location.replace('index.html')" class="btn-volver">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </button>
+        </div>
+    </header>
+
+    <!-- CONTENEDOR DEL PDF -->
+    <main class="iframe-container">
+        <div class="loader-center" id="loaderVisor">
+            <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+            <p class="loader-msg">Cargando documento...</p>
+            <div class="fallback-box" id="fallbackDrive">
+                <p>Si la señal en obra es débil o Drive demora en previsualizar, abrilo directo en tu visor nativo:</p>
+                <a id="btnAbrirNativo" href="#" target="_blank" rel="noopener" class="btn-fallback">
+                    <i class="fa-solid fa-up-right-from-square"></i> Abrir en Drive / Navegador
+                </a>
+            </div>
+        </div>
+        <iframe id="pdfFrame" src=""></iframe>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const docId = urlParams.get('id');
+            const docTitle = urlParams.get('titulo');
+            const titleEl = document.getElementById('docTitleText');
+            const loader = document.getElementById('loaderVisor');
+            const frame = document.getElementById('pdfFrame');
+            const btnDescargar = document.getElementById('btnDescargarVisor');
+            const btnNativo = document.getElementById('btnAbrirNativo');
+            const fallbackBox = document.getElementById('fallbackDrive');
+
+            if (docTitle) {
+                titleEl.textContent = docTitle;
+                document.title = `${docTitle} | Villaser`;
+            }
+
+            if (!docId) {
+                loader.innerHTML = "<p style='color: var(--v-danger); font-weight: 700;'>Error: No se encontró el documento solicitado.</p>";
+                btnDescargar.style.display = 'none';
+                return;
+            }
+
+            btnDescargar.href = `https://drive.google.com/uc?export=download&id=${encodeURIComponent(docId)}`;
+            btnNativo.href = `https://drive.google.com/file/d/${encodeURIComponent(docId)}/view`;
+
+            let cargado = false;
+            const timerRescate = setTimeout(() => {
+                if (!cargado && fallbackBox) {
+                    fallbackBox.style.display = 'block';
+                }
+            }, 9000);
+
+            frame.onload = () => {
+                cargado = true;
+                clearTimeout(timerRescate);
+                loader.style.display = 'none';
+            };
+
+            frame.src = `https://drive.google.com/file/d/${encodeURIComponent(docId)}/preview?rm=minimal`;
+        });
+    </script>
+</body>
+</html>
