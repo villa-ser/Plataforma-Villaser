@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#18191A">
+    <title>Villaser - Potencia y Circuitos</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../global.css">
+
+    <script>
+    (function() {
+        const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Puente de conexión centralizado -->
+    <script src="../firebase-config.js"></script>
+
+    <!-- Guardián de seguridad -->
+    <script>
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified) window.location.replace('../index.html'); 
+        });
+    </script>
+
+    <style>
+        /* Estilos aislados específicos del módulo Potencia (.pot-*) */
+        .pot-project-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: var(--ngc-glass);
+            border: var(--ngc-border-glass);
+            border-left: 4px solid var(--ngc-neon);
+            border-radius: 12px;
+            padding: 12px 14px;
+            box-shadow: 0 1px 3px var(--card-shadow);
+        }
+        .pot-project-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .pot-project-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--ngc-text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pot-project-sub {
+            font-size: 0.76rem;
+            color: var(--ngc-text-faded);
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pot-project-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .pot-bocas-panel {
+            background: rgba(35, 116, 225, 0.05);
+            border: 1px dashed rgba(35, 116, 225, 0.35);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .pot-bocas-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .pot-boca-box {
+            background: var(--ngc-glass);
+            border: 1px solid var(--ngc-privacy-border);
+            border-radius: 8px;
+            padding: 8px;
+        }
+        .pot-boca-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--ngc-neon);
+            text-align: center;
+            margin-bottom: 6px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .pot-stepper-compact {
+            height: 38px !important;
+            border-radius: 6px !important;
+        }
+        .pot-stepper-compact .btn-step {
+            width: 34px !important;
+            font-size: 1.1rem !important;
+            color: var(--ngc-warning) !important;
+            flex-shrink: 0;
+        }
+        .pot-esp-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .pot-esp-row {
+            display: grid;
+            grid-template-columns: 104px 1fr 1fr;
+            gap: 6px;
+            align-items: center;
+            background: var(--ngc-glass);
+            border: 1px solid var(--ngc-privacy-border);
+            border-radius: 8px;
+            padding: 7px;
+        }
+        .pot-esp-row.has-delete {
+            grid-template-columns: 100px 1fr 1fr 28px;
+        }
+        .pot-esp-del {
+            width: 28px;
+            height: 34px;
+            border-radius: 6px;
+            border: none;
+            background: rgba(228, 30, 63, 0.12);
+            color: var(--error-red);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+        .pot-puntual-badge {
+            background: rgba(245, 195, 59, 0.12);
+            border: 1px solid rgba(245, 195, 59, 0.35);
+            color: var(--ngc-warning);
+            border-radius: 8px;
+            padding: 9px 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pot-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        @media (min-width: 440px) {
+            .pot-kpi-grid {
+                grid-template-columns: 1fr 1fr 1.2fr 1.2fr;
+            }
+        }
+        .pot-kpi-card {
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .pot-kpi-lbl {
+            font-size: 0.68rem;
+            color: var(--ngc-text-faded);
+            font-weight: 600;
+            display: block;
+            margin-bottom: 2px;
+        }
+        .pot-aea-banner {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 1px solid var(--ngc-privacy-border);
+            background: var(--ngc-bg-input);
+            line-height: 1.35;
+        }
+        .pot-aea-banner.ok {
+            border-color: rgba(49, 162, 76, 0.45);
+            background: rgba(49, 162, 76, 0.1);
+            color: var(--success-green);
+        }
+        .pot-aea-banner.warn {
+            border-color: rgba(245, 195, 59, 0.5);
+            background: rgba(245, 195, 59, 0.1);
+            color: var(--ngc-warning);
+        }
+        .pot-circ-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .pot-circ-id {
+            font-weight: 800;
+            font-size: 0.85rem;
+            color: var(--ngc-neon);
+            min-width: 28px;
+        }
+        .pot-circ-meta {
+            font-size: 0.72rem;
+            color: var(--ngc-text-faded);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .circ-input {
+            width: 50px !important;
+            margin: 0 auto;
+            display: block;
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            color: inherit;
+            text-align: center;
+            border-radius: 5px;
+            padding: 4px 3px;
+            font-family: inherit;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- TOAST NOTIFICACIÓN CORPORATIVA -->
+    <div id="toastCliente" class="toast-corp oculto gpu-accel">
+        <div class="toast-icon"><i class="fa-solid fa-check-circle"></i></div>
+        <div class="toast-content">
+            <div id="toastTitle" class="toast-title">Notificación</div>
+            <div id="toastMessage" class="toast-msg">Operación realizada con éxito.</div>
+        </div>
+    </div>
+
+    <!-- WRAPPER -->
+    <div class="layout-wrapper">
+        <main class="container">
+
+            <nav class="corp-top-nav">
+                <div style="width: 42px;"></div>
+                <div class="corp-nav-title">
+                    <i class="fa-solid fa-bolt corp-accent-color"></i> CARGA Y CIRCUITOS
+                </div>
+                <button class="corp-btn-icon danger" onclick="abrirModalConfirmarNuevoGlobal()" title="Nuevo Cálculo">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </nav>
+
+            <!-- SECCIÓN CLIENTE -->
+            <section id="step-cliente" class="corp-card gpu-accel">
+                <h4 class="corp-card-title"><i class="fa-solid fa-user-tag corp-accent-color"></i> Datos del Proyecto</h4>
+                <div class="action-grid-main" style="margin-bottom: 15px;">
+                    <button class="corp-btn success-btn" onclick="abrirModalAgendaGlobal()"><i class="fa-solid fa-address-book"></i> Agenda</button>
+                    <button class="corp-btn primary-action" onclick="abrirModalBorradores()"><i class="fa-solid fa-cloud"></i> Borradores</button>
+                </div>
+                
+                <div class="row-group">
+                    <label>Nombre del Cliente</label>
+                    <input type="text" id="cliNombre" class="corp-input" placeholder="Ej: Familia Gómez" oninput="marcarClienteManual()">
+                </div>
+                
+                <div class="row-group-stretch">
+                    <div class="flex-1">
+                        <label>Dirección</label>
+                        <input type="text" id="cliDireccion" class="corp-input" placeholder="Ej: San Martín 123">
+                    </div>
+                    <div class="flex-1">
+                        <label>Proyecto</label>
+                        <input type="text" id="cliProyecto" class="corp-input" placeholder="Ej: Vivienda Nueva">
+                    </div>
+                </div>
+                
+                <button class="corp-btn primary-action" style="margin-top: 10px;" onclick="iniciarCalculo()">
+                    <i class="fa-solid fa-play"></i> Comenzar Carga de Ambientes
+                </button>
+            </section>
+            
+            <!-- SECCIÓN TRABAJO -->
+            <section id="step-trabajo" class="oculto flex-column gap-15">
+
+                <!-- CABECERA ACTIVA DEL PROYECTO -->
+                <div class="pot-project-bar gpu-accel">
+                    <div class="pot-project-info">
+                        <div class="pot-project-name" id="ui-proyecto-cliente">Cliente</div>
+                        <div class="pot-project-sub" id="ui-proyecto-detalle">Sin detalles adicionales</div>
+                    </div>
+                    <div class="pot-project-actions">
+                        <span id="ui-cloud-badge" class="pres-cloud-pill ready">
+                            <i class="fa-solid fa-cloud"></i> Nube Lista
+                        </span>
+                        <button class="corp-btn-small pres-btn-edit-client" style="margin-top:0;" onclick="volverAEditarCliente()">
+                            <i class="fa-solid fa-pen"></i> Editar Datos
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- PANEL DE AMBIENTES -->
+                <div class="corp-card gpu-accel">
+                    <h4 class="corp-card-title" id="titulo-form-ambiente"><i class="fa-solid fa-house-signal corp-accent-color"></i> Carga de Ambientes</h4>
+                    <input type="hidden" id="editandoId" value="">
+                    
+                    <div class="row-group-stretch">
+                        <div style="flex: 1.3;">
+                            <label>Ambiente o Carga</label>
+                            <details id="detAmbiente" class="corp-custom-select">
+                                <summary id="sumAmbiente" class="corp-input">-- Seleccione --</summary>
+                                <div id="listAmbiente" class="corp-select-list"></div>
+                            </details>
+                            <input type="hidden" id="selAmbiente" value="">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Sector / Detalle (Opc.)</label>
+                            <input type="text" id="inputIdentificador" class="corp-input" placeholder="Ej: Principal / PA">
+                        </div>
+                    </div>
+                    
+                    <div id="grupoDimensiones" class="row-group-stretch">
+                        <div class="flex-1">
+                            <label>Ancho (m)</label>
+                            <input type="number" id="inputAncho" class="corp-input" placeholder="Ej: 3.5" step="0.01" min="0">
+                        </div>
+                        <div class="flex-1">
+                            <label>Largo (m)</label>
+                            <input type="number" id="inputLargo" class="corp-input" placeholder="Ej: 4" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div id="avisoCargaPuntual" class="pot-puntual-badge oculto">
+                        <i class="fa-solid fa-plug-circle-bolt"></i>
+                        <span>Carga puntual dedicada: no computa superficie en el SLA.</span>
+                    </div>
+
+                    <!-- BLOQUE DE BOCAS Y CIRCUITOS REDISEÑADO PARA MÓVIL -->
+                    <div class="pot-bocas-panel">
+                        <div class="pot-bocas-grid-2">
+                            <!-- BLOQUE IUG -->
+                            <div class="pot-boca-box">
+                                <span class="pot-boca-label"><i class="fa-solid fa-lightbulb"></i> Bocas IUG</span>
+                                <div class="corp-stepper pot-stepper-compact">
+                                    <button type="button" class="btn-step" onclick="stepBocas('bocasIUG', -1)">-</button>
+                                    <input type="number" id="bocasIUG" class="corp-input-step" value="0" min="0" readonly>
+                                    <button type="button" class="btn-step" onclick="stepBocas('bocasIUG', 1)">+</button>
+                                </div>
+                                <details id="detCircuitoIUG" class="corp-custom-select" style="margin-top:6px;">
+                                    <summary id="sumCircuitoIUG" class="corp-input" style="font-size:0.78rem; padding: 7px 8px;">-- Circ --</summary>
+                                    <div id="listCircuitoIUG" class="corp-select-list"></div>
+                                </details>
+                                <input type="hidden" id="circuitoIUG" value="">
+                            </div>
+                            
+                            <!-- BLOQUE TUG -->
+                            <div class="pot-boca-box">
+                                <span class="pot-boca-label"><i class="fa-solid fa-plug"></i> Bocas TUG</span>
+                                <div class="corp-stepper pot-stepper-compact">
+                                    <button type="button" class="btn-step" onclick="stepBocas('bocasTUG', -1)">-</button>
+                                    <input type="number" id="bocasTUG" class="corp-input-step" value="0" min="0" readonly>
+                                    <button type="button" class="btn-step" onclick="stepBocas('bocasTUG', 1)">+</button>
+                                </div>
+                                <details id="detCircuitoTUG" class="corp-custom-select" style="margin-top:6px;">
+                                    <summary id="sumCircuitoTUG" class="corp-input" style="font-size:0.78rem; padding: 7px 8px;">-- Circ --</summary>
+                                    <div id="listCircuitoTUG" class="corp-select-list"></div>
+                                </details>
+                                <input type="hidden" id="circuitoTUG" value="">
+                            </div>
+                        </div>
+
+                        <!-- BLOQUE ESP DINÁMICO FULL-WIDTH -->
+                        <div>
+                            <div class="pot-esp-header">
+                                <span class="pot-boca-label" style="margin:0;"><i class="fa-solid fa-bolt-lightning"></i> Bocas Especiales (ESP / TUE / ACU)</span>
+                                <button type="button" class="corp-btn-small success-btn" style="padding: 4px 10px; font-size: 0.72rem;" onclick="agregarBocaESP()">
+                                    <i class="fa-solid fa-plus"></i> Agregar ESP
+                                </button>
+                            </div>
+                            
+                            <div id="contenedor-esps" style="display: flex; flex-direction: column; gap: 8px;">
+                                <div class="esp-item pot-esp-row">
+                                    <div class="corp-stepper pot-stepper-compact">
+                                        <button type="button" class="btn-step" style="width:28px !important;" onclick="stepBocasDinamico(this, -1)">-</button>
+                                        <input type="number" class="corp-input-step bocas-esp-input" value="0" min="0" readonly>
+                                        <button type="button" class="btn-step" style="width:28px !important;" onclick="stepBocasDinamico(this, 1)">+</button>
+                                    </div>
+                                    <details class="corp-custom-select det-circuito-esp">
+                                        <summary class="corp-input sum-circuito-esp" style="font-size:0.75rem; padding: 7px 6px;">-- Circ --</summary>
+                                        <div class="corp-select-list list-circuito-esp"></div>
+                                    </details>
+                                    <input type="hidden" class="circuito-esp-input" value="">
+                                    <input type="text" class="corp-input desc-esp-input" placeholder="Ej: AA" style="font-size:0.75rem; padding: 7px 6px; text-align: center;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="btnGuardarAmbiente" class="corp-btn success-btn" onclick="guardarAmbiente()">
+                        <i class="fa-solid fa-plus"></i> Agregar Ambiente
+                    </button>
+                    <button id="btnCancelarEdicion" class="corp-btn danger-btn" style="margin-top: 10px; display: none;" onclick="cancelarEdicion()">
+                        <i class="fa-solid fa-xmark"></i> Cancelar Edición
+                    </button>
+                </div>
+
+                <!-- ZONA DE RESULTADOS Y PLANILLA -->
+                <div id="zonaCaptura" class="capture-zone gpu-accel" style="padding: 14px 8px;">
+                    <header style="text-align: center; font-weight: 800; color: var(--ngc-neon); letter-spacing: 0.8px; border-bottom: 1px solid var(--ngc-privacy-border); padding-bottom: 10px; margin-bottom: 12px; font-size: 0.9rem;">
+                        PLANILLA DE CARGA Y CIRCUITOS
+                    </header>
+                    
+                    <div class="pot-kpi-grid">
+                        <div class="pot-kpi-card">
+                            <span class="pot-kpi-lbl">Sup. Límite (SLA)</span>
+                            <b id="ui-sla" style="color:var(--ngc-neon); font-size: 0.92rem;">0.00 m²</b>
+                        </div>
+                        <div class="pot-kpi-card">
+                            <span class="pot-kpi-lbl">Grado AEA</span>
+                            <b id="ui-grado" style="color:var(--ngc-warning); font-size: 0.92rem;">MÍNIMO</b>
+                        </div>
+                        <div class="pot-kpi-card">
+                            <span class="pot-kpi-lbl">DPMS Total</span>
+                            <b id="ui-dpms" style="color:var(--ngc-neon); font-size: 0.92rem;">0 VA</b>
+                        </div>
+                        <div class="pot-kpi-card">
+                            <span class="pot-kpi-lbl">Suministro</span>
+                            <details id="detSuministro" class="corp-custom-select" style="margin-top:2px;">
+                                <summary id="sumSuministro" class="corp-input" style="font-size:0.75rem; padding: 4px 8px;">MONO</summary>
+                                <div id="listSuministro" class="corp-select-list">
+                                    <div class="corp-select-option" onclick="cambiarSuministro('MONOFÁSICO', 'MONO')">MONO</div>
+                                    <div class="corp-select-option" onclick="cambiarSuministro('TRIFÁSICO', 'TRIFA')">TRIFA</div>
+                                </div>
+                            </details>
+                            <input type="hidden" id="selSuministro" value="MONOFÁSICO">
+                            <b id="ui-fase-alerta" style="font-size: 0.65rem; display:block; margin-top:4px;"></b>
+                        </div>
+                    </div>
+
+                    <!-- AUDITORÍA NORMATIVA EN VIVO -->
+                    <div id="ui-aea-status" class="pot-aea-banner ok">
+                        <i class="fa-solid fa-shield-halved"></i> Cargá ambientes para validar circuitos AEA 90364.
+                    </div>
+                    
+                    <div class="table-scroll-container">
+                        <table id="tablaMain" style="min-width: 100%; width: max-content; border-collapse: collapse; font-size: 0.75rem; text-align: center;">
+                            <thead id="cabeceraTabla"></thead>
+                            <tbody id="cuerpoTabla"></tbody>
+                            <tfoot id="pieTabla" style="border-top: 2px solid var(--ngc-neon);"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- GESTIÓN DE CIRCUITOS -->
+                <div class="corp-card gpu-accel" style="border: 1px solid rgba(245, 195, 59, 0.4);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                        <h4 class="corp-card-title" style="color: var(--ngc-warning); font-size: 0.95rem; margin:0;">
+                            <i class="fa-solid fa-sliders"></i> Gestión de Circuitos
+                        </h4>
+                        <span id="ui-circuitos-count" style="font-size:0.72rem; color:var(--ngc-text-faded); font-weight:700;">2 circuitos</span>
+                    </div>
+                    <div id="listaConfigCircuitos" style="width: 100%; display: flex; flex-direction: column; gap: 8px;"></div>
+                    <button class="corp-btn-small" style="width: 100%; margin-top: 12px; border: 1px dashed var(--ngc-privacy-border); padding: 10px;" onclick="agregarCircuitoManual()">
+                        <i class="fa-solid fa-plus"></i> Añadir Circuito Extra
+                    </button>
+                </div>
+
+                <!-- MENÚ AGRUPADOR DE ACCIONES -->
+                <div class="acciones-dropdown-container" style="margin-top: 6px;">
+                    <button class="corp-btn" onclick="toggleAccionesMenu()" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 15px; background: rgba(35, 116, 225, 0.12); color: var(--ngc-neon); border: 1px solid var(--ngc-neon);">
+                        <i class="fa-solid fa-layer-group"></i> Acciones
+                    </button>
+                    
+                    <div id="accionesMenu" class="oculto" style="margin-top: 14px; border-top: 1px solid var(--ngc-privacy-border); padding-top: 14px;">
+                        <div class="action-grid-main" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button class="corp-btn" onclick="abrirVistaPrevia()" style="color: var(--ngc-text-main); background: var(--ngc-bg-input);">
+                                <i class="fa-solid fa-eye"></i> Vista Previa
+                            </button>
+                            <button class="corp-btn danger-btn" onclick="generarPDF()">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </button>
+                            <button class="corp-btn success-btn" style="grid-column: span 2;" onclick="prepararEnvioWhatsApp()">
+                                <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                            </button>
+                            <button class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
+                            </button>
+                            <button class="corp-btn" onclick="abrirModalBorradores()" style="color: #e91e63; background: rgba(233, 30, 99, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+            </section>
+        </main>
+
+        <!-- PANEL DERECHO: PDF A4 -->
+        <aside class="preview-panel">
+            <div id="plantilla-pdf">
+                <style>
+                    #plantilla-pdf .pdf-container {
+                        position: relative;
+                        background: #ffffff;
+                        color: #0f172a;
+                        width: 210mm;
+                        min-height: 295mm;
+                        padding: 12mm 14mm;
+                        box-sizing: border-box;
+                        font-family: 'Segoe UI', Arial, sans-serif;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                    }
+                    #plantilla-pdf .pdf-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 12px;
+                        text-align: center;
+                    }
+                    #plantilla-pdf .pdf-table th {
+                        background: #0f172a;
+                        color: #ffffff;
+                        padding: 6px 4px;
+                        font-size: 9.5px;
+                        font-weight: 700;
+                        border: 1px solid #0f172a;
+                        letter-spacing: 0.3px;
+                    }
+                    #plantilla-pdf .pdf-table th.col-cs {
+                        background: #1e293b;
+                        border-color: #1e293b;
+                    }
+                    #plantilla-pdf .pdf-table td {
+                        padding: 5px 4px;
+                        font-size: 9.5px;
+                        color: #1e293b;
+                        border-bottom: 1px solid #e2e8f0;
+                        border-left: 1px solid #f1f5f9;
+                        border-right: 1px solid #f1f5f9;
+                    }
+                    #plantilla-pdf .pdf-table tbody tr:nth-child(even) {
+                        background: #f8fafc;
+                    }
+                    #plantilla-pdf .pdf-table tfoot tr {
+                        background: #f8fafc;
+                        font-weight: 600;
+                    }
+                    #plantilla-pdf .pdf-table tfoot tr.row-destacada {
+                        background: #f1f5f9;
+                        font-weight: 700;
+                        border-top: 1.5px solid #94a3b8;
+                    }
+                    #plantilla-pdf .pdf-table td.col-cs {
+                        background: rgba(15, 23, 42, 0.04);
+                        font-weight: 700;
+                    }
+                    #plantilla-pdf tr, #plantilla-pdf .no-break {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
+                </style>
+
+                <div class="pdf-container">
+                    
+                    <!-- SELLO DE AGUA PROTECTOR -->
+                    <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.3; pointer-events: none; z-index: 10; width: 100%;">
+                        <img src="../img/negro1024.png" style="width: 70%; max-width: 450px;" alt="Logo Agua">
+                        <h1 style="font-size: 5rem; color: #000000; text-align: center; margin-top: 15px; font-weight: 900; font-family: 'Arial Black', sans-serif; line-height: 1.1; letter-spacing: 2px;">PLATAFORMA<br>VILLASER</h1>
+                    </div>
+
+                    <!-- BLOQUE SUPERIOR Y CENTRAL -->
+                    <div style="position: relative; z-index: 1;">
+                        
+                        <!-- ENCABEZADO CORPORATIVO -->
+                        <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 16px;">
+                            
+                            <!-- Izquierda: Título y Datos del Proyecto -->
+                            <div class="pdf-info-box" style="text-align: left; flex: 1;">
+                                <div style="font-size: 17px; font-weight: 800; color: #0f172a; letter-spacing: 0.5px; text-transform: uppercase; margin: 0 0 2px 0;">
+                                    Cálculo de Cargas y Circuitos
+                                </div>
+                                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;">
+                                    Dimensionamiento Eléctrico • Reglamentación AEA 90364
+                                </div>
+                                <div style="display: grid; grid-template-columns: 78px 1fr; row-gap: 4px; font-size: 11px; color: #1e293b;">
+                                    <b style="color: #475569;">Fecha:</b> <span id="pdf-fecha"></span>
+                                    <b style="color: #475569;">Cliente:</b> <span id="pdf-cliente" style="font-weight: 600;"></span>
+                                    <b id="lbl-pdf-dir" style="color: #475569;">Dirección:</b> <span id="pdf-dir"></span>
+                                    <b id="lbl-pdf-proyecto" style="color: #475569;">Proyecto:</b> <span id="pdf-proyecto"></span>
+                                </div>
+                            </div>
+
+                            <!-- Derecha: Logo y Datos Profesionales -->
+                            <div class="pdf-logo-box" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 260px;">
+                                <img id="pdf-img-logo" src="" alt="Logo Profesional" style="max-width: 200px; max-height: 70px; object-fit: contain; display: none; margin-bottom: 6px;">
+                                <div id="pdf-text-logo" style="color: #0f172a; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;"></div>
+                                <div id="pdf-header-contacto" style="font-size: 9.5px; color: #475569; line-height: 1.45;"></div>
+                            </div>
+                        </header>
+
+                        <!-- TABLA PRINCIPAL DE AMBIENTES Y CIRCUITOS -->
+                        <table class="pdf-table">
+                            <thead id="pdf-thead"></thead>
+                            <tbody id="pdf-tbody"></tbody>
+                            <tfoot id="pdf-tfoot"></tfoot>
+                        </table>
+                        
+                        <!-- RESUMEN EJECUTIVO DE DIMENSIONAMIENTO (KPIs) -->
+                        <div class="no-break" style="margin-top: 18px;">
+                            <div style="font-size: 10px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;">
+                                Síntesis de Dimensionamiento y Suministro
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Superficie Límite (SLA)</div>
+                                    <div id="pdf-sla-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">0.00 m²</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Grado Electrificación</div>
+                                    <div id="pdf-grado-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">MÍNIMO</div>
+                                    <div id="pdf-coef-val" style="font-size: 8.5px; color: #475569; margin-top: 1px;">Coef. simult.: 1.00</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">DPMS Total</div>
+                                    <div id="pdf-dpms-val" style="font-size: 14px; font-weight: 800; color: #0f172a; margin-top: 3px;">0 VA</div>
+                                </div>
+                                <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-top: 3px solid #0f172a; border-radius: 4px; padding: 9px 10px;">
+                                    <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">Suministro</div>
+                                    <div id="pdf-sum-val" style="font-size: 13px; font-weight: 800; color: #0f172a; margin-top: 3px;">-</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- NOTA TÉCNICA NORMATIVA -->
+                        <div class="no-break" style="margin-top: 14px; background: #f8fafc; border-left: 3px solid #334155; padding: 9px 12px; font-size: 9.5px; color: #334155; line-height: 1.45;">
+                            <strong style="color: #0f172a;">Criterio Técnico de Verificación:</strong> Planilla calculada conforme a los lineamientos de la Reglamentación AEA 90364-7-770 / 771. La selección de conductores (L;N / PE) y dispositivos de protección termomagnética (<em>In</em>) responde a la verificación térmica y de coordinación de protecciones (<em>Ib &le; In &le; Iz</em>) según la demanda de potencia máxima simultánea (DPMS) de cada circuito.
+                        </div>
+                    </div>
+
+                    <!-- BLOQUE INFERIOR: FIRMA Y PIE DE PÁGINA -->
+                    <div class="no-break" style="position: relative; z-index: 1; margin-top: 24px;">
+                        
+                        <!-- Espacio de Firma Técnica -->
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 18px;">
+                            <div style="width: 230px; text-align: center; padding-top: 28px;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 5px; font-size: 9.5px; font-weight: 700; color: #1e293b;">
+                                    Firma y Sello del Profesional
+                                </div>
+                                <div id="pdf-firma-sub" style="font-size: 9px; font-weight: 600; color: #475569; margin-top: 2px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- PIE DE PÁGINA CORPORATIVO -->
+                        <footer class="pdf-footer" style="border-top: 1.5px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
+                            <div style="font-size: 8.5px; color: #64748b; white-space: nowrap;">
+                                Documento técnico generado con <strong style="color: #334155;">Plataforma Villaser</strong> • villaser.com.ar
+                            </div>
+                            <div class="pdf-right-footer" style="text-align: right;">
+                                <div id="pdf-slogan" style="font-size: 10.5px; font-weight: 700; color: #0f172a; font-style: italic; margin-bottom: 2px;"></div>
+                                <div id="pdf-tel-footer" style="font-size: 9px; color: #475569; line-height: 1.35;"></div>
+                            </div>
+                        </footer>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+    </div>
+    <!-- MODALES COMUNES Y GLOBALES -->
+    <div id="modalAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-users"></i> Contactos</h3>
+            <input type="text" id="buscadorAgenda" class="corp-input" placeholder="Buscar nombre o dirección..." oninput="filtrarAgendaGlobal()" style="margin-bottom: 10px;">
+            <div id="listaAgenda" class="modal-list-container"></div>
+            <button class="corp-btn" onclick="cerrarModalAgendaGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalBorradores" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-cloud-arrow-down"></i> Borradores en Nube</h3>
+            <div id="listaBorradores" class="modal-list-container"></div>
+            <button class="corp-btn" onclick="cerrarModalBorradoresGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalGuardarBorrador" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-cloud-arrow-up corp-modal-icon" style="color: var(--ngc-neon);"></i>
+            <h3 style="margin-bottom: 10px; text-align: left; justify-content: flex-start;">Guardar Borrador</h3>
+            <p style="margin-bottom: 15px; text-align: left;">Verifica o edita el nombre del archivo:</p>
+            <input type="text" id="inputNombreBorrador" class="corp-input" style="margin-bottom: 20px; font-weight: 600; font-size: 1rem;">
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalGuardarBorrador()">Cancelar</button>
+                <button class="corp-btn success-btn" style="flex: 1;" onclick="ejecutarGuardarBorrador()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarEliminar" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-trash-can corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Eliminar Borrador</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de eliminar este borrador de la nube? Esta acción no se puede deshacer.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalEliminarBorrador()">Cancelar</button>
+                <button class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarEliminarBorrador()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarNuevo" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-rotate-right corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Nuevo Cálculo</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de iniciar un nuevo cálculo? Se borrarán los datos actuales no guardados.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalConfirmarNuevoGlobal()">Cancelar</button>
+                <button class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarNuevoCalculo()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAlertaCorp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-circle-exclamation corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 id="modalAlertaTitulo" style="margin-bottom: 10px;">Atención</h3>
+            <p id="modalAlertaMensaje" style="margin-bottom: 20px;">Mensaje de alerta.</p>
+            <div class="corp-modal-actions">
+                <button class="corp-btn primary-action" onclick="cerrarModalAlertaCorp()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalWhatsApp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-brands fa-whatsapp corp-modal-icon" style="color: #25D366; font-size: 3rem;"></i>
+            <h3 style="margin-bottom: 10px; text-transform: uppercase;">Enviar por WhatsApp</h3>
+            <p style="margin-bottom: 20px;">¿A quién deseas enviarle el detalle?</p>
+            
+            <div class="corp-modal-actions">
+                <button id="btnWspGuardado" class="corp-btn" style="background: #25D366; color: white; display: none;" onclick="enviarWspGuardadoGlobal()">
+                    <i class="fa-brands fa-whatsapp" style="color: white;"></i> Enviar al Cliente
+                </button>
+                
+                <div style="display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5px;">
+                    <input type="number" id="inputWspManual" class="corp-input" placeholder="Ej: 3512345678" style="flex: 1; text-align: center; font-size: 0.9rem;">
+                    <button class="corp-btn" style="background: #25D366; color: white; border: none; padding: 0 20px; width: auto;" onclick="enviarWspManualGlobal()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <button class="corp-btn" style="background: transparent; color: #25D366; border: 1px solid #25D366;" onclick="buscarEnWspGlobal()">
+                    <i class="fa-solid fa-magnifying-glass"></i> Buscar en mis contactos
+                </button>
+                
+                <button class="corp-btn danger-btn" style="margin-top: 10px; background: transparent; border: 1px solid var(--error-red);" onclick="cerrarModalWspGlobal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAgendarCliente" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--ngc-warning);">
+            <i class="fa-solid fa-address-book corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 style="margin-bottom: 10px;">Cliente no agendado</h3>
+            <p style="margin-bottom: 20px;">Este nombre fue escrito manualmente. Para mantener el orden y guardar en la nube, ¿qué deseas hacer?</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="corp-btn" onclick="accionAgendarCliente()"><i class="fa-solid fa-user-plus"></i> Agendar Nuevo Contacto</button>
+                <button class="corp-btn" style="background: transparent; color: var(--ngc-neon); border: 1px solid var(--ngc-neon);" onclick="opcionBuscarAgenda()"><i class="fa-solid fa-magnifying-glass"></i> Buscar de mi Agenda</button>
+                <button class="corp-btn danger-btn" style="background: transparent; color: var(--error-red); border: 1px dashed var(--error-red);" onclick="opcionContinuarSinAgenda()">No por el momento</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarSinAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--error-red);">
+            <i class="fa-solid fa-triangle-exclamation corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">¿Continuar sin Nube?</h3>
+            <p style="margin-bottom: 20px;">Al no estar en tu agenda, este cálculo NO se guardará en los borradores de la nube. ¿Deseas continuar de todos modos?</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarSinAgenda()">Volver atrás</button>
+                <button class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarContinuarSinAgenda()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalSeleccionTabla" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="padding-top: 20px;">
+            <h3 id="tituloModalSeleccion" style="margin-bottom: 15px; font-size: 1.1rem; color: var(--ngc-text-main); text-align: left; justify-content: flex-start;">Seleccionar</h3>
+            <div id="listaOpcionesModal" class="modal-list-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 20px;"></div>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalSeleccionTabla()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESCARGAR PDF -->
+    <div id="modalDescargarPDF" class="modal-overlay oculto gpu-accel" style="z-index: 10000000;">
+        <div class="corp-modal-card" style="padding-top: 30px;">
+            <i class="fa-solid fa-file-pdf" style="font-size: 2.5rem; color: var(--error-red); margin-bottom: 15px; display: block; text-align: center;"></i>
+            <h3 style="margin-bottom: 5px; font-size: 1.3rem;">Generar PDF</h3>
+            <p style="font-size: 0.9rem; color: var(--ngc-text-faded); text-align: center; margin-bottom: 25px;">Confirma el nombre para guardar tu archivo.</p>
+
+            <div style="position: relative; margin-bottom: 25px;">
+                <label style="position: absolute; top: -10px; left: 10px; background: var(--bg-body); padding: 0 5px; font-size: 0.75rem; color: var(--ngc-text-faded); z-index: 1;">Nombre del archivo</label>
+                <div style="display: flex; align-items: center; border: 1px solid var(--ngc-privacy-border); border-radius: 8px; overflow: hidden; background: var(--ngc-bg-input);">
+                    <input type="text" id="nombreArchivoPDF" class="corp-input" style="border: none; border-radius: 0; flex: 1; padding: 15px; outline: none; box-shadow: none;">
+                    <span style="padding: 0 15px; color: var(--ngc-text-faded); background: var(--ngc-bg-input);">.pdf</span>
+                </div>
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; justify-content: flex-end; gap: 15px;">
+                <button class="corp-btn" style="width: auto; background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalPDF()">Cancelar</button>
+                <button id="btnConfirmarDescargaPDF" class="corp-btn danger-btn" style="width: auto; font-weight: bold; padding: 10px 20px; border-radius: 20px;" onclick="ejecutarDescargaPDF()">Descargar</button>
+            </div>
+        </div>
+    </div>
+        
+    <nav class="corp-bottom-nav">
+        <div class="corp-scroll-container" id="corpFooterMenu"></div>
+    </nav>
+
+    <!-- MODAL FULLSCREEN VISTA PREVIA (MÓVIL) -->
+    <div id="modalVistaPrevia" class="oculto gpu-accel" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #525659; z-index: 999999; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #323639; z-index: 9999999; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <button class="corp-btn" onclick="cerrarVistaPrevia()" style="width: auto; background: transparent; color: white; border: 1px solid white; padding: 8px 15px;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </button>
+            <button class="corp-btn danger-btn" onclick="generarPDF()" style="width: auto; padding: 8px 15px; font-weight: bold;">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+        </div>
+        <div id="previewWrapper" style="flex: 1; width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; box-sizing: border-box; text-align: center; touch-action: pan-x pan-y;">
+        </div>
+    </div>
+
+    <script src="../global.js"></script>
+    <script src="script.js"></script>
+</body>
+  </html>
