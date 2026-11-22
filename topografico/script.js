@@ -124,7 +124,7 @@ function cargarEstadoInicial() {
                 document.getElementById('cliDireccion').value = data.cliDireccion || '';
                 document.getElementById('cliProyecto').value = data.cliProyecto || '';
                 document.getElementById('obsGenerales').value = data.obsGenerales || '';
-                estadoGabinete = data.estadoGabinete;
+                estadoGabinete = normalizarEstadoGabinete(data.estadoGabinete);
                 clienteDesdeAgenda = !!data.clienteDesdeAgenda;
                 permiteGuardarNube = data.permiteGuardarNube !== false;
                 nombreBorradorActual = data.nombreBorrador || null;
@@ -1114,8 +1114,10 @@ function cerrarModalPDF() {
 
 async function ejecutarDescargaPDF() {
     const btn = document.getElementById('btnConfirmarDescargaPDF');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    }
 
     const element = document.getElementById('plantilla-pdf');
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
@@ -1181,15 +1183,21 @@ async function ejecutarDescargaPDF() {
         mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
 
         if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
-            guardarBorradorFirebase(false, true);
+            try {
+                guardarBorradorFirebase(false, true);
+            } catch (errNube) {
+                console.warn('Aviso respaldo automático en nube:', errNube);
+            }
         }
     } catch (error) {
         console.error('Error generando PDF Topográfico:', error);
         mostrarAlertaCorp('Error al Exportar', `No se pudo generar el PDF (${error.message || 'error interno'}).`);
     } finally {
         restaurarSvg();
-        btn.disabled = false;
-        btn.innerHTML = 'Descargar';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Descargar';
+        }
 
         if (element) {
             element.style.width = '';
@@ -1206,7 +1214,7 @@ async function ejecutarDescargaPDF() {
             element.style.display = 'none';
         }
     }
-                      }
+            }
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
@@ -1331,6 +1339,50 @@ function ejecutarGuardarBorrador() {
     ejecutarGuardadoEnNube(nombre, false);
 }
 
+function serializarGabineteParaFirestore(gab) {
+    const base = normalizarEstadoGabinete(gab);
+    return {
+        nombre: base.nombre,
+        ip: base.ip,
+        montaje: base.montaje,
+        filasCount: base.filasCount,
+        modulosPorFila: base.modulosPorFila,
+        borneras: base.borneras,
+        // Firestore no admite arrays anidados ([[...]]), se serializan como objetos por fila
+        filas: base.filas.map((dispositivos, idx) => ({
+            filaIndex: idx,
+            dispositivos: dispositivos.map(d => ({ ...d }))
+        }))
+    };
+}
+
+function normalizarEstadoGabinete(rawGab) {
+    const gab = Object.assign({
+        nombre: 'TS1',
+        ip: 'IP41 • PVC Autoextinguible',
+        montaje: 'De Embutir',
+        filasCount: 1,
+        modulosPorFila: 12,
+        borneras: 'PE',
+        filas: [[]]
+    }, rawGab || {});
+
+    if (Array.isArray(gab.filas)) {
+        gab.filas = gab.filas.map(f => {
+            if (Array.isArray(f)) return f;
+            if (f && Array.isArray(f.dispositivos)) return f.dispositivos;
+            return [];
+        });
+    } else {
+        gab.filas = [[]];
+    }
+
+    while (gab.filas.length < (gab.filasCount || 1)) {
+        gab.filas.push([]);
+    }
+    return gab;
+}
+
 function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
     const uid = obtenerUid();
     if (!uid || !db) return;
@@ -1341,40 +1393,52 @@ function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
         badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
     }
 
-    const payload = JSON.parse(JSON.stringify({
-        cliNombre: document.getElementById('cliNombre').value.trim(),
-        cliDireccion: document.getElementById('cliDireccion').value.trim(),
-        cliProyecto: document.getElementById('cliProyecto').value.trim(),
-        obsGenerales: document.getElementById('obsGenerales').value,
-        estadoGabinete,
-        nombreBorrador: nombreDoc,
-        telefonoClienteActual: telefonoClienteActual || '',
-        fechaGuardado: Date.now()
-    }));
-
-    const escritura = db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(nombreDoc).set(payload);
-    const timeoutNube = new Promise((_, reject) =>
-        setTimeout(() => reject({ code: 'timeout', message: 'Tiempo de espera agotado con Firebase' }), 8000)
-    );
-
-    Promise.race([escritura, timeoutNube])
-        .then(() => {
-            if (badge) {
-                badge.className = 'pres-cloud-pill saved';
-                badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
-            }
-            if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
-        })
-        .catch(err => {
-            console.error('Error guardando borrador topográfico:', err);
-            if (badge) {
+    const manejarErrorNube = (err) => {
+        console.error('Error guardando borrador topográfico:', err);
+        if (badge) {
+            if (silencioso) {
+                actualizarBadgeNube();
+            } else {
                 badge.className = 'pres-cloud-pill local';
-                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${err.code || 'Error Nube'}`;
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Error Nube`;
             }
-            if (!silencioso) {
-                mostrarAlertaCorp('Error de Nube', `Firebase respondió: ${err.code || ''} - ${err.message || 'Sin conexión'}`);
-            }
-        });
+        }
+        if (!silencioso) {
+            mostrarAlertaCorp('Error de Nube', `No se pudo sincronizar con Firebase (${err?.code || err?.message || 'error'}).`);
+        }
+    };
+
+    try {
+        const docId = nombreDoc.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+
+        const payload = JSON.parse(JSON.stringify({
+            cliNombre: document.getElementById('cliNombre').value.trim(),
+            cliDireccion: document.getElementById('cliDireccion').value.trim(),
+            cliProyecto: document.getElementById('cliProyecto').value.trim(),
+            obsGenerales: document.getElementById('obsGenerales').value,
+            estadoGabinete: serializarGabineteParaFirestore(estadoGabinete),
+            nombreBorrador: nombreDoc,
+            telefonoClienteActual: telefonoClienteActual || '',
+            fechaGuardado: Date.now()
+        }));
+
+        const escritura = db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(docId).set(payload);
+        const timeoutNube = new Promise((_, reject) =>
+            setTimeout(() => reject({ code: 'timeout', message: 'Tiempo de espera agotado' }), 8000)
+        );
+
+        Promise.race([escritura, timeoutNube])
+            .then(() => {
+                if (badge) {
+                    badge.className = 'pres-cloud-pill saved';
+                    badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
+                }
+                if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
+            })
+            .catch(manejarErrorNube);
+    } catch (syncErr) {
+        manejarErrorNube(syncErr);
+    }
 }
 
 function abrirModalBorradores() {
@@ -1433,7 +1497,9 @@ function cargarBorradorTopografico(docId) {
         document.getElementById('cliDireccion').value = d.cliDireccion || '';
         document.getElementById('cliProyecto').value = d.cliProyecto || '';
         document.getElementById('obsGenerales').value = d.obsGenerales || '';
-        if (d.estadoGabinete) estadoGabinete = d.estadoGabinete;
+        if (d.estadoGabinete) {
+            estadoGabinete = normalizarEstadoGabinete(d.estadoGabinete);
+        }
 
         clienteDesdeAgenda = true;
         permiteGuardarNube = true;
