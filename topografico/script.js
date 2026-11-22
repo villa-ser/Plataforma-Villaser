@@ -1030,6 +1030,7 @@ function actualizarPDFHeaders() {
             imgPdf.style.display = 'block';
             txtPdf.style.display = 'none';
         } else {
+            imgPdf.removeAttribute('src');
             imgPdf.style.display = 'none';
             txtPdf.innerText = profNombre.toUpperCase();
             txtPdf.style.display = 'block';
@@ -1058,23 +1059,33 @@ async function convertirSvgTopoAImagen() {
     const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
 
     try {
-        const pngDataUrl = await new Promise((resolve, reject) => {
+        const cargaImg = new Promise((resolve, reject) => {
             const imgLoader = new Image();
             imgLoader.onload = () => {
-                const escala = 2;
-                const canvas = document.createElement('canvas');
-                canvas.width = ancho * escala;
-                canvas.height = alto * escala;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.scale(escala, escala);
-                ctx.drawImage(imgLoader, 0, 0, ancho, alto);
-                resolve(canvas.toDataURL('image/png'));
+                try {
+                    const escala = 2;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = ancho * escala;
+                    canvas.height = alto * escala;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.scale(escala, escala);
+                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (err) {
+                    reject(err);
+                }
             };
             imgLoader.onerror = reject;
             imgLoader.src = dataUri;
         });
+
+        const timeoutImg = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout renderizando SVG')), 5000)
+        );
+
+        const pngDataUrl = await Promise.race([cargaImg, timeoutImg]);
 
         const imgFinal = document.createElement('img');
         imgFinal.src = pngDataUrl;
@@ -1082,15 +1093,13 @@ async function convertirSvgTopoAImagen() {
         imgFinal.style.cssText = 'width: 100%; max-height: 430px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
         contenedor.innerHTML = '';
         contenedor.appendChild(imgFinal);
-        if (imgFinal.decode) {
-            await imgFinal.decode().catch(() => {});
-        }
 
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     } catch (e) {
+        console.warn('Fallback SVG directo en PDF:', e);
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     }
-}
+                        }
 
 function generarPDF() {
     actualizarVistaPreviaPDF();
@@ -1102,7 +1111,11 @@ function generarPDF() {
 
 function cerrarModalPDF() {
     document.getElementById('modalDescargarPDF').classList.add('oculto');
-    document.getElementById('btnConfirmarDescargaPDF').innerHTML = 'Descargar';
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Descargar';
+    }
 }
 
 async function ejecutarDescargaPDF() {
@@ -1110,30 +1123,23 @@ async function ejecutarDescargaPDF() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
 
-    if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
-        guardarBorradorFirebase(false, true);
-    }
-
     const element = document.getElementById('plantilla-pdf');
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
-    const modalPDF = document.getElementById('modalDescargarPDF');
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
     const padreOriginal = element ? element.parentNode : null;
     const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
     let movidoAlBody = false;
 
-    if (modalPDF) modalPDF.style.zIndex = '10001';
-
     if (!modalAbierto && element) {
         document.body.appendChild(element);
         movidoAlBody = true;
         element.classList.remove('oculto');
         element.style.setProperty('display', 'block', 'important');
-        element.style.position = 'fixed';
-        element.style.left = '0';
+        element.style.position = 'absolute';
+        element.style.left = '-9999px';
         element.style.top = '0';
-        element.style.zIndex = '9999';
+        element.style.zIndex = '-1';
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
     }
@@ -1149,6 +1155,10 @@ async function ejecutarDescargaPDF() {
 
     let restaurarSvg = () => {};
     try {
+        if (typeof html2pdf === 'undefined') {
+            throw new Error('Librería html2pdf no disponible.');
+        }
+
         restaurarSvg = await convertirSvgTopoAImagen();
         const inputNombre = document.getElementById('nombreArchivoPDF');
         const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Esquema_Topografico';
@@ -1156,12 +1166,24 @@ async function ejecutarDescargaPDF() {
         const opt = {
             margin: 0,
             filename: `${nombreFinal}.pdf`,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, width: 794, height: 1115 },
+            image: { type: 'jpeg', quality: 0.96 },
+            html2canvas: {
+                scale: 2,
+                useCORS: false,
+                allowTaint: true,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                width: 794,
+                height: 1115,
+                windowWidth: 794,
+                windowHeight: 1115,
+                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !el.getAttribute('src'))
+            },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
         };
 
-        const pdfBlob = await html2pdf()
+        const tareaPdf = html2pdf()
             .set(opt)
             .from(element)
             .toPdf()
@@ -1171,29 +1193,29 @@ async function ejecutarDescargaPDF() {
                 for (let i = totalPages; i > 1; i--) {
                     pdf.deletePage(i);
                 }
-                return pdf.output('blob');
-            });
+            })
+            .save();
 
-        const urlDescarga = URL.createObjectURL(pdfBlob);
-        const enlace = document.createElement('a');
-        enlace.href = urlDescarga;
-        enlace.download = `${nombreFinal}.pdf`;
-        document.body.appendChild(enlace);
-        enlace.click();
-        document.body.removeChild(enlace);
-        setTimeout(() => URL.revokeObjectURL(urlDescarga), 4000);
+        const timeoutPdf = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Tiempo de espera agotado al renderizar el PDF')), 15000)
+        );
+
+        await Promise.race([tareaPdf, timeoutPdf]);
 
         cerrarModalPDF();
         mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
+
+        // Respaldo en nube secuencial (no compite con la renderización del PDF)
+        if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
+            guardarBorradorFirebase(false, true);
+        }
     } catch (error) {
         console.error('Error generando PDF Topográfico:', error);
-        mostrarAlertaCorp('Error', 'Ocurrió un error al generar el PDF.');
+        mostrarAlertaCorp('Error al Exportar', 'No se pudo generar el PDF. Verificá tu conexión o reintentá.');
     } finally {
         restaurarSvg();
         btn.disabled = false;
         btn.innerHTML = 'Descargar';
-
-        if (modalPDF) modalPDF.style.zIndex = '';
 
         if (element) {
             element.style.width = '';
@@ -1352,18 +1374,23 @@ function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
         badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
     }
 
-    const payload = {
+    const payload = JSON.parse(JSON.stringify({
         cliNombre: document.getElementById('cliNombre').value.trim(),
         cliDireccion: document.getElementById('cliDireccion').value.trim(),
         cliProyecto: document.getElementById('cliProyecto').value.trim(),
         obsGenerales: document.getElementById('obsGenerales').value,
         estadoGabinete,
         nombreBorrador: nombreDoc,
-        telefonoClienteActual,
+        telefonoClienteActual: telefonoClienteActual || '',
         fechaGuardado: Date.now()
-    };
+    }));
 
-    db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(nombreDoc).set(payload)
+    const escritura = db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(nombreDoc).set(payload);
+    const timeoutNube = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout Firebase')), 8000)
+    );
+
+    Promise.race([escritura, timeoutNube])
         .then(() => {
             if (badge) {
                 badge.className = 'pres-cloud-pill saved';
@@ -1371,8 +1398,19 @@ function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
             }
             if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
         })
-        .catch(() => {
-            if (!silencioso) mostrarAlertaCorp('Error', 'No se pudo guardar el borrador en Firebase.');
+        .catch(err => {
+            console.error('Error guardando borrador topográfico:', err);
+            if (badge) {
+                if (silencioso) {
+                    actualizarBadgeNube();
+                } else {
+                    badge.className = 'pres-cloud-pill local';
+                    badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error Nube';
+                }
+            }
+            if (!silencioso) {
+                mostrarAlertaCorp('Error de Nube', 'No se pudo sincronizar con Firebase. Verificá tu conexión o permisos.');
+            }
         });
 }
 
