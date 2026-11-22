@@ -3146,3 +3146,43 @@ html.modo-modal-embebido main.container {
     border-color: var(--ngc-neon);
     color: var(--ngc-neon);
 }
+
+/* ============================================================== */
+/* MEJORA GLOBAL DE CUSTOM SELECTS (ANTI-CLIPPING EN MODALES)     */
+/* ============================================================== */
+.corp-custom-select summary.corp-input {
+    min-height: 46px;
+    gap: 8px;
+}
+
+.corp-custom-select summary .corp-select-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: left;
+}
+
+/* Lista flotante escapando de contenedores con overflow */
+.corp-select-list.is-floating {
+    position: fixed;
+    z-index: 100050;
+    margin: 0;
+}
+
+/* Estado activo de la opción elegida */
+.corp-select-option.selected {
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+    font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.corp-select-option.selected::after {
+    content: '\f00c';
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    font-size: 0.8rem;
+}
