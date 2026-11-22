@@ -651,7 +651,7 @@ document.addEventListener("DOMContentLoaded", () => {
         { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
         { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
         { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
-        { nombre: 'Topográfico', icon: 'fa-table-cells', url: '../topografico/index.html' },
+        { nombre: 'Topografico', icon: 'fa-table-cells', url: '../topografico/index.html' },
         { nombre: 'Agenda', icon: 'fa-address-book', url: '#', active: true },
         { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
         { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
