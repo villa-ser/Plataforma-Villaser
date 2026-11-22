@@ -1704,6 +1704,7 @@ function generarMenuInferior() {
         { nombre: 'Materiales', icon: 'fa-boxes-stacked', url: '../materiales/index.html' },
         { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
         { nombre: 'Potencia', icon: 'fa-bolt', url: '#', active: true },
+        { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
         { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
         { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
         { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
