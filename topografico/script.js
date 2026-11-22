@@ -1064,7 +1064,7 @@ async function convertirSvgTopoAImagen() {
         const pngDataUrl = await new Promise((resolve, reject) => {
             const imgLoader = new Image();
             imgLoader.onload = () => {
-                const escala = 3;
+                const escala = 2;
                 const canvas = document.createElement('canvas');
                 canvas.width = ancho * escala;
                 canvas.height = alto * escala;
@@ -1083,28 +1083,25 @@ async function convertirSvgTopoAImagen() {
             imgLoader.src = urlBlob;
         });
 
-        contenedor.innerHTML = `<img src="${pngDataUrl}" alt="Esquema Topográfico" style="width: 100%; max-height: 430px; height: auto; object-fit: contain; display: block; margin: 0 auto;">`;
+        const imgFinal = document.createElement('img');
+        imgFinal.src = pngDataUrl;
+        imgFinal.alt = 'Esquema Topográfico';
+        imgFinal.style.cssText = 'width: 100%; max-height: 430px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
+        contenedor.innerHTML = '';
+        contenedor.appendChild(imgFinal);
+        if (imgFinal.decode) {
+            await imgFinal.decode().catch(() => {});
+        }
+
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     } catch (e) {
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     }
 }
 
-function generarPDF() {
-    actualizarVistaPreviaPDF();
-    const sugerido = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
-    const sufijo = Math.floor(Math.random() * 9000) + 1000;
-    document.getElementById('nombreArchivoPDF').value = `Esquema_Topografico_${sugerido}_${sufijo}`;
-    document.getElementById('modalDescargarPDF').classList.remove('oculto');
-}
-
-function cerrarModalPDF() {
-    document.getElementById('modalDescargarPDF').classList.add('oculto');
-    document.getElementById('btnConfirmarDescargaPDF').innerHTML = 'Descargar';
-}
-
 async function ejecutarDescargaPDF() {
     const btn = document.getElementById('btnConfirmarDescargaPDF');
+    btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
 
     if (permiteGuardarNube) {
@@ -1113,34 +1110,46 @@ async function ejecutarDescargaPDF() {
 
     const element = document.getElementById('plantilla-pdf');
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
-    const modalAbierto = !document.getElementById('modalVistaPrevia').classList.contains('oculto');
+    const modalVista = document.getElementById('modalVistaPrevia');
+    const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
+    const padreOriginal = element ? element.parentNode : null;
+    let movidoAlBody = false;
 
-    if (!modalAbierto) {
+    if (!modalAbierto && element) {
+        // Saca temporalmente #plantilla-pdf del <aside class="preview-panel"> oculto en móviles
+        document.body.appendChild(element);
+        movidoAlBody = true;
+        element.style.position = 'fixed';
+        element.style.left = '0';
+        element.style.top = '0';
+        element.style.zIndex = '-1';
         element.style.display = 'block';
-        window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
     }
 
-    element.style.width = '794px';
-    element.style.height = '1115px';
-    element.style.overflow = 'hidden';
+    if (element) {
+        element.style.width = '794px';
+        element.style.height = '1115px';
+        element.style.overflow = 'hidden';
+    }
 
     const marcaAgua = document.getElementById('marcaAguaPDF');
     if (marcaAgua) marcaAgua.style.display = 'none';
 
-    const restaurarSvg = await convertirSvgTopoAImagen();
-    const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Esquema_Topografico';
-
-    const opt = {
-        margin: 0,
-        filename: `${nombreFinal}.pdf`,
-        image: { type: 'png' },
-        html2canvas: { scale: 3, useCORS: true, letterRendering: true, scrollY: 0, width: 794, height: 1115 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
-    };
-
+    let restaurarSvg = () => {};
     try {
+        restaurarSvg = await convertirSvgTopoAImagen();
+        const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Esquema_Topografico';
+
+        const opt = {
+            margin: 0,
+            filename: `${nombreFinal}.pdf`,
+            image: { type: 'jpeg', quality: 0.96 },
+            html2canvas: { scale: 2, useCORS: true, scrollY: 0, width: 794, height: 1115 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+        };
+
         await html2pdf()
             .set(opt)
             .from(element)
@@ -1157,22 +1166,48 @@ async function ejecutarDescargaPDF() {
         cerrarModalPDF();
         mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
     } catch (error) {
+        console.error('Error generando PDF Topográfico:', error);
         mostrarAlertaCorp('Error', 'Ocurrió un error al generar el PDF.');
-        btn.innerHTML = 'Descargar';
     } finally {
         restaurarSvg();
-        element.style.width = '';
-        element.style.height = '';
-        element.style.overflow = '';
+        btn.disabled = false;
+        btn.innerHTML = 'Descargar';
+
+        if (element) {
+            element.style.width = '';
+            element.style.height = '';
+            element.style.overflow = '';
+            element.style.position = '';
+            element.style.left = '';
+            element.style.top = '';
+            element.style.zIndex = '';
+        }
 
         if (marcaAgua) marcaAgua.style.display = 'flex';
-        if (modalAbierto) {
+
+        if (movidoAlBody && padreOriginal && element) {
+            element.style.display = '';
+            padreOriginal.appendChild(element);
+        } else if (modalAbierto) {
             aplicarEscalaVistaPrevia(escalaActualPreview);
-        } else if (window.innerWidth < 992) {
+        } else if (element && window.innerWidth < 992) {
             element.style.display = 'none';
         }
     }
-          }
+}
+
+function generarPDF() {
+    actualizarVistaPreviaPDF();
+    const sugerido = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Esquema_Topografico_${sugerido}_${sufijo}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    document.getElementById('btnConfirmarDescargaPDF').innerHTML = 'Descargar';
+}
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
