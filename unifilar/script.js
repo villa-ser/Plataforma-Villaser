@@ -777,8 +777,8 @@ function generarSVGUnifilar() {
     const cx = Math.round(width / 2);
     const height = 655;
 
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="100%" style="font-family: 'Segoe UI', Arial, sans-serif; background:#ffffff;">`;
-
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="width: 100%; max-height: 465px; height: auto; display: block; margin: 0 auto; font-family: 'Segoe UI', Arial, sans-serif; background:#ffffff;">`;
+    
     // --- NIVEL 0: RDD, DPLA, MEDIDOR ---
     // Red Distribuidora
     svg += `
