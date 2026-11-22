@@ -1055,10 +1055,7 @@ async function convertirSvgTopoAImagen() {
     svgClon.setAttribute('height', alto);
 
     const xml = new XMLSerializer().serializeToString(svgClon);
-    const svgBlob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${xml}`], {
-        type: 'image/svg+xml;charset=utf-8'
-    });
-    const urlBlob = URL.createObjectURL(svgBlob);
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
 
     try {
         const pngDataUrl = await new Promise((resolve, reject) => {
@@ -1073,14 +1070,10 @@ async function convertirSvgTopoAImagen() {
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.scale(escala, escala);
                 ctx.drawImage(imgLoader, 0, 0, ancho, alto);
-                URL.revokeObjectURL(urlBlob);
                 resolve(canvas.toDataURL('image/png'));
             };
-            imgLoader.onerror = err => {
-                URL.revokeObjectURL(urlBlob);
-                reject(err);
-            };
-            imgLoader.src = urlBlob;
+            imgLoader.onerror = reject;
+            imgLoader.src = dataUri;
         });
 
         const imgFinal = document.createElement('img');
@@ -1099,31 +1092,48 @@ async function convertirSvgTopoAImagen() {
     }
 }
 
+function generarPDF() {
+    actualizarVistaPreviaPDF();
+    const sugerido = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Esquema_Topografico_${sugerido}_${sufijo}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    document.getElementById('btnConfirmarDescargaPDF').innerHTML = 'Descargar';
+}
+
 async function ejecutarDescargaPDF() {
     const btn = document.getElementById('btnConfirmarDescargaPDF');
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
 
-    if (permiteGuardarNube) {
+    if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
         guardarBorradorFirebase(false, true);
     }
 
     const element = document.getElementById('plantilla-pdf');
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
+    const modalPDF = document.getElementById('modalDescargarPDF');
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
     const padreOriginal = element ? element.parentNode : null;
+    const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
     let movidoAlBody = false;
 
+    if (modalPDF) modalPDF.style.zIndex = '10001';
+
     if (!modalAbierto && element) {
-        // Saca temporalmente #plantilla-pdf del <aside class="preview-panel"> oculto en móviles
         document.body.appendChild(element);
         movidoAlBody = true;
+        element.classList.remove('oculto');
+        element.style.setProperty('display', 'block', 'important');
         element.style.position = 'fixed';
         element.style.left = '0';
         element.style.top = '0';
-        element.style.zIndex = '-1';
-        element.style.display = 'block';
+        element.style.zIndex = '9999';
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
     }
@@ -1140,17 +1150,18 @@ async function ejecutarDescargaPDF() {
     let restaurarSvg = () => {};
     try {
         restaurarSvg = await convertirSvgTopoAImagen();
-        const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Esquema_Topografico';
+        const inputNombre = document.getElementById('nombreArchivoPDF');
+        const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Esquema_Topografico';
 
         const opt = {
             margin: 0,
             filename: `${nombreFinal}.pdf`,
-            image: { type: 'jpeg', quality: 0.96 },
-            html2canvas: { scale: 2, useCORS: true, scrollY: 0, width: 794, height: 1115 },
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, width: 794, height: 1115 },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
         };
 
-        await html2pdf()
+        const pdfBlob = await html2pdf()
             .set(opt)
             .from(element)
             .toPdf()
@@ -1160,8 +1171,17 @@ async function ejecutarDescargaPDF() {
                 for (let i = totalPages; i > 1; i--) {
                     pdf.deletePage(i);
                 }
-            })
-            .save();
+                return pdf.output('blob');
+            });
+
+        const urlDescarga = URL.createObjectURL(pdfBlob);
+        const enlace = document.createElement('a');
+        enlace.href = urlDescarga;
+        enlace.download = `${nombreFinal}.pdf`;
+        document.body.appendChild(enlace);
+        enlace.click();
+        document.body.removeChild(enlace);
+        setTimeout(() => URL.revokeObjectURL(urlDescarga), 4000);
 
         cerrarModalPDF();
         mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
@@ -1173,6 +1193,8 @@ async function ejecutarDescargaPDF() {
         btn.disabled = false;
         btn.innerHTML = 'Descargar';
 
+        if (modalPDF) modalPDF.style.zIndex = '';
+
         if (element) {
             element.style.width = '';
             element.style.height = '';
@@ -1181,6 +1203,7 @@ async function ejecutarDescargaPDF() {
             element.style.left = '';
             element.style.top = '';
             element.style.zIndex = '';
+            if (teniaClaseOculto) element.classList.add('oculto');
         }
 
         if (marcaAgua) marcaAgua.style.display = 'flex';
@@ -1194,20 +1217,7 @@ async function ejecutarDescargaPDF() {
             element.style.display = 'none';
         }
     }
-}
 
-function generarPDF() {
-    actualizarVistaPreviaPDF();
-    const sugerido = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
-    const sufijo = Math.floor(Math.random() * 9000) + 1000;
-    document.getElementById('nombreArchivoPDF').value = `Esquema_Topografico_${sugerido}_${sufijo}`;
-    document.getElementById('modalDescargarPDF').classList.remove('oculto');
-}
-
-function cerrarModalPDF() {
-    document.getElementById('modalDescargarPDF').classList.add('oculto');
-    document.getElementById('btnConfirmarDescargaPDF').innerHTML = 'Descargar';
-}
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
