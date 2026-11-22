@@ -312,3 +312,174 @@ function cerrarModalConfirmarNuevoGlobal() {
     window.addEventListener('pointerdown', armarTrampaHistorial, { once: true });
 })();
                             
+// ==========================================================================
+// MOTOR GLOBAL DE SELECTORES TIPO ACORDEÓN (AUTO-HYDRATION PWA)
+// ==========================================================================
+(function () {
+    function posicionarListaFlotante(details, summary, list) {
+        if (!details.open) {
+            list.classList.remove('is-floating');
+            list.style.top = '';
+            list.style.bottom = '';
+            list.style.left = '';
+            list.style.width = '';
+            return;
+        }
+
+        const rect = summary.getBoundingClientRect();
+        const margen = 10;
+        const anchoDeseado = Math.min(window.innerWidth - margen * 2, Math.max(rect.width, 220));
+        let left = rect.left;
+
+        if (left + anchoDeseado > window.innerWidth - margen) {
+            left = Math.max(margen, window.innerWidth - anchoDeseado - margen);
+        }
+
+        list.classList.add('is-floating');
+        list.style.left = `${left}px`;
+        list.style.width = `${anchoDeseado}px`;
+
+        const espacioAbajo = window.innerHeight - rect.bottom - margen;
+        const espacioArriba = rect.top - margen;
+
+        if (espacioAbajo < 190 && espacioArriba > espacioAbajo) {
+            list.style.top = 'auto';
+            list.style.bottom = `${window.innerHeight - rect.top + 6}px`;
+            list.style.maxHeight = `${Math.min(250, espacioArriba - 8)}px`;
+        } else {
+            list.style.bottom = 'auto';
+            list.style.top = `${rect.bottom + 6}px`;
+            list.style.maxHeight = `${Math.min(250, Math.max(120, espacioAbajo - 8))}px`;
+        }
+    }
+
+    function mejorarSelectNativo(select) {
+        if (!select || select.dataset.corpUpgraded === '1' || select.dataset.native === 'true') return;
+        select.dataset.corpUpgraded = '1';
+
+        const details = document.createElement('details');
+        details.className = 'corp-custom-select';
+        if (select.disabled) details.setAttribute('disabled', 'true');
+
+        const summary = document.createElement('summary');
+        summary.className = select.className || 'corp-input';
+        if (select.getAttribute('style')) {
+            summary.setAttribute('style', select.getAttribute('style'));
+        }
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'corp-select-label';
+        summary.appendChild(labelSpan);
+
+        const list = document.createElement('div');
+        list.className = 'corp-select-list';
+
+        details.appendChild(summary);
+        details.appendChild(list);
+
+        select.style.display = 'none';
+        select.parentNode.insertBefore(details, select.nextSibling);
+
+        const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+
+        function sincronizarUI() {
+            const optActiva = select.options[select.selectedIndex];
+            labelSpan.textContent = optActiva ? optActiva.text : '-- Seleccione --';
+
+            const valActual = descriptor.get.call(select);
+            list.querySelectorAll('.corp-select-option').forEach(el => {
+                el.classList.toggle('selected', el.dataset.value === valActual);
+            });
+
+            if (select.disabled) {
+                details.setAttribute('disabled', 'true');
+                details.removeAttribute('open');
+            } else {
+                details.removeAttribute('disabled');
+            }
+        }
+
+        function reconstruirOpciones() {
+            list.innerHTML = '';
+            Array.from(select.options).forEach(opt => {
+                const item = document.createElement('div');
+                item.className = 'corp-select-option';
+                item.dataset.value = opt.value;
+                item.textContent = opt.text;
+
+                if (opt.disabled) {
+                    item.style.opacity = '0.45';
+                    item.style.pointerEvents = 'none';
+                }
+
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (select.disabled) return;
+                    descriptor.set.call(select, opt.value);
+                    sincronizarUI();
+                    details.removeAttribute('open');
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+
+                list.appendChild(item);
+            });
+            sincronizarUI();
+        }
+
+        // Intercepta asignaciones programáticas (ej: document.getElementById('gabIP').value = ...)
+        Object.defineProperty(select, 'value', {
+            get() {
+                return descriptor.get.call(this);
+            },
+            set(nuevoValor) {
+                descriptor.set.call(this, nuevoValor);
+                sincronizarUI();
+            }
+        });
+
+        details.addEventListener('toggle', () => {
+            if (details.open) {
+                if (select.disabled) {
+                    details.removeAttribute('open');
+                    return;
+                }
+                document.querySelectorAll('details.corp-custom-select[open]').forEach(otro => {
+                    if (otro !== details) otro.removeAttribute('open');
+                });
+                sincronizarUI();
+                requestAnimationFrame(() => posicionarListaFlotante(details, summary, list));
+            } else {
+                posicionarListaFlotante(details, summary, list);
+            }
+        });
+
+        select.addEventListener('change', sincronizarUI);
+
+        // Observa si un script agrega/quita <option> dinámicamente
+        const observer = new MutationObserver(reconstruirOpciones);
+        observer.observe(select, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+
+        reconstruirOpciones();
+    }
+
+    window.inicializarSelectsCorporativos = function (contenedor = document) {
+        contenedor.querySelectorAll('select.corp-input:not([data-native="true"])').forEach(mejorarSelectNativo);
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.inicializarSelectsCorporativos();
+    });
+
+    // Cierra al tocar fuera
+    document.addEventListener('click', (e) => {
+        document.querySelectorAll('details.corp-custom-select[open]').forEach(det => {
+            if (!det.contains(e.target)) det.removeAttribute('open');
+        });
+    });
+
+    // Cierra si el usuario hace scroll en el modal o en la página para evitar listas desacopladas
+    window.addEventListener('scroll', (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains('corp-select-list')) return;
+        document.querySelectorAll('details.corp-custom-select[open]').forEach(det => det.removeAttribute('open'));
+    }, true);
+})();
