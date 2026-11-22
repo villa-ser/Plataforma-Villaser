@@ -1217,7 +1217,7 @@ async function ejecutarDescargaPDF() {
             element.style.display = 'none';
         }
     }
-
+}
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
