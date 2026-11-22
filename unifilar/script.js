@@ -1297,9 +1297,12 @@ async function ejecutarDescargaPDF() {
         window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
-        element.style.width = '';
-        element.style.height = '';
     }
+
+    // Bloquea la caja exacta A4 durante la captura para evitar desbordes
+    element.style.width = '794px';
+    element.style.height = '1115px';
+    element.style.overflow = 'hidden';
 
     const marcaAgua = document.getElementById('marcaAguaPDF');
     if (marcaAgua) marcaAgua.style.display = 'none';
@@ -1313,12 +1316,25 @@ async function ejecutarDescargaPDF() {
         margin: 0,
         filename: `${nombreFinal}.pdf`,
         image: { type: 'png' },
-        html2canvas: { scale: 3, useCORS: true, letterRendering: true, scrollY: 0 },
+        html2canvas: { scale: 3, useCORS: true, letterRendering: true, scrollY: 0, width: 794, height: 1115 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
     };
 
     try {
-        await html2pdf().set(opt).from(element).save();
+        await html2pdf()
+            .set(opt)
+            .from(element)
+            .toPdf()
+            .get('pdf')
+            .then((pdf) => {
+                // Elimina cualquier página extra en blanco antes de descargar
+                const totalPages = pdf.internal.getNumberOfPages();
+                for (let i = totalPages; i > 1; i--) {
+                    pdf.deletePage(i);
+                }
+            })
+            .save();
+
         cerrarModalPDF();
         mostrarToast("Éxito", "Plano Unifilar PDF generado.");
     } catch (error) {
@@ -1326,6 +1342,10 @@ async function ejecutarDescargaPDF() {
         btn.innerHTML = "Descargar";
     } finally {
         restaurarSvg();
+        element.style.width = '';
+        element.style.height = '';
+        element.style.overflow = '';
+
         if (marcaAgua) marcaAgua.style.display = 'flex';
         if (modalAbierto) {
             aplicarEscalaVistaPrevia(escalaActualPreview);
