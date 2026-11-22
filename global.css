@@ -2829,3 +2829,164 @@ html.modo-modal-embebido main.container {
     background: var(--ngc-glass) !important;
     border: 1px solid var(--ngc-privacy-border) !important;
 }
+
+/* ============================================================== */
+/* MÓDULO ESQUEMA UNIFILAR (.uni-*)                               */
+/* ============================================================== */
+.uni-level-card {
+    background: var(--ngc-glass);
+    border: var(--ngc-border-glass);
+    border-left: 4px solid var(--ngc-neon);
+    border-radius: 12px;
+    padding: 13px 12px;
+    box-shadow: 0 1px 3px var(--card-shadow);
+}
+.uni-level-card.nivel-0 { border-left-color: #64748b; }
+.uni-level-card.nivel-1 { border-left-color: var(--ngc-warning); }
+.uni-level-card.nivel-2 { border-left-color: var(--ngc-neon); }
+.uni-level-card.nivel-3 { border-left-color: var(--success-green); }
+
+.uni-level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.uni-level-badge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+    display: inline-block;
+    margin-bottom: 3px;
+}
+.uni-level-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--ngc-text-main);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.uni-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.78rem;
+}
+.uni-spec-item span {
+    display: block;
+    font-size: 0.66rem;
+    color: var(--ngc-text-faded);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.uni-spec-item strong {
+    color: var(--ngc-text-main);
+    font-size: 0.82rem;
+}
+.uni-circ-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+.uni-circ-item {
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 9px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.uni-circ-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.uni-circ-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--ngc-neon);
+}
+.uni-circ-pill {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(49, 162, 76, 0.14);
+    color: var(--success-green);
+}
+.uni-circ-pill.warn {
+    background: rgba(228, 30, 63, 0.14);
+    color: var(--error-red);
+}
+.uni-circ-details {
+    font-size: 0.76rem;
+    color: var(--ngc-text-faded);
+    line-height: 1.4;
+}
+.uni-circ-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    border-top: 1px dashed var(--ngc-privacy-border);
+    padding-top: 6px;
+}
+.uni-svg-stage {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    padding: 8px;
+    text-align: center;
+}
+.uni-svg-stage svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+.uni-presets-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+.uni-presets-row::-webkit-scrollbar { display: none; }
+.uni-preset-chip {
+    flex-shrink: 0;
+    padding: 7px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-bg-input);
+    color: var(--ngc-text-main);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.uni-preset-chip:active {
+    transform: scale(0.97);
+    border-color: var(--ngc-neon);
+    color: var(--ngc-neon);
+}
