@@ -1883,6 +1883,7 @@ function generarMenuInferior() {
         { nombre: 'Informes', icon: 'fa-clipboard-check', url: '#', active: true },
         { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
         { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
+        { nombre: 'Topográfico', icon: 'fa-table-cells', url: '../topografico/index.html' },
         { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
         { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
         { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
