@@ -239,10 +239,11 @@
 
             </section>
   </main>
-          <!-- PANEL DERECHO: LÁMINA TÉCNICA PDF A4 -->
+                  <!-- PANEL DERECHO: LÁMINA TÉCNICA PDF A4 -->
         <aside class="preview-panel">
             <div id="plantilla-pdf">
-                <div class="pdf-container" style="position: relative; background: #ffffff; color: #0f172a; width: 210mm; min-height: 295mm; padding: 11mm 13mm; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; justify-content: space-between;">
+                <div class="pdf-container" style="position: relative; background: #ffffff; color: #0f172a; width: 210mm; height: 296mm; max-height: 296mm; overflow: hidden; padding: 10mm 13mm; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; justify-content: space-between;">
+                    
 
                     <!-- SELLO DE AGUA PROTECTOR -->
                     <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.3; pointer-events: none; z-index: 10; width: 100%;">
@@ -277,10 +278,11 @@
                             </div>
                         </header>
 
-                        <!-- ÁREA DEL DIAGRAMA UNIFILAR VECTORIAL SVG -->
-                        <div style="border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 8px; background: #ffffff; text-align: center; margin-bottom: 12px;">
-                            <div id="pdf-svg-container" style="width: 100%; display: flex; justify-content: center; align-items: center;"></div>
+                                                <!-- ÁREA DEL DIAGRAMA UNIFILAR VECTORIAL SVG -->
+                        <div style="border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; text-align: center; margin-bottom: 10px;">
+                            <div id="pdf-svg-container" style="width: 100%; text-align: center;"></div>
                         </div>
+                        
 
                         <!-- TABLA RESUMEN DE CIRCUITOS (IGUAL AL EJEMPLO ADJUNTO) -->
                         <div class="no-break" style="margin-bottom: 12px;">
