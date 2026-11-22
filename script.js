@@ -148,12 +148,12 @@ const rutas = {
     'btnPotencia': './potencia/index.html',
     'btnAgenda': './agenda/index.html',
     'btnProveedores': './proveedores/index.html',
-    'btnPresupuesto2': './presupuesto2/index.html',
+    'btnUnifilar': './unifilar/index.html',
+    'btnTopografico': './topografico/index.html',
     'btnCalculadora': './leyescalc/index.html',
     'btnCatalogos': './catalogos/index.html',
     'btnFotos': './fotos/index.html',
     'btnAdminPrecios': './admin-precios/index.html',
-    'btnMaterialesPC': './materialesPC/index.html',
     'btnPreguntas': './preguntas/index.html',
 };
 
