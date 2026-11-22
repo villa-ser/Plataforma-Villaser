@@ -2990,3 +2990,159 @@ html.modo-modal-embebido main.container {
     border-color: var(--ngc-neon);
     color: var(--ngc-neon);
 }
+
+/* ============================================================== */
+/* MÓDULO ESQUEMA TOPOGRÁFICO (.topo-*)                           */
+/* ============================================================== */
+.topo-cabinet-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 10px;
+    padding: 10px;
+}
+.topo-stat-box span {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--ngc-text-faded);
+}
+.topo-stat-box strong {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--ngc-text-main);
+}
+.topo-row-card {
+    background: var(--ngc-glass);
+    border: var(--ngc-border-glass);
+    border-left: 4px solid var(--ngc-neon);
+    border-radius: 12px;
+    padding: 13px 12px;
+    box-shadow: 0 1px 3px var(--card-shadow);
+}
+.topo-row-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.topo-row-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--ngc-text-main);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.topo-capacity-track {
+    width: 100%;
+    height: 7px;
+    background: var(--ngc-bg-input);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    border: 1px solid var(--ngc-privacy-border);
+}
+.topo-capacity-fill {
+    height: 100%;
+    background: var(--success-green);
+    transition: width 0.25s ease, background-color 0.25s ease;
+}
+.topo-capacity-fill.warn { background: var(--ngc-warning); }
+.topo-capacity-fill.over { background: var(--error-red); }
+
+.topo-dev-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+.topo-dev-item {
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 9px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.topo-dev-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+.topo-dev-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 800;
+    font-size: 0.84rem;
+    color: var(--ngc-text-main);
+}
+.topo-mod-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+}
+.topo-dev-meta {
+    font-size: 0.75rem;
+    color: var(--ngc-text-faded);
+    line-height: 1.35;
+}
+.topo-dev-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 5px;
+    border-top: 1px dashed var(--ngc-privacy-border);
+    padding-top: 6px;
+}
+.topo-svg-stage {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: #ffffff;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    padding: 8px;
+    text-align: center;
+}
+.topo-svg-stage svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+.topo-presets-row {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+.topo-presets-row::-webkit-scrollbar { display: none; }
+.topo-preset-chip {
+    flex-shrink: 0;
+    padding: 7px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--ngc-privacy-border);
+    background: var(--ngc-bg-input);
+    color: var(--ngc-text-main);
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.topo-preset-chip:active {
+    transform: scale(0.97);
+    border-color: var(--ngc-neon);
+    color: var(--ngc-neon);
+}
