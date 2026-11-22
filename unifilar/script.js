@@ -1222,6 +1222,64 @@ function cerrarModalPDF() {
     document.getElementById('btnConfirmarDescargaPDF').innerHTML = "Descargar";
 }
 
+async function convertirSvgUnifilarAImagen() {
+    const contenedor = document.getElementById('pdf-svg-container');
+    if (!contenedor) return () => {};
+
+    const svgOriginalHTML = contenedor.innerHTML;
+    const svgEl = contenedor.querySelector('svg');
+    if (!svgEl) return () => {};
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    const ancho = (vb && vb.width) ? vb.width : (parseInt(svgEl.getAttribute('width'), 10) || 700);
+    const alto = (vb && vb.height) ? vb.height : (parseInt(svgEl.getAttribute('height'), 10) || 655);
+
+    const svgClon = svgEl.cloneNode(true);
+    svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClon.setAttribute('width', ancho);
+    svgClon.setAttribute('height', alto);
+
+    const xml = new XMLSerializer().serializeToString(svgClon);
+    const svgBlob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${xml}`], {
+        type: 'image/svg+xml;charset=utf-8'
+    });
+    const urlBlob = URL.createObjectURL(svgBlob);
+
+    try {
+        const pngDataUrl = await new Promise((resolve, reject) => {
+            const imgLoader = new Image();
+            imgLoader.onload = () => {
+                const escala = 3; // Calidad imprenta (~300 DPI)
+                const canvas = document.createElement('canvas');
+                canvas.width = ancho * escala;
+                canvas.height = alto * escala;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.scale(escala, escala);
+                ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                URL.revokeObjectURL(urlBlob);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            imgLoader.onerror = (err) => {
+                URL.revokeObjectURL(urlBlob);
+                reject(err);
+            };
+            imgLoader.src = urlBlob;
+        });
+
+        contenedor.innerHTML = `<img src="${pngDataUrl}" alt="Esquema Unifilar" style="width: 100%; max-height: 465px; height: auto; object-fit: contain; display: block; margin: 0 auto;">`;
+        return () => {
+            contenedor.innerHTML = svgOriginalHTML;
+        };
+    } catch (e) {
+        console.warn('No se pudo rasterizar el SVG, se usa respaldo vectorial:', e);
+        return () => {
+            contenedor.innerHTML = svgOriginalHTML;
+        };
+    }
+}
+
 async function ejecutarDescargaPDF() {
     const btn = document.getElementById('btnConfirmarDescargaPDF');
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
@@ -1246,6 +1304,9 @@ async function ejecutarDescargaPDF() {
     const marcaAgua = document.getElementById('marcaAguaPDF');
     if (marcaAgua) marcaAgua.style.display = 'none';
 
+    // Convierte el SVG de #pdf-svg-container en imagen PNG nítida para html2canvas
+    const restaurarSvg = await convertirSvgUnifilarAImagen();
+
     const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Esquema_Unifilar';
 
     const opt = {
@@ -1264,6 +1325,7 @@ async function ejecutarDescargaPDF() {
         mostrarAlertaCorp("Error", "Ocurrió un error al generar el PDF.");
         btn.innerHTML = "Descargar";
     } finally {
+        restaurarSvg();
         if (marcaAgua) marcaAgua.style.display = 'flex';
         if (modalAbierto) {
             aplicarEscalaVistaPrevia(escalaActualPreview);
@@ -1271,7 +1333,7 @@ async function ejecutarDescargaPDF() {
             element.style.display = 'none';
         }
     }
-                              }
+}
 
 // ==========================================
 // WHATSAPP Y BORRADORES EN FIREBASE
