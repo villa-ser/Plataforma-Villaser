@@ -1059,7 +1059,7 @@ async function convertirSvgTopoAImagen() {
     const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
 
     try {
-        const cargaImg = new Promise((resolve, reject) => {
+        const pngDataUrl = await new Promise((resolve, reject) => {
             const imgLoader = new Image();
             imgLoader.onload = () => {
                 try {
@@ -1081,12 +1081,6 @@ async function convertirSvgTopoAImagen() {
             imgLoader.src = dataUri;
         });
 
-        const timeoutImg = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout renderizando SVG')), 5000)
-        );
-
-        const pngDataUrl = await Promise.race([cargaImg, timeoutImg]);
-
         const imgFinal = document.createElement('img');
         imgFinal.src = pngDataUrl;
         imgFinal.alt = 'Esquema Topográfico';
@@ -1096,10 +1090,10 @@ async function convertirSvgTopoAImagen() {
 
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     } catch (e) {
-        console.warn('Fallback SVG directo en PDF:', e);
+        console.warn('Error rasterizando SVG:', e);
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     }
-                        }
+}
 
 function generarPDF() {
     actualizarVistaPreviaPDF();
@@ -1127,19 +1121,12 @@ async function ejecutarDescargaPDF() {
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
-    const padreOriginal = element ? element.parentNode : null;
     const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
-    let movidoAlBody = false;
 
     if (!modalAbierto && element) {
-        document.body.appendChild(element);
-        movidoAlBody = true;
         element.classList.remove('oculto');
-        element.style.setProperty('display', 'block', 'important');
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '0';
-        element.style.zIndex = '-1';
+        element.style.display = 'block';
+        window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
     }
@@ -1155,10 +1142,6 @@ async function ejecutarDescargaPDF() {
 
     let restaurarSvg = () => {};
     try {
-        if (typeof html2pdf === 'undefined') {
-            throw new Error('Librería html2pdf no disponible.');
-        }
-
         restaurarSvg = await convertirSvgTopoAImagen();
         const inputNombre = document.getElementById('nombreArchivoPDF');
         const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Esquema_Topografico';
@@ -1170,20 +1153,18 @@ async function ejecutarDescargaPDF() {
             html2canvas: {
                 scale: 2,
                 useCORS: false,
-                allowTaint: true,
+                allowTaint: false,
                 logging: false,
                 scrollX: 0,
                 scrollY: 0,
                 width: 794,
                 height: 1115,
-                windowWidth: 794,
-                windowHeight: 1115,
-                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !el.getAttribute('src'))
+                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !(el.getAttribute('src') || '').startsWith('data:image'))
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
         };
 
-        const tareaPdf = html2pdf()
+        await html2pdf()
             .set(opt)
             .from(element)
             .toPdf()
@@ -1196,22 +1177,15 @@ async function ejecutarDescargaPDF() {
             })
             .save();
 
-        const timeoutPdf = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Tiempo de espera agotado al renderizar el PDF')), 15000)
-        );
-
-        await Promise.race([tareaPdf, timeoutPdf]);
-
         cerrarModalPDF();
         mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
 
-        // Respaldo en nube secuencial (no compite con la renderización del PDF)
         if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
             guardarBorradorFirebase(false, true);
         }
     } catch (error) {
         console.error('Error generando PDF Topográfico:', error);
-        mostrarAlertaCorp('Error al Exportar', 'No se pudo generar el PDF. Verificá tu conexión o reintentá.');
+        mostrarAlertaCorp('Error al Exportar', `No se pudo generar el PDF (${error.message || 'error interno'}).`);
     } finally {
         restaurarSvg();
         btn.disabled = false;
@@ -1221,25 +1195,18 @@ async function ejecutarDescargaPDF() {
             element.style.width = '';
             element.style.height = '';
             element.style.overflow = '';
-            element.style.position = '';
-            element.style.left = '';
-            element.style.top = '';
-            element.style.zIndex = '';
             if (teniaClaseOculto) element.classList.add('oculto');
         }
 
         if (marcaAgua) marcaAgua.style.display = 'flex';
 
-        if (movidoAlBody && padreOriginal && element) {
-            element.style.display = '';
-            padreOriginal.appendChild(element);
-        } else if (modalAbierto) {
+        if (modalAbierto) {
             aplicarEscalaVistaPrevia(escalaActualPreview);
         } else if (element && window.innerWidth < 992) {
             element.style.display = 'none';
         }
     }
-}
+                      }
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
