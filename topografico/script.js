@@ -1354,7 +1354,7 @@ function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
 
     const escritura = db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(nombreDoc).set(payload);
     const timeoutNube = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout Firebase')), 8000)
+        setTimeout(() => reject({ code: 'timeout', message: 'Tiempo de espera agotado con Firebase' }), 8000)
     );
 
     Promise.race([escritura, timeoutNube])
@@ -1368,15 +1368,11 @@ function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
         .catch(err => {
             console.error('Error guardando borrador topográfico:', err);
             if (badge) {
-                if (silencioso) {
-                    actualizarBadgeNube();
-                } else {
-                    badge.className = 'pres-cloud-pill local';
-                    badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error Nube';
-                }
+                badge.className = 'pres-cloud-pill local';
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${err.code || 'Error Nube'}`;
             }
             if (!silencioso) {
-                mostrarAlertaCorp('Error de Nube', 'No se pudo sincronizar con Firebase. Verificá tu conexión o permisos.');
+                mostrarAlertaCorp('Error de Nube', `Firebase respondió: ${err.code || ''} - ${err.message || 'Sin conexión'}`);
             }
         });
 }
