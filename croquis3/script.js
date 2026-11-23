@@ -1,0 +1,2610 @@
+// ==========================================================================
+// MÓDULO CROQUIS ELÉCTRICO DE AMBIENTE 3D CENITAL (CUBO) + CÓMPUTO 2.5D
+// ==========================================================================
+let db = null;
+let uidSeguro = null;
+let clienteDesdeAgenda = false;
+let permiteGuardarNube = true;
+let nombreBorradorActual = null;
+let borradorPendienteEliminar = null;
+let telefonoClienteActual = '';
+
+const STORAGE_KEY_CROQUIS = 'croquis_estado_actual';
+
+let herramientaActiva = 'SELECT';
+let elementoSeleccionadoId = null;
+let origenConexionId = null;
+let vistaCubo3D = true;
+let listadoComputoVisible = false; // Oculto por defecto en móvil para ahorro de scroll
+
+// Estado de Zoom y Paneo táctil sobre el lienzo del Cubo/Planta
+let zoomPlano = 1;
+let panXPlano = 0;
+let panYPlano = 0;
+let gestosPlanoInicializados = false;
+
+// Catálogo de cotas y metadatos normativos AEA 90364 por tipo de boca
+const PRESETS_ELEMENTOS = {
+    BOCA_TECHO: { nombre: 'Boca de Centro',      zDefault: 2.60, pared: false, prefijo: 'B',  circ: 'C1' },
+    APLIQUE:    { nombre: 'Aplique de Pared',    zDefault: 2.10, pared: true,  prefijo: 'AP', circ: 'C1' },
+    LLAVE_1P:   { nombre: 'Llave 1 Punto',       zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_2P:   { nombre: 'Llave 2 Puntos',      zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_3P:   { nombre: 'Llave 3 Puntos',      zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_COMB: { nombre: 'Llave Combinación',   zDefault: 1.10, pared: true,  prefijo: 'LC', circ: 'C1' },
+    TOMA_10A:   { nombre: 'Toma Simple 10A',     zDefault: 0.30, pared: true,  prefijo: 'T',  circ: 'C2' },
+    TOMA_DOBLE: { nombre: 'Toma Doble 2×10A',    zDefault: 0.30, pared: true,  prefijo: 'T',  circ: 'C2' },
+    TOMA_20A:   { nombre: 'Toma Especial 20A',   zDefault: 1.10, pared: true,  prefijo: 'TE', circ: 'C3' },
+    TABLERO:    { nombre: 'Tablero Seccional',   zDefault: 1.60, pared: true,  prefijo: 'TS', circ: 'TS' },
+    CAJA_PASO:  { nombre: 'Caja de Paso',        zDefault: 2.40, pared: true,  prefijo: 'CP', circ: 'C1' }
+};
+
+function crearPlantillaDormitorio() {
+    return {
+        nombre: 'Dormitorio Principal',
+        ancho: 3.50,
+        largo: 3.20,
+        alto: 2.60,
+        desperdicio: 10,
+        canoDiam: '3/4" (Ø 20mm)',
+        aberturas: [
+            { id: 'ab1', tipo: 'PUERTA',  pared: 'SUR',   offset: 0.25, ancho: 0.80 },
+            { id: 'ab2', tipo: 'VENTANA', pared: 'NORTE', offset: 1.15, ancho: 1.20 }
+        ],
+        elementos: [
+            { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.75, y: 1.60, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: '' },
+            { id: 'el2', tag: 'LL1', tipo: 'LLAVE_1P',   x: 1.20, y: 3.20, z: 1.10, muro: 'SUR',   rot: 180, circ: 'C1', nota: 'Junto a puerta' },
+            { id: 'el3', tag: 'T1',  tipo: 'TOMA_DOBLE', x: 0.00, y: 1.60, z: 0.30, muro: 'OESTE', rot: 270, circ: 'C2', nota: 'Mesita luz' },
+            { id: 'el4', tag: 'T2',  tipo: 'TOMA_DOBLE', x: 3.50, y: 1.60, z: 0.30, muro: 'ESTE',  rot: 90,  circ: 'C2', nota: 'Mesita luz' },
+            { id: 'el5', tag: 'T3',  tipo: 'TOMA_10A',   x: 2.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: '' }
+        ],
+        tramos: [
+            { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'BAJADA_1P', via: 'TECHO' },
+            { id: 'tr2', desde: 'el3', hasta: 'el5', rol: 'ALIM_TUG',  via: 'PARED' },
+            { id: 'tr3', desde: 'el5', hasta: 'el4', rol: 'ALIM_TUG',  via: 'PARED' }
+        ]
+    };
+}
+
+let estadoCroquis = crearPlantillaDormitorio();
+
+// ==========================================================================
+// INICIALIZACIÓN INMEDIATA DE FIREBASE Y AGENDA GLOBAL
+// ==========================================================================
+function obtenerUid() {
+    if (uidSeguro) return uidSeguro;
+    if (typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        uidSeguro = firebase.auth().currentUser.uid;
+        return uidSeguro;
+    }
+    return null;
+}
+function obtenerUidSeguro() {
+    return obtenerUid();
+}
+
+function arrancarModuloCroquis() {
+    try {
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            db = firebase.firestore();
+            if (typeof firebase.auth === 'function') {
+                firebase.auth().onAuthStateChanged(user => {
+                    if (user) {
+                        uidSeguro = user.uid;
+                        actualizarBadgeNube();
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('Aviso Firebase Croquis:', e);
+    }
+
+    generarMenuInferiorLocal();
+    inicializarZoomTactilPlano();
+    cargarEstadoInicial();
+    actualizarPDFHeaders();
+    actualizarVistaPreviaPDF();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', arrancarModuloCroquis);
+} else {
+    arrancarModuloCroquis();
+}
+
+function generarMenuInferiorLocal() {
+    const footer = document.getElementById('corpFooterMenu');
+    if (!footer || footer.children.length > 0) return;
+
+    const modulos = [
+        { nombre: 'Inicio', icon: 'fa-house', url: '../index.html' },
+        { nombre: 'Presupuestos', icon: 'fa-file-invoice-dollar', url: '../presupuesto/index.html' },
+        { nombre: 'Materiales', icon: 'fa-boxes-stacked', url: '../materiales/index.html' },
+        { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
+        { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
+        { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
+        { nombre: 'Topográfico', icon: 'fa-table-cells', url: '../topografico/index.html' },
+        { nombre: 'Croquis', icon: 'fa-compass-drafting', url: '#', active: true },
+        { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
+        { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
+        { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
+        { nombre: 'Proveedores', icon: 'fa-truck-fast', url: '../proveedores/index.html' },
+        { nombre: 'Catálogos', icon: 'fa-book-open', url: '../catalogos/index.html' }
+    ];
+
+    modulos.forEach(mod => {
+        const btn = document.createElement('button');
+        btn.className = `corp-nav-item ${mod.active ? 'active' : ''}`;
+        btn.innerHTML = `<i class="fa-solid ${mod.icon}"></i><span>${mod.nombre}</span>`;
+        btn.onclick = () => { if (!mod.active) window.location.replace(mod.url); };
+        footer.appendChild(btn);
+    });
+
+    requestAnimationFrame(() => {
+        const btnActivo = footer.querySelector('.corp-nav-item.active');
+        if (btnActivo) {
+            const fRect = footer.getBoundingClientRect();
+            const bRect = btnActivo.getBoundingClientRect();
+            footer.scrollLeft += (bRect.left - fRect.left) - (fRect.width / 2) + (bRect.width / 2);
+        }
+    });
+}
+
+// ==========================================================================
+// ZOOM TÁCTIL (PINZA CON 2 DEDOS) Y PANEO EN EL PLANO / CUBO 3D
+// ==========================================================================
+function inicializarZoomTactilPlano() {
+    if (gestosPlanoInicializados) return;
+    const viewport = document.getElementById('viewportSvgCroquis');
+    if (!viewport) return;
+
+    let distInicial = 0;
+    let zoomInicialPellizco = 1;
+    let toqueInicioX = 0;
+    let toqueInicioY = 0;
+    let panInicioX = 0;
+    let panInicioY = 0;
+    let huboArrastre = false;
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            huboArrastre = true;
+            distInicial = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            zoomInicialPellizco = zoomPlano;
+        } else if (e.touches.length === 1) {
+            toqueInicioX = e.touches[0].clientX;
+            toqueInicioY = e.touches[0].clientY;
+            panInicioX = panXPlano;
+            panInicioY = panYPlano;
+            huboArrastre = false;
+        }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && distInicial > 0) {
+            e.preventDefault();
+            huboArrastre = true;
+            const rect = viewport.getBoundingClientRect();
+            const centroX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+            const centroY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+            const distActual = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const nuevoZoom = Math.min(3.5, Math.max(1, zoomInicialPellizco * (distActual / distInicial)));
+            const factor = nuevoZoom / zoomPlano;
+
+            panXPlano = centroX - (centroX - panXPlano) * factor;
+            panYPlano = centroY - (centroY - panYPlano) * factor;
+            zoomPlano = nuevoZoom;
+            aplicarTransformPlano();
+        } else if (e.touches.length === 1 && zoomPlano > 1.02) {
+            const dx = e.touches[0].clientX - toqueInicioX;
+            const dy = e.touches[0].clientY - toqueInicioY;
+            if (Math.hypot(dx, dy) > 8) {
+                e.preventDefault();
+                huboArrastre = true;
+                panXPlano = panInicioX + dx;
+                panYPlano = panInicioY + dy;
+                aplicarTransformPlano();
+            }
+        }
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+            distInicial = 0;
+        }
+        // Si fue un toque limpio (sin arrastrar ni pellizcar), ejecutamos la acción sobre el plano
+        if (!huboArrastre && e.changedTouches && e.changedTouches.length === 1) {
+            const svgNode = viewport.querySelector('svg');
+            if (svgNode) {
+                e.preventDefault();
+                manejarToqueLienzo({
+                    currentTarget: svgNode,
+                    clientX: e.changedTouches[0].clientX,
+                    clientY: e.changedTouches[0].clientY
+                });
+            }
+        }
+    }, { passive: false });
+
+    gestosPlanoInicializados = true;
+}
+
+function aplicarTransformPlano() {
+    const viewport = document.getElementById('viewportSvgCroquis');
+    const layer = document.getElementById('zoomLayerSvgCroquis');
+    if (!viewport || !layer) return;
+
+    const w = viewport.clientWidth || 320;
+    const h = viewport.clientHeight || 310;
+
+    if (zoomPlano <= 1.01) {
+        zoomPlano = 1;
+        panXPlano = 0;
+        panYPlano = 0;
+        viewport.style.touchAction = 'pan-y';
+    } else {
+        viewport.style.touchAction = 'none';
+        const minX = w * (1 - zoomPlano);
+        const minY = h * (1 - zoomPlano);
+        panXPlano = Math.min(0, Math.max(minX, panXPlano));
+        panYPlano = Math.min(0, Math.max(minY, panYPlano));
+    }
+
+    layer.style.transform = `translate3d(${panXPlano}px, ${panYPlano}px, 0) scale(${zoomPlano})`;
+
+    const txt = document.getElementById('txtZoomPlano');
+    if (txt) txt.innerText = `${Math.round(zoomPlano * 100)}%`;
+
+    const btnReset = document.getElementById('btnResetZoomPlano');
+    if (btnReset) btnReset.classList.toggle('oculto', zoomPlano <= 1.02);
+}
+
+function ajustarZoomPlano(delta) {
+    const viewport = document.getElementById('viewportSvgCroquis');
+    const w = viewport ? viewport.clientWidth : 320;
+    const h = viewport ? viewport.clientHeight : 310;
+
+    const nuevoZoom = Math.min(3.5, Math.max(1, zoomPlano + delta));
+    const factor = nuevoZoom / zoomPlano;
+    panXPlano = (w / 2) - ((w / 2) - panXPlano) * factor;
+    panYPlano = (h / 2) - ((h / 2) - panYPlano) * factor;
+    zoomPlano = nuevoZoom;
+    aplicarTransformPlano();
+}
+
+function resetearZoomPlano() {
+    zoomPlano = 1;
+    panXPlano = 0;
+    panYPlano = 0;
+    aplicarTransformPlano();
+}
+
+// ==========================================================================
+// DESPLEGABLE DE MATERIALES CALCULADOS
+// ==========================================================================
+function toggleListaComputo() {
+    listadoComputoVisible = !listadoComputoVisible;
+    const lista = document.getElementById('ui-lista-computo');
+    const btn = document.getElementById('btnToggleComputo');
+    if (lista) lista.classList.toggle('oculto', !listadoComputoVisible);
+    if (btn) {
+        btn.innerHTML = listadoComputoVisible
+            ? '<i class="fa-solid fa-eye-slash"></i> Ocultar'
+            : '<i class="fa-solid fa-eye"></i> Ver Listado';
+    }
+}
+
+// ==========================================================================
+// FLUJO DE CLIENTE, AGENDA Y PERSISTENCIA LOCAL
+// ==========================================================================
+function cargarEstadoInicial() {
+    const raw = localStorage.getItem(STORAGE_KEY_CROQUIS);
+    if (raw) {
+        try {
+            const data = JSON.parse(raw);
+            if (data && data.estadoCroquis) {
+                document.getElementById('cliNombre').value = data.cliNombre || '';
+                document.getElementById('cliDireccion').value = data.cliDireccion || '';
+                document.getElementById('cliProyecto').value = data.cliProyecto || '';
+                document.getElementById('obsGenerales').value = data.obsGenerales || '';
+                estadoCroquis = normalizarEstadoCroquis(data.estadoCroquis);
+                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
+                permiteGuardarNube = data.permiteGuardarNube !== false;
+                nombreBorradorActual = data.nombreBorrador || null;
+                telefonoClienteActual = data.telefonoClienteActual || '';
+
+                if (data.enTrabajo && data.cliNombre) {
+                    avanzarPasoTrabajo(false);
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Error leyendo estado croquis:', e);
+        }
+    }
+
+    const rawGlobal = localStorage.getItem('villaser_cliente_global');
+    if (rawGlobal) {
+        try {
+            const cli = JSON.parse(rawGlobal);
+            if (cli && cli.nombre && !document.getElementById('cliNombre').value) {
+                document.getElementById('cliNombre').value = cli.nombre || '';
+                document.getElementById('cliDireccion').value = cli.direccion || '';
+                document.getElementById('cliProyecto').value = cli.proyecto || '';
+                telefonoClienteActual = cli.telefono || '';
+                clienteDesdeAgenda = true;
+                permiteGuardarNube = true;
+                mostrarToast('Cliente Recuperado', `Datos de ${cli.nombre} listos.`);
+            }
+        } catch (e) {}
+    }
+}
+
+function guardarClienteGlobal() {
+    const payload = {
+        nombre: document.getElementById('cliNombre').value.trim(),
+        direccion: document.getElementById('cliDireccion').value.trim(),
+        proyecto: document.getElementById('cliProyecto').value.trim(),
+        telefono: telefonoClienteActual || ''
+    };
+    if (payload.nombre) {
+        localStorage.setItem('villaser_cliente_global', JSON.stringify(payload));
+    }
+}
+
+function guardarEstadoLocal(enTrabajo = true) {
+    const payload = {
+        cliNombre: document.getElementById('cliNombre').value.trim(),
+        cliDireccion: document.getElementById('cliDireccion').value.trim(),
+        cliProyecto: document.getElementById('cliProyecto').value.trim(),
+        obsGenerales: document.getElementById('obsGenerales').value,
+        estadoCroquis,
+        clienteDesdeAgenda,
+        permiteGuardarNube,
+        nombreBorrador: nombreBorradorActual,
+        telefonoClienteActual,
+        enTrabajo
+    };
+    localStorage.setItem(STORAGE_KEY_CROQUIS, JSON.stringify(payload));
+}
+
+function marcarClienteManual() {
+    clienteDesdeAgenda = false;
+    permiteGuardarNube = false;
+}
+
+function seleccionarContacto(nombre, dir, tel = '') {
+    document.getElementById('cliNombre').value = nombre || '';
+    document.getElementById('cliDireccion').value = dir || '';
+    telefonoClienteActual = tel || '';
+    clienteDesdeAgenda = true;
+    permiteGuardarNube = true;
+    if (typeof cerrarModalAgendaGlobal === 'function') cerrarModalAgendaGlobal();
+    guardarClienteGlobal();
+    actualizarCabeceraProyecto();
+    actualizarBadgeNube();
+    actualizarVistaPreviaPDF();
+    mostrarToast('Cliente Seleccionado', `${nombre} vinculado desde Agenda.`);
+}
+
+function iniciarCroquis() {
+    const nombre = document.getElementById('cliNombre').value.trim();
+    if (!nombre) {
+        mostrarAlertaCorp('Datos Incompletos', 'Ingresá al menos el Nombre del Cliente para iniciar.');
+        return;
+    }
+    if (!clienteDesdeAgenda) {
+        document.getElementById('modalAgendarCliente').classList.remove('oculto');
+        return;
+    }
+    avanzarPasoTrabajo(true);
+}
+
+function accionAgendarCliente() {
+    const nombre = encodeURIComponent(document.getElementById('cliNombre').value.trim());
+    const dir = encodeURIComponent(document.getElementById('cliDireccion').value.trim());
+    window.location.href = `../agenda/index.html?nombre=${nombre}&dir=${dir}`;
+}
+
+function opcionBuscarAgenda() {
+    document.getElementById('modalAgendarCliente').classList.add('oculto');
+    if (typeof abrirModalAgendaGlobal === 'function') {
+        abrirModalAgendaGlobal();
+    } else {
+        mostrarAlertaCorp('Agenda', 'No se encontró la función global de Agenda.');
+    }
+}
+
+function opcionContinuarSinAgenda() {
+    document.getElementById('modalAgendarCliente').classList.add('oculto');
+    document.getElementById('modalConfirmarSinAgenda').classList.remove('oculto');
+}
+
+function cerrarModalConfirmarSinAgenda() {
+    document.getElementById('modalConfirmarSinAgenda').classList.add('oculto');
+}
+
+function ejecutarContinuarSinAgenda() {
+    cerrarModalConfirmarSinAgenda();
+    permiteGuardarNube = false;
+    avanzarPasoTrabajo(true);
+}
+
+function avanzarPasoTrabajo(guardar = true) {
+    document.getElementById('step-cliente').classList.add('oculto');
+    const stepT = document.getElementById('step-trabajo');
+    stepT.classList.remove('oculto');
+    stepT.classList.add('flex-column', 'gap-15');
+
+    actualizarCabeceraProyecto();
+    actualizarBadgeNube();
+    if (guardar) {
+        guardarClienteGlobal();
+        guardarEstadoLocal(true);
+    }
+    try {
+        renderizarTodoCroquis();
+    } catch (e) {
+        console.error('Error renderizando croquis:', e);
+    }
+}
+
+function volverAEditarCliente() {
+    document.getElementById('step-trabajo').classList.add('oculto');
+    document.getElementById('step-cliente').classList.remove('oculto');
+    guardarEstadoLocal(false);
+}
+
+function actualizarCabeceraProyecto() {
+    const nom = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const dir = document.getElementById('cliDireccion').value.trim();
+    const proy = document.getElementById('cliProyecto').value.trim();
+    document.getElementById('ui-proyecto-cliente').innerText = nom;
+    document.getElementById('ui-proyecto-detalle').innerText = [dir, proy].filter(Boolean).join(' • ') || 'Replanteo eléctrico';
+}
+
+function actualizarBadgeNube() {
+    const badge = document.getElementById('ui-cloud-badge');
+    if (!badge) return;
+    if (!permiteGuardarNube) {
+        badge.className = 'pres-cloud-pill local';
+        badge.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Modo Local';
+    } else if (nombreBorradorActual) {
+        badge.className = 'pres-cloud-pill saved';
+        badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
+    } else {
+        badge.className = 'pres-cloud-pill ready';
+        badge.innerHTML = '<i class="fa-solid fa-cloud"></i> Nube Lista';
+    }
+}
+
+// ==========================================================================
+// PLANTILLAS RÁPIDAS E IMPORTACIÓN DESDE MÓDULO POTENCIA
+// ==========================================================================
+function aplicarPlantillaCroquis(tipo) {
+    elementoSeleccionadoId = null;
+    origenConexionId = null;
+    resetearZoomPlano();
+
+    if (tipo === 'dormitorio') {
+        estadoCroquis = crearPlantillaDormitorio();
+    } else if (tipo === 'cocina') {
+        estadoCroquis = {
+            nombre: 'Cocina / Comedor',
+            ancho: 4.20,
+            largo: 3.00,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA',  pared: 'OESTE', offset: 0.25, ancho: 0.80 },
+                { id: 'ab2', tipo: 'VENTANA', pared: 'NORTE', offset: 1.50, ancho: 1.40 }
+            ],
+            elementos: [
+                { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.40, y: 1.50, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: 'Centro cocina' },
+                { id: 'el2', tag: 'B2',  tipo: 'BOCA_TECHO', x: 3.10, y: 1.50, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: 'Centro comedor' },
+                { id: 'el3', tag: 'LL1', tipo: 'LLAVE_2P',   x: 0.00, y: 1.25, z: 1.10, muro: 'OESTE', rot: 270, circ: 'C1', nota: '2 efectos' },
+                { id: 'el4', tag: 'TE1', tipo: 'TOMA_20A',   x: 1.80, y: 0.00, z: 1.10, muro: 'NORTE', rot: 0,   circ: 'C3', nota: 'Mesada 20A' },
+                { id: 'el5', tag: 'T1',  tipo: 'TOMA_DOBLE', x: 2.70, y: 0.00, z: 1.10, muro: 'NORTE', rot: 0,   circ: 'C2', nota: 'Mesada TUG' },
+                { id: 'el6', tag: 'T2',  tipo: 'TOMA_10A',   x: 0.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: 'Heladera' }
+            ],
+            tramos: [
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG',  via: 'TECHO' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P', via: 'TECHO' },
+                { id: 'tr3', desde: 'el6', hasta: 'el5', rol: 'ALIM_TUG',  via: 'PARED' }
+            ]
+        };
+    } else if (tipo === 'bano') {
+        estadoCroquis = {
+            nombre: 'Baño Completo',
+            ancho: 2.40,
+            largo: 1.80,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA',    pared: 'SUR',   offset: 0.20, ancho: 0.70 },
+                { id: 'ab2', tipo: 'VENTANUCO', pared: 'NORTE', offset: 0.90, ancho: 0.60 }
+            ],
+            elementos: [
+                { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.20, y: 0.90, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: '' },
+                { id: 'el2', tag: 'AP1', tipo: 'APLIQUE',    x: 0.00, y: 0.90, z: 1.90, muro: 'OESTE', rot: 270, circ: 'C1', nota: 'Sobre espejo' },
+                { id: 'el3', tag: 'LL1', tipo: 'LLAVE_2P',   x: 1.10, y: 1.80, z: 1.10, muro: 'SUR',   rot: 180, circ: 'C1', nota: 'Centro + espejo' },
+                { id: 'el4', tag: 'T1',  tipo: 'TOMA_10A',   x: 0.00, y: 1.30, z: 1.10, muro: 'OESTE', rot: 270, circ: 'C2', nota: 'Con tapa IP' }
+            ],
+            tramos: [
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG',  via: 'TECHO' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P', via: 'TECHO' }
+            ]
+        };
+    } else {
+        estadoCroquis = {
+            nombre: 'Ambiente Nuevo',
+            ancho: 4.00,
+            largo: 3.50,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA', pared: 'SUR', offset: 0.30, ancho: 0.80 }
+            ],
+            elementos: [],
+            tramos: []
+        };
+    }
+
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Plantilla Aplicada', `Ambiente "${estadoCroquis.nombre}" cargado.`);
+}
+
+async function abrirModalImportarPotencia() {
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Sesión', 'Iniciá sesión en la nube para importar desde Potencia.');
+        return;
+    }
+
+    const modal = document.getElementById('modalImportarPotencia');
+    const lista = document.getElementById('listaBorradoresPotencia');
+    lista.innerHTML = '<div style="text-align:center; color:var(--ngc-neon);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando cálculos en Potencia...</div>';
+    modal.classList.remove('oculto');
+
+    try {
+        const snap = await db.collection('perfiles').doc(uid).collection('borradores_potencia').get();
+        if (snap.empty) {
+            lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No hay borradores guardados en Potencia.</p>';
+            return;
+        }
+        lista.innerHTML = '';
+        snap.forEach(doc => {
+            const d = doc.data();
+            const ambs = Array.isArray(d.listaAmbientes) ? d.listaAmbientes : [];
+            const div = document.createElement('div');
+            div.className = 'modal-list-item';
+            div.style.flexDirection = 'column';
+            div.style.alignItems = 'stretch';
+            div.style.gap = '6px';
+
+            let btnsAmbs = '';
+            if (ambs.length > 0) {
+                btnsAmbs = ambs.map((a, i) => `
+                    <button type="button" class="corp-btn-small success-btn" style="margin: 2px;" onclick="importarAmbientePotencia('${escapeJs(doc.id)}', ${i})">
+                        <i class="fa-solid fa-vector-square"></i> ${escapeHtml(a.nombre || `Ambiente ${i + 1}`)} (${a.ancho || 3}×${a.largo || 3}m)
+                    </button>
+                `).join('');
+            } else {
+                btnsAmbs = `<small style="color:var(--ngc-text-faded);">Sin ambientes detallados</small>`;
+            }
+
+            div.innerHTML = `
+                <div>
+                    <h4>${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                    <small>${escapeHtml(d.cliNombre || 'Cliente')} • ${ambs.length} ambientes</small>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">${btnsAmbs}</div>
+            `;
+            lista.appendChild(div);
+        });
+    } catch (e) {
+        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al consultar Potencia.</p>';
+    }
+}
+
+function cerrarModalImportarPotencia() {
+    document.getElementById('modalImportarPotencia').classList.add('oculto');
+}
+
+async function importarAmbientePotencia(docId, ambIndex) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    try {
+        const doc = await db.collection('perfiles').doc(uid).collection('borradores_potencia').doc(docId).get();
+        if (!doc.exists) return;
+        const data = doc.data();
+        const amb = (data.listaAmbientes || [])[ambIndex];
+        if (!amb) return;
+
+        const ancho = Math.max(1.5, parseFloat(amb.ancho) || 3.50);
+        const largo = Math.max(1.5, parseFloat(amb.largo) || 3.20);
+        const elementos = [];
+        const tramos = [];
+
+        const cantIUG = parseInt(amb.bIUG, 10) || 1;
+        for (let i = 0; i < Math.min(4, cantIUG); i++) {
+            const fracX = (i + 1) / (Math.min(4, cantIUG) + 1);
+            elementos.push({
+                id: `el_b${i + 1}`,
+                tag: `B${i + 1}`,
+                tipo: 'BOCA_TECHO',
+                x: redondear05(ancho * fracX),
+                y: redondear05(largo / 2),
+                z: 2.60,
+                muro: 'TECHO',
+                rot: 0,
+                circ: amb.circIUG || 'C1',
+                nota: ''
+            });
+        }
+
+        elementos.push({
+            id: 'el_ll1',
+            tag: 'LL1',
+            tipo: cantIUG > 1 ? 'LLAVE_2P' : 'LLAVE_1P',
+            x: redondear05(Math.min(ancho - 0.25, 1.15)),
+            y: largo,
+            z: 1.10,
+            muro: 'SUR',
+            rot: 180,
+            circ: amb.circIUG || 'C1',
+            nota: ''
+        });
+
+        if (elementos.length >= 2) {
+            tramos.push({
+                id: 'tr_bajada',
+                desde: 'el_b1',
+                hasta: 'el_ll1',
+                rol: cantIUG > 1 ? 'BAJADA_2P' : 'BAJADA_1P',
+                via: 'TECHO'
+            });
+        }
+
+        const cantTUG = Math.min(6, parseInt(amb.bTUG, 10) || 2);
+        const murosCiclo = [
+            { muro: 'OESTE', x: 0,     y: largo * 0.5, rot: 270 },
+            { muro: 'NORTE', x: ancho * 0.5, y: 0,     rot: 0   },
+            { muro: 'ESTE',  x: ancho, y: largo * 0.5, rot: 90  },
+            { muro: 'SUR',   x: ancho * 0.75, y: largo, rot: 180 }
+        ];
+        for (let t = 0; t < cantTUG; t++) {
+            const m = murosCiclo[t % murosCiclo.length];
+            const idT = `el_t${t + 1}`;
+            elementos.push({
+                id: idT,
+                tag: `T${t + 1}`,
+                tipo: 'TOMA_10A',
+                x: redondear05(m.x),
+                y: redondear05(m.y),
+                z: 0.30,
+                muro: m.muro,
+                rot: m.rot,
+                circ: amb.circTUG || 'C2',
+                nota: ''
+            });
+            if (t > 0) {
+                tramos.push({ id: `tr_t${t}`, desde: `el_t${t}`, hasta: idT, rol: 'ALIM_TUG', via: 'PARED' });
+            }
+        }
+
+        estadoCroquis = {
+            nombre: amb.nombre || 'Ambiente Importado',
+            ancho,
+            largo,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [{ id: 'ab1', tipo: 'PUERTA', pared: 'SUR', offset: 0.25, ancho: 0.80 }],
+            elementos,
+            tramos
+        };
+
+        elementoSeleccionadoId = null;
+        origenConexionId = null;
+        resetearZoomPlano();
+        cerrarModalImportarPotencia();
+        guardarEstadoLocal(true);
+        renderizarTodoCroquis();
+        mostrarToast('Importado de Potencia', `${estadoCroquis.nombre} (${ancho}×${largo} m) replanteado.`);
+    } catch (e) {
+        mostrarAlertaCorp('Error', 'No se pudo importar el ambiente.');
+    }
+}
+
+// ==========================================================================
+// CONFIGURACIÓN DE AMBIENTE, ABERTURAS Y ELEMENTOS
+// ==========================================================================
+function abrirModalAmbiente() {
+    document.getElementById('ambNombre').value = estadoCroquis.nombre || 'Ambiente';
+    document.getElementById('ambAncho').value = estadoCroquis.ancho || 3.50;
+    document.getElementById('ambLargo').value = estadoCroquis.largo || 3.20;
+    document.getElementById('ambAlto').value = estadoCroquis.alto || 2.60;
+    document.getElementById('ambDesperdicio').value = String(estadoCroquis.desperdicio || 10);
+    document.getElementById('ambCanoDiam').value = estadoCroquis.canoDiam || '3/4" (Ø 20mm)';
+    document.getElementById('modalAmbiente').classList.remove('oculto');
+}
+
+function cerrarModalAmbiente() {
+    document.getElementById('modalAmbiente').classList.add('oculto');
+}
+
+function guardarConfigAmbiente() {
+    const nuevoAncho = Math.max(1, Math.min(25, parseFloat(document.getElementById('ambAncho').value) || 3.50));
+    const nuevoLargo = Math.max(1, Math.min(25, parseFloat(document.getElementById('ambLargo').value) || 3.20));
+    const nuevoAlto  = Math.max(2, Math.min(6,  parseFloat(document.getElementById('ambAlto').value)  || 2.60));
+
+    estadoCroquis.nombre = document.getElementById('ambNombre').value.trim() || 'Ambiente';
+    estadoCroquis.ancho = nuevoAncho;
+    estadoCroquis.largo = nuevoLargo;
+    estadoCroquis.alto = nuevoAlto;
+    estadoCroquis.desperdicio = parseInt(document.getElementById('ambDesperdicio').value, 10) || 10;
+    estadoCroquis.canoDiam = document.getElementById('ambCanoDiam').value;
+
+    estadoCroquis.elementos.forEach(el => {
+        if (el.muro === 'ESTE') el.x = nuevoAncho;
+        else if (el.muro === 'OESTE') el.x = 0;
+        else el.x = Math.min(nuevoAncho, Math.max(0, el.x));
+
+        if (el.muro === 'SUR') el.y = nuevoLargo;
+        else if (el.muro === 'NORTE') el.y = 0;
+        else el.y = Math.min(nuevoLargo, Math.max(0, el.y));
+
+        if (el.tipo === 'BOCA_TECHO') el.z = nuevoAlto;
+        else el.z = Math.min(nuevoAlto, el.z ?? 0.30);
+    });
+
+    cerrarModalAmbiente();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Medidas Actualizadas', `${estadoCroquis.nombre}: ${nuevoAncho.toFixed(2)} × ${nuevoLargo.toFixed(2)} m`);
+}
+
+function abrirModalAbertura() {
+    renderizarListaAberturasModal();
+    document.getElementById('modalAbertura').classList.remove('oculto');
+}
+
+function cerrarModalAbertura() {
+    document.getElementById('modalAbertura').classList.add('oculto');
+}
+
+function renderizarListaAberturasModal() {
+    const cont = document.getElementById('listaAberturasModal');
+    if (!estadoCroquis.aberturas || estadoCroquis.aberturas.length === 0) {
+        cont.innerHTML = '<small style="color:var(--ngc-text-faded); text-align:center;">Sin aberturas cargadas.</small>';
+        return;
+    }
+    cont.innerHTML = estadoCroquis.aberturas.map((ab, idx) => `
+        <div class="modal-list-item">
+            <div>
+                <h4 style="font-size:0.85rem;">${escapeHtml(ab.tipo)} • Pared ${escapeHtml(ab.pared)}</h4>
+                <small>A ${ab.offset.toFixed(2)} m de esquina • Ancho ${ab.ancho.toFixed(2)} m</small>
+            </div>
+            <button type="button" class="corp-btn-small danger" onclick="eliminarAbertura(${idx})"><i class="fa-solid fa-trash"></i></button>
+        </div>
+    `).join('');
+}
+
+function agregarAbertura() {
+    const tipo = document.getElementById('abTipo').value;
+    const pared = document.getElementById('abPared').value;
+    const offset = Math.max(0, parseFloat(document.getElementById('abOffset').value) || 0.20);
+    const ancho = Math.max(0.40, parseFloat(document.getElementById('abAncho').value) || 0.80);
+
+    estadoCroquis.aberturas.push({
+        id: 'ab_' + Date.now(),
+        tipo,
+        pared,
+        offset,
+        ancho
+    });
+    renderizarListaAberturasModal();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function eliminarAbertura(idx) {
+    estadoCroquis.aberturas.splice(idx, 1);
+    renderizarListaAberturasModal();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+// ==========================================================================
+// HERRAMIENTAS TÁCTILES, COLOCACIÓN EN CUBO 3D Y CONTROL X / Y / Z
+// ==========================================================================
+function alternarModoVista3D() {
+    vistaCubo3D = !vistaCubo3D;
+    const btn = document.getElementById('btnToggleVista3D');
+    if (btn) {
+        if (vistaCubo3D) {
+            btn.classList.add('primary-action');
+            btn.innerHTML = '<i class="fa-solid fa-cube"></i> 3D Cubo';
+        } else {
+            btn.classList.remove('primary-action');
+            btn.innerHTML = '<i class="fa-solid fa-square"></i> 2D Planta';
+        }
+    }
+    renderizarTodoCroquis();
+}
+
+function seleccionarHerramienta(tool) {
+    herramientaActiva = tool;
+    origenConexionId = null;
+
+    document.querySelectorAll('#paletaHerramientas button').forEach(btn => {
+        const esActiva = btn.getAttribute('data-tool') === tool;
+        btn.classList.toggle('primary-action', esActiva);
+    });
+
+    const hints = {
+        SELECT: 'Tocá una caja para moverla • Pellizcá con 2 dedos para hacer zoom en el plano.',
+        BOCA_TECHO: 'Tocá en el plano del techo para ubicar una Boca de Centro.',
+        APLIQUE: 'Tocá sobre cualquiera de las 4 paredes internas para fijar un Aplique (Z=2,10m).',
+        LLAVE_1P: 'Tocá sobre una pared (ej. junto a puerta) para colocar Llave de Luz (Z=1,10m).',
+        TOMA_10A: 'Tocá sobre una pared para ubicar un Tomacorriente (Z=0,30m).',
+        TABLERO: 'Tocá sobre una pared para ubicar el Tablero Seccional (Z=1,60m).',
+        CAJA_PASO: 'Tocá una pared para colocar una Caja de Paso (Z=2,40m).',
+        CONECTAR: 'Paso 1: Tocá la caja de ORIGEN del caño en el cubo.'
+    };
+    document.getElementById('ui-hint-herramienta').innerText = hints[tool] || '';
+}
+
+function centrarBocaTecho() {
+    const cx = redondear05(estadoCroquis.ancho / 2);
+    const cy = redondear05(estadoCroquis.largo / 2);
+    const existente = estadoCroquis.elementos.find(e => e.tipo === 'BOCA_TECHO');
+
+    if (existente) {
+        existente.x = cx;
+        existente.y = cy;
+        existente.z = estadoCroquis.alto;
+        elementoSeleccionadoId = existente.id;
+    } else {
+        const nuevo = {
+            id: 'el_' + Date.now(),
+            tag: generarSiguienteTag('B'),
+            tipo: 'BOCA_TECHO',
+            x: cx,
+            y: cy,
+            z: estadoCroquis.alto,
+            muro: 'TECHO',
+            rot: 0,
+            circ: 'C1',
+            nota: 'Centro geométrico'
+        };
+        estadoCroquis.elementos.push(nuevo);
+        elementoSeleccionadoId = nuevo.id;
+    }
+
+    seleccionarHerramienta('SELECT');
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Boca Centrada', `Ubicada en X=${cx.toFixed(2)}m, Y=${cy.toFixed(2)}m`);
+}
+
+function manejarToqueLienzo(evt) {
+    const svg = evt.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const vb = svg.viewBox.baseVal;
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+
+    // Gracias a getBoundingClientRect(), esto convierte con precisión exacta incluso con zoom aplicado
+    const svgX = ((clientX - rect.left) / rect.width) * vb.width;
+    const svgY = ((clientY - rect.top) / rect.height) * vb.height;
+
+    const geom = calcularGeometriaCubo3D(vb.width, vb.height);
+
+    // 1. Verificar si tocó algún elemento ya dibujado
+    let tocado = null;
+    let minPixelDist = 26;
+    estadoCroquis.elementos.forEach(el => {
+        const pt = proyectarPunto3D(el.x, el.y, el.z ?? 0, geom);
+        const d = Math.hypot(pt.sx - svgX, pt.sy - svgY);
+        if (d < minPixelDist) {
+            minPixelDist = d;
+            tocado = el;
+        }
+    });
+
+    if (herramientaActiva === 'CONECTAR') {
+        if (!tocado) {
+            mostrarToast('Seleccioná una Caja', 'Tocá directamente sobre un símbolo para unirlo.');
+            return;
+        }
+        if (!origenConexionId) {
+            origenConexionId = tocado.id;
+            elementoSeleccionadoId = tocado.id;
+            document.getElementById('ui-hint-herramienta').innerText = `Origen: [${tocado.tag}]. Ahora tocá la caja de DESTINO.`;
+            renderizarTodoCroquis();
+        } else if (origenConexionId !== tocado.id) {
+            conectarDosCajas(origenConexionId, tocado.id);
+            origenConexionId = null;
+            seleccionarHerramienta('SELECT');
+        }
+        return;
+    }
+
+    if (herramientaActiva === 'SELECT') {
+        elementoSeleccionadoId = tocado ? tocado.id : null;
+        renderizarTodoCroquis();
+        return;
+    }
+
+    // 2. Inserción inteligente sobre pared o techo en perspectiva 3D
+    const preset = PRESETS_ELEMENTOS[herramientaActiva] || PRESETS_ELEMENTOS.TOMA_10A;
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+    const H = estadoCroquis.alto || 2.60;
+
+    let posX = redondear05(W / 2);
+    let posY = redondear05(L / 2);
+    let posZ = herramientaActiva === 'BOCA_TECHO' ? H : preset.zDefault;
+    let muro = 'TECHO';
+    let rot = 0;
+
+    if (!preset.pared) {
+        const rx = ((svgX - geom.ox) / geom.roomW) * W;
+        const ry = ((svgY - geom.oy) / geom.roomH) * L;
+        posX = redondear05(Math.max(0.15, Math.min(W - 0.15, rx)));
+        posY = redondear05(Math.max(0.15, Math.min(L - 0.15, ry)));
+        posZ = H;
+        muro = 'TECHO';
+        rot = 0;
+    } else {
+        const infoPared = detectarParedDesdeToque3D(svgX, svgY, geom);
+        muro = infoPared.muro;
+        rot = infoPared.rot;
+        posX = infoPared.x;
+        posY = infoPared.y;
+        posZ = Math.min(H - 0.10, preset.zDefault);
+    }
+
+    const nuevo = {
+        id: 'el_' + Date.now(),
+        tag: generarSiguienteTag(preset.prefijo),
+        tipo: herramientaActiva,
+        x: posX,
+        y: posY,
+        z: posZ,
+        muro,
+        rot,
+        circ: preset.circ,
+        nota: ''
+    };
+
+    estadoCroquis.elementos.push(nuevo);
+    elementoSeleccionadoId = nuevo.id;
+    seleccionarHerramienta('SELECT');
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function detectarParedDesdeToque3D(svgX, svgY, geom) {
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+
+    const cx = geom.ox + geom.roomW / 2;
+    const cy = geom.oy + geom.roomH / 2;
+    const nx = (svgX - cx) / (geom.roomW / 2);
+    const ny = (svgY - cy) / (geom.roomH / 2);
+
+    if (Math.abs(nx) > Math.abs(ny)) {
+        const fracY = Math.max(0, Math.min(1, (svgY - (geom.oy + geom.dyP * 0.5)) / (geom.roomH - geom.dyP)));
+        const yReal = redondear05(fracY * L);
+        if (nx < 0) {
+            return { muro: 'OESTE', x: 0, y: yReal, rot: 270 };
+        } else {
+            return { muro: 'ESTE', x: W, y: yReal, rot: 90 };
+        }
+    } else {
+        const fracX = Math.max(0, Math.min(1, (svgX - (geom.ox + geom.dxP * 0.5)) / (geom.roomW - geom.dxP)));
+        const xReal = redondear05(fracX * W);
+        if (ny < 0) {
+            return { muro: 'NORTE', x: xReal, y: 0, rot: 0 };
+        } else {
+            return { muro: 'SUR', x: xReal, y: L, rot: 180 };
+        }
+    }
+}
+
+function ajustarAParedCercana(x, y) {
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+    const dists = [
+        { muro: 'NORTE', d: y,     x: redondear05(x), y: 0, rot: 0   },
+        { muro: 'SUR',   d: L - y, x: redondear05(x), y: L, rot: 180 },
+        { muro: 'OESTE', d: x,     x: 0,              y: redondear05(y), rot: 270 },
+        { muro: 'ESTE',  d: W - x, x: W,              y: redondear05(y), rot: 90  }
+    ];
+    dists.sort((a, b) => a.d - b.d);
+    return dists[0];
+}
+
+function moverElementoSeleccionado(dx, dy) {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    const paso = parseFloat(document.getElementById('selPasoFino').value) || 0.10;
+    let nx = redondear05(el.x + dx * paso);
+    let ny = redondear05(el.y + dy * paso);
+
+    nx = Math.max(0, Math.min(estadoCroquis.ancho, nx));
+    ny = Math.max(0, Math.min(estadoCroquis.largo, ny));
+
+    el.x = nx;
+    el.y = ny;
+
+    if (el.muro !== 'TECHO') {
+        const snap = ajustarAParedCercana(nx, ny);
+        el.x = snap.x;
+        el.y = snap.y;
+        el.muro = snap.muro;
+        el.rot = snap.rot;
+    }
+
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function moverAlturaSeleccionado(dirZ) {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    const paso = parseFloat(document.getElementById('selPasoFino').value) || 0.10;
+    const maxZ = estadoCroquis.alto || 2.60;
+    const actualZ = el.z ?? 0.30;
+    el.z = redondear05(Math.max(0.10, Math.min(maxZ, actualZ + dirZ * paso)));
+
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function iniciarConexionDesdeSeleccionado() {
+    if (!elementoSeleccionadoId) return;
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    seleccionarHerramienta('CONECTAR');
+    origenConexionId = elementoSeleccionadoId;
+    if (el) {
+        document.getElementById('ui-hint-herramienta').innerText = `Origen: [${el.tag}]. Tocá ahora la caja de DESTINO en el cubo.`;
+    }
+    renderizarTodoCroquis();
+}
+
+function eliminarElementoSeleccionado() {
+    if (!elementoSeleccionadoId) return;
+    const idBorrar = elementoSeleccionadoId;
+    estadoCroquis.elementos = estadoCroquis.elementos.filter(e => e.id !== idBorrar);
+    estadoCroquis.tramos = estadoCroquis.tramos.filter(t => t.desde !== idBorrar && t.hasta !== idBorrar);
+    elementoSeleccionadoId = null;
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function abrirModalEditarElemento() {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    document.getElementById('elTag').value = el.tag || '';
+    document.getElementById('elTipo').value = el.tipo || 'TOMA_10A';
+    document.getElementById('elCircuito').value = el.circ || 'C2';
+    document.getElementById('elZ').value = el.z ?? 0.30;
+    document.getElementById('elX').value = el.x ?? 0;
+    document.getElementById('elY').value = el.y ?? 0;
+    document.getElementById('elNota').value = el.nota || '';
+    document.getElementById('modalElemento').classList.remove('oculto');
+}
+
+function cerrarModalElemento() {
+    document.getElementById('modalElemento').classList.add('oculto');
+}
+
+function actualizarAlturaPorTipo() {
+    const tipo = document.getElementById('elTipo').value;
+    const p = PRESETS_ELEMENTOS[tipo];
+    if (p) {
+        document.getElementById('elZ').value = tipo === 'BOCA_TECHO' ? estadoCroquis.alto : p.zDefault;
+        document.getElementById('elCircuito').value = p.circ;
+    }
+}
+
+function guardarEdicionElemento() {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    const nuevoTipo = document.getElementById('elTipo').value;
+    const preset = PRESETS_ELEMENTOS[nuevoTipo] || PRESETS_ELEMENTOS.TOMA_10A;
+
+    el.tag = document.getElementById('elTag').value.trim() || el.tag;
+    el.tipo = nuevoTipo;
+    el.circ = document.getElementById('elCircuito').value;
+    el.z = Math.max(0, Math.min(estadoCroquis.alto || 6, parseFloat(document.getElementById('elZ').value) || 0));
+    el.x = Math.max(0, Math.min(estadoCroquis.ancho, parseFloat(document.getElementById('elX').value) || 0));
+    el.y = Math.max(0, Math.min(estadoCroquis.largo, parseFloat(document.getElementById('elY').value) || 0));
+    el.nota = document.getElementById('elNota').value.trim();
+
+    if (preset.pared) {
+        const snap = ajustarAParedCercana(el.x, el.y);
+        el.x = snap.x;
+        el.y = snap.y;
+        el.muro = snap.muro;
+        el.rot = snap.rot;
+    } else {
+        el.muro = 'TECHO';
+        el.z = estadoCroquis.alto;
+        el.rot = 0;
+    }
+
+    cerrarModalElemento();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+// ==========================================================================
+// CONEXIÓN DE TRAMOS (PARED / TECHO / CONTRAPISO) Y CÁLCULO 2.5D REAL
+// ==========================================================================
+function sonMurosOpuestos(mA, mB) {
+    return (mA === 'NORTE' && mB === 'SUR') || (mA === 'SUR' && mB === 'NORTE') ||
+           (mA === 'OESTE' && mB === 'ESTE') || (mA === 'ESTE' && mB === 'OESTE');
+}
+
+function conectarDosCajas(idA, idB) {
+    const a = estadoCroquis.elementos.find(e => e.id === idA);
+    const b = estadoCroquis.elementos.find(e => e.id === idB);
+    if (!a || !b) return;
+
+    let rol = 'ALIM_TUG';
+    const tipos = [a.tipo, b.tipo];
+    if (tipos.includes('LLAVE_1P')) rol = 'BAJADA_1P';
+    else if (tipos.includes('LLAVE_2P')) rol = 'BAJADA_2P';
+    else if (tipos.includes('LLAVE_3P')) rol = 'BAJADA_3P';
+    else if (tipos.includes('LLAVE_COMB')) rol = 'COMBINACION';
+    else if (tipos.includes('TOMA_20A') || a.circ === 'C3' || b.circ === 'C3') rol = 'ALIM_TUE';
+    else if (a.circ === 'C1' && b.circ === 'C1') rol = 'ALIM_IUG';
+
+    // Selección inteligente del tipo de recorrido
+    let via = 'TECHO';
+    if (a.muro !== 'TECHO' && b.muro !== 'TECHO') {
+        if (!sonMurosOpuestos(a.muro, b.muro)) {
+            via = 'PARED';
+        } else if ((a.z ?? 0) <= 0.50 && (b.z ?? 0) <= 0.50) {
+            via = 'CONTRAPISO';
+        }
+    }
+
+    estadoCroquis.tramos.push({
+        id: 'tr_' + Date.now(),
+        desde: idA,
+        hasta: idB,
+        rol,
+        via
+    });
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Tramo Conectado', `${a.tag} → ${b.tag} (${via})`);
+}
+
+function cambiarViaTramo(idx, nuevaVia) {
+    if (!estadoCroquis.tramos[idx]) return;
+    estadoCroquis.tramos[idx].via = nuevaVia;
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function abrirModalTramoManual() {
+    if (estadoCroquis.elementos.length < 2) {
+        mostrarAlertaCorp('Faltan Cajas', 'Necesitás al menos 2 cajas ubicadas en el plano para conectar un caño.');
+        return;
+    }
+    const opts = estadoCroquis.elementos.map(e => `<option value="${e.id}">[${escapeHtml(e.tag)}] ${escapeHtml(PRESETS_ELEMENTOS[e.tipo]?.nombre || e.tipo)}</option>`).join('');
+    document.getElementById('tramoDesde').innerHTML = opts;
+    document.getElementById('tramoHasta').innerHTML = opts;
+    if (estadoCroquis.elementos.length >= 2) {
+        document.getElementById('tramoHasta').selectedIndex = 1;
+    }
+    document.getElementById('modalTramo').classList.remove('oculto');
+}
+
+function cerrarModalTramo() {
+    document.getElementById('modalTramo').classList.add('oculto');
+}
+
+function guardarTramoManual() {
+    const desde = document.getElementById('tramoDesde').value;
+    const hasta = document.getElementById('tramoHasta').value;
+    const rol = document.getElementById('tramoRol').value;
+    const via = document.getElementById('tramoVia').value || 'TECHO';
+    if (desde === hasta) {
+        mostrarAlertaCorp('Misma Caja', 'Seleccioná dos cajas diferentes.');
+        return;
+    }
+    estadoCroquis.tramos.push({ id: 'tr_' + Date.now(), desde, hasta, rol, via });
+    cerrarModalTramo();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function eliminarTramo(idx) {
+    estadoCroquis.tramos.splice(idx, 1);
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+// Verifica si un tramo que va POR PARED atraviesa alguna puerta en su recorrido
+function tramoParedCruzaPuerta(a, b) {
+    const puertas = (estadoCroquis.aberturas || []).filter(ab => ab.tipo.startsWith('PUERTA'));
+    if (puertas.length === 0) return false;
+
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+
+    const hayPuertaEnRango = (pared, c1, c2) => {
+        const minC = Math.min(c1, c2);
+        const maxC = Math.max(c1, c2);
+        return puertas.some(p => {
+            if (p.pared !== pared) return false;
+            const pIni = p.offset;
+            const pFin = p.offset + p.ancho;
+            return maxC > pIni + 0.05 && minC < pFin - 0.05;
+        });
+    };
+
+    if (a.muro === b.muro) {
+        if (a.muro === 'NORTE' || a.muro === 'SUR') return hayPuertaEnRango(a.muro, a.x, b.x);
+        return hayPuertaEnRango(a.muro, a.y, b.y);
+    }
+
+    if (!sonMurosOpuestos(a.muro, b.muro)) {
+        // Esquina compartida entre a.muro y b.muro
+        const esquinaX = (a.muro === 'OESTE' || b.muro === 'OESTE') ? 0 : W;
+        const esquinaY = (a.muro === 'NORTE' || b.muro === 'NORTE') ? 0 : L;
+        const cruzaA = (a.muro === 'NORTE' || a.muro === 'SUR')
+            ? hayPuertaEnRango(a.muro, a.x, esquinaX)
+            : hayPuertaEnRango(a.muro, a.y, esquinaY);
+        const cruzaB = (b.muro === 'NORTE' || b.muro === 'SUR')
+            ? hayPuertaEnRango(b.muro, b.x, esquinaX)
+            : hayPuertaEnRango(b.muro, b.y, esquinaY);
+        return cruzaA || cruzaB;
+    }
+
+    return false;
+}
+
+function calcularLongitudTramo25D(tramo) {
+    const a = estadoCroquis.elementos.find(e => e.id === tramo.desde);
+    const b = estadoCroquis.elementos.find(e => e.id === tramo.hasta);
+    if (!a || !b) return 0;
+
+    const W = estadoCroquis.ancho || 3.50;
+    const L = estadoCroquis.largo || 3.20;
+    const H = estadoCroquis.alto || 2.60;
+    const dx = Math.abs(b.x - a.x);
+    const dy = Math.abs(b.y - a.y);
+    const dz = Math.abs((b.z ?? 0) - (a.z ?? 0));
+    const via = tramo.via || 'TECHO';
+
+    if (via === 'CONTRAPISO') {
+        return (a.z ?? 0) + dx + dy + (b.z ?? 0);
+    }
+
+    if (via === 'PARED' && a.muro !== 'TECHO' && b.muro !== 'TECHO') {
+        if (sonMurosOpuestos(a.muro, b.muro)) {
+            if (a.muro === 'OESTE' || a.muro === 'ESTE') {
+                const perimY = Math.min(a.y + b.y, (L - a.y) + (L - b.y));
+                return W + perimY + dz;
+            } else {
+                const perimX = Math.min(a.x + b.x, (W - a.x) + (W - b.x));
+                return L + perimX + dz;
+            }
+        }
+        return dx + dy + dz;
+    }
+
+    // Por Techo / Losa (default)
+    return Math.abs(H - (a.z ?? H)) + dx + dy + Math.abs(H - (b.z ?? H));
+}
+
+function calcularComputo25D() {
+    const factorDesp = 1 + ((estadoCroquis.desperdicio || 10) / 100);
+    let canoNeto = 0;
+
+    const cables = {
+        f15: 0, n15: 0, pe15: 0, ret15: 0,
+        f25: 0, n25: 0, pe25: 0,
+        f40: 0, n40: 0, pe40: 0
+    };
+
+    estadoCroquis.tramos.forEach(tr => {
+        const L = calcularLongitudTramo25D(tr);
+        if (L <= 0) return;
+        canoNeto += L;
+        const Lhilo = L + 0.40;
+
+        if (tr.rol === 'ALIM_IUG') {
+            cables.f15 += Lhilo; cables.n15 += Lhilo; cables.pe15 += Lhilo;
+        } else if (tr.rol === 'ALIM_TUG') {
+            cables.f25 += Lhilo; cables.n25 += Lhilo; cables.pe25 += Lhilo;
+        } else if (tr.rol === 'ALIM_TUE') {
+            cables.f40 += Lhilo; cables.n40 += Lhilo; cables.pe40 += Lhilo;
+        } else if (tr.rol === 'BAJADA_1P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo;
+        } else if (tr.rol === 'BAJADA_2P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo * 2;
+        } else if (tr.rol === 'BAJADA_3P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo * 3;
+        } else if (tr.rol === 'COMBINACION') {
+            cables.ret15 += Lhilo * 3;
+        }
+    });
+
+    let octoGrandes = 0, octoChicas = 0, rect10x5 = 0, cajasPaso = 0, gabinetes = 0;
+    let modPunto = 0, modComb = 0, modToma10 = 0, modToma20 = 0;
+
+    estadoCroquis.elementos.forEach(el => {
+        if (el.tipo === 'BOCA_TECHO') octoGrandes++;
+        else if (el.tipo === 'APLIQUE') octoChicas++;
+        else if (el.tipo === 'CAJA_PASO') cajasPaso++;
+        else if (el.tipo === 'TABLERO') gabinetes++;
+        else {
+            rect10x5++;
+            if (el.tipo === 'LLAVE_1P') modPunto += 1;
+            else if (el.tipo === 'LLAVE_2P') modPunto += 2;
+            else if (el.tipo === 'LLAVE_3P') modPunto += 3;
+            else if (el.tipo === 'LLAVE_COMB') modComb += 1;
+            else if (el.tipo === 'TOMA_10A') modToma10 += 1;
+            else if (el.tipo === 'TOMA_DOBLE') modToma10 += 2;
+            else if (el.tipo === 'TOMA_20A') modToma20 += 1;
+        }
+    });
+
+    const items = [];
+    const canoTotal = Math.ceil(canoNeto * factorDesp);
+    if (canoTotal > 0) {
+        const rollos = Math.ceil(canoTotal / 25);
+        items.push({ rubro: 'Canalización', desc: `Caño Corrugado Ignífugo ${estadoCroquis.canoDiam} (~${rollos} rollo/s × 25m)`, cant: canoTotal, unid: 'MTS' });
+    }
+    if (octoGrandes > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Grande (Losa / Centro)', cant: octoGrandes, unid: 'UNID' });
+    if (octoChicas > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Chica / Mignon (Aplique)', cant: octoChicas, unid: 'UNID' });
+    if (rect10x5 > 0) {
+        items.push({ rubro: 'Cajas', desc: 'Caja Rectangular Embutir 10×5 cm', cant: rect10x5, unid: 'UNID' });
+        items.push({ rubro: 'Mecanismos', desc: 'Conjunto Bastidor + Tapa 10×5 cm', cant: rect10x5, unid: 'UNID' });
+    }
+    if (cajasPaso > 0) items.push({ rubro: 'Cajas', desc: 'Caja de Paso / Derivación con Tapa', cant: cajasPaso, unid: 'UNID' });
+    if (gabinetes > 0) items.push({ rubro: 'Tableros', desc: 'Gabinete Seccional DIN Embutir/Sup.', cant: gabinetes, unid: 'UNID' });
+
+    if (modPunto > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Interruptor Unipolar 1 Punto 10A', cant: modPunto, unid: 'UNID' });
+    if (modComb > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Interruptor Combinación 10A', cant: modComb, unid: 'UNID' });
+    if (modToma10 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 10A IRAM 2071', cant: modToma10, unid: 'UNID' });
+    if (modToma20 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 20A Reforzado', cant: modToma20, unid: 'UNID' });
+
+    const addCable = (metros, desc) => {
+        if (metros > 0) items.push({ rubro: 'Conductores', desc, cant: Math.ceil(metros * factorDesp), unid: 'MTS' });
+    };
+    addCable(cables.f15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.ret15, 'Cable Unipolar 1,5 mm² IRAM 247-3 (Negro/Blanco - Retorno)');
+    addCable(cables.pe15,  'Cable Unipolar 1,5 mm² IRAM 247-3 (Verde/Amarillo - PE)');
+
+    addCable(cables.f25,   'Cable Unipolar 2,5 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n25,   'Cable Unipolar 2,5 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.pe25,  'Cable Unipolar 2,5 mm² IRAM 247-3 (Verde/Amarillo - PE)');
+
+    addCable(cables.f40,   'Cable Unipolar 4,0 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n40,   'Cable Unipolar 4,0 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.pe40,  'Cable Unipolar 4,0 mm² IRAM 247-3 (Verde/Amarillo - PE)');
+
+    return { canoNeto, canoTotal, items };
+             }
+
+// ==========================================================================
+// RENDERIZADO GENERAL DE INTERFAZ Y MOTOR VECTORIAL SVG 3D CENITAL (CUBO)
+// ==========================================================================
+function renderizarTodoCroquis() {
+    const sup = (estadoCroquis.ancho * estadoCroquis.largo).toFixed(2).replace('.', ',');
+    const comp = calcularComputo25D();
+
+    document.getElementById('ui-titulo-ambiente').innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)} × ${estadoCroquis.largo.toFixed(2)} m)`;
+    document.getElementById('ui-stat-superficie').innerText = `${sup} m² • Z ${estadoCroquis.alto.toFixed(2)}m`;
+    document.getElementById('ui-stat-bocas').innerText = `${estadoCroquis.elementos.length} cajas`;
+    document.getElementById('ui-stat-caneria').innerText = `${comp.canoTotal} m (+${estadoCroquis.desperdicio}%)`;
+
+    const banner = document.getElementById('ui-aea-croquis-status');
+    const cantTomas = estadoCroquis.elementos.filter(e => e.tipo.startsWith('TOMA_')).length;
+    const cantLuces = estadoCroquis.elementos.filter(e => e.tipo === 'BOCA_TECHO' || e.tipo === 'APLIQUE').length;
+    if (estadoCroquis.elementos.length === 0) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = '<i class="fa-solid fa-info-circle"></i> <strong>Ambiente Vacío:</strong> Usá las herramientas táctiles para ubicar bocas, llaves y tomas.';
+    } else if (cantLuces === 0 || cantTomas === 0) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Verificar AEA 770:</strong> ${cantLuces} boca(s) de iluminación y ${cantTomas} boca(s) de tomacorriente en ${sup} m².`;
+    } else {
+        banner.className = 'pot-aea-banner ok';
+        banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Replanteo Completo:</strong> ${cantLuces} bocas ilum. + ${cantTomas} tomas • ${comp.canoTotal} m de cañería calculados.`;
+    }
+
+    const panelSel = document.getElementById('panelControlSeleccion');
+    const selEl = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (selEl) {
+        panelSel.classList.remove('oculto');
+        const pNom = PRESETS_ELEMENTOS[selEl.tipo]?.nombre || selEl.tipo;
+        document.getElementById('selElemTitulo').innerText = `[${selEl.tag}] ${pNom} (${selEl.circ})`;
+        document.getElementById('selElemCoords').innerText = `X: ${selEl.x.toFixed(2)} m • Y: ${selEl.y.toFixed(2)} m • Z: ${(selEl.z ?? 0).toFixed(2)} m (${selEl.muro})`;
+    } else {
+        panelSel.classList.add('oculto');
+    }
+
+    document.getElementById('ui-cant-tramos').innerText = estadoCroquis.tramos.length;
+    const contTramos = document.getElementById('ui-lista-tramos');
+    if (estadoCroquis.tramos.length === 0) {
+        contTramos.innerHTML = '<div style="text-align:center; padding:10px; font-size:0.78rem; color:var(--ngc-text-faded);">Sin tramos conectados. Usá la herramienta <b>Caño</b> para unir dos cajas.</div>';
+    } else {
+        contTramos.innerHTML = estadoCroquis.tramos.map((tr, idx) => {
+            const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
+            const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
+            const dist = calcularLongitudTramo25D(tr);
+            const viaActual = tr.via || 'TECHO';
+            const alertaPuerta = (viaActual === 'PARED' && a && b && tramoParedCruzaPuerta(a, b))
+                ? `<span style="color:var(--error-red); font-size:0.7rem; font-weight:700; display:block; margin-top:2px;"><i class="fa-solid fa-triangle-exclamation"></i> Cruza puerta (cambiar a Techo/Piso)</span>`
+                : '';
+
+            const btnVia = (val, label) => {
+                const activo = viaActual === val;
+                const st = activo
+                    ? 'background: var(--ngc-neon); color: #fff; font-weight: 700;'
+                    : 'background: var(--ngc-bg-input); color: var(--ngc-text-faded);';
+                return `<button type="button" class="corp-btn-small" style="padding: 3px 7px; font-size: 0.7rem; ${st}" onclick="cambiarViaTramo(${idx}, '${val}')">${label}</button>`;
+            };
+
+            return `
+                <div class="uni-circ-item">
+                    <div class="uni-circ-top">
+                        <span class="uni-circ-tag"><i class="fa-solid fa-route"></i> ${escapeHtml(a?.tag || '?')} → ${escapeHtml(b?.tag || '?')}</span>
+                        <span class="uni-circ-pill">${dist.toFixed(2)} m netos</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                        <div style="display:flex; gap:4px; align-items:center;">
+                            ${btnVia('PARED', 'Pared')}
+                            ${btnVia('TECHO', 'Techo')}
+                            ${btnVia('CONTRAPISO', 'Piso')}
+                        </div>
+                        <button type="button" class="corp-btn-small danger" onclick="eliminarTramo(${idx})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    ${alertaPuerta}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Actualizar resumen compacto de materiales + lista desplegable
+    const pillResumen = document.getElementById('ui-resumen-computo-pill');
+    if (pillResumen) {
+        pillResumen.innerText = `${comp.items.length} ítems • ${comp.canoTotal} m caño (+${estadoCroquis.desperdicio}%)`;
+    }
+
+    const contComp = document.getElementById('ui-lista-computo');
+    if (comp.items.length === 0) {
+        contComp.innerHTML = '<div style="text-align:center; padding:10px; font-size:0.78rem; color:var(--ngc-text-faded);">Agregá elementos y tramos para ver el cómputo de materiales.</div>';
+    } else {
+        contComp.innerHTML = comp.items.map(it => `
+            <div class="uni-circ-item" style="padding: 8px 10px;">
+                <div class="uni-circ-top">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--ngc-text-main);">${escapeHtml(it.desc)}</span>
+                    <span class="uni-circ-pill">${it.cant} ${it.unid}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    const svgHTML = generarSVGCroquis(true);
+    const zoomLayer = document.getElementById('zoomLayerSvgCroquis');
+    if (zoomLayer) {
+        zoomLayer.innerHTML = svgHTML;
+        const svgNode = zoomLayer.querySelector('svg');
+        if (svgNode) {
+            svgNode.style.cursor = 'pointer';
+            // En desktop (mouse) responde a click; en móvil táctil lo gestiona inicializarZoomTactilPlano()
+            svgNode.onclick = (e) => {
+                if (e.pointerType === 'touch') return;
+                manejarToqueLienzo(e);
+            };
+        }
+        aplicarTransformPlano();
+    }
+
+    actualizarVistaPreviaPDF();
+}
+
+// Geometría de proyección Perspectiva Cenital 3D (Cubo abierto visto desde arriba)
+function calcularGeometriaCubo3D(vbW, vbH) {
+    const padL = 54, padR = 44, padT = 46, padB = 46;
+    const dispW = vbW - padL - padR;
+    const dispH = vbH - padT - padB;
+    const scale = Math.min(dispW / estadoCroquis.ancho, dispH / estadoCroquis.largo);
+    const roomW = estadoCroquis.ancho * scale;
+    const roomH = estadoCroquis.largo * scale;
+    const ox = padL + (dispW - roomW) / 2;
+    const oy = padT + (dispH - roomH) / 2;
+
+    const H = estadoCroquis.alto || 2.60;
+    const factorAltura = Math.min(0.30, Math.max(0.18, (H / 2.60) * 0.24));
+    const dxP = vistaCubo3D ? Math.min(roomW * 0.28, Math.min(roomW, roomH) * factorAltura) : 0;
+    const dyP = vistaCubo3D ? Math.min(roomH * 0.28, Math.min(roomW, roomH) * factorAltura) : 0;
+
+    return { ox, oy, roomW, roomH, scale, dxP, dyP, H };
+}
+
+function proyectarPunto3D(x, y, z, geom) {
+    const W = estadoCroquis.ancho || 3.50;
+    const L = estadoCroquis.largo || 3.20;
+    const H = geom.H || 2.60;
+    const t = vistaCubo3D ? Math.max(0, Math.min(1, (z ?? 0) / H)) : 1;
+
+    const xMin = geom.ox + geom.dxP * (1 - t);
+    const xMax = geom.ox + geom.roomW - geom.dxP * (1 - t);
+    const yMin = geom.oy + geom.dyP * (1 - t);
+    const yMax = geom.oy + geom.roomH - geom.dyP * (1 - t);
+
+    const sx = xMin + (x / W) * (xMax - xMin);
+    const sy = yMin + (y / L) * (yMax - yMin);
+    return { sx, sy };
+}
+
+function generarSVGCroquis(mostrarSeleccion = true) {
+    const vbW = 500;
+    const vbH = 480;
+    const geom = calcularGeometriaCubo3D(vbW, vbH);
+    const { ox, oy, roomW, roomH, dxP, dyP } = geom;
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+    const H = estadoCroquis.alto;
+
+    const tNW = { x: ox, y: oy };
+    const tNE = { x: ox + roomW, y: oy };
+    const tSE = { x: ox + roomW, y: oy + roomH };
+    const tSW = { x: ox, y: oy + roomH };
+
+    const fNW = { x: ox + dxP, y: oy + dyP };
+    const fNE = { x: ox + roomW - dxP, y: oy + dyP };
+    const fSE = { x: ox + roomW - dxP, y: oy + roomH - dyP };
+    const fSW = { x: ox + dxP, y: oy + roomH - dyP };
+
+    let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="${vbW}" height="${vbH}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
+    s += `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="#ffffff"/>`;
+
+    if (vistaCubo3D) {
+        // 1. CARAS INTERNAS DE LAS 4 PAREDES
+        s += `<polygon points="${tNW.x},${tNW.y} ${tNE.x},${tNE.y} ${fNE.x},${fNE.y} ${fNW.x},${fNW.y}" fill="#eef2f6" stroke="#64748b" stroke-width="1.2"/>`;
+        s += `<polygon points="${fSW.x},${fSW.y} ${fSE.x},${fSE.y} ${tSE.x},${tSE.y} ${tSW.x},${tSW.y}" fill="#e2e8f0" stroke="#64748b" stroke-width="1.2"/>`;
+        s += `<polygon points="${tNW.x},${tNW.y} ${fNW.x},${fNW.y} ${fSW.x},${fSW.y} ${tSW.x},${tSW.y}" fill="#f1f5f9" stroke="#64748b" stroke-width="1.2"/>`;
+        s += `<polygon points="${fNE.x},${fNE.y} ${tNE.x},${tNE.y} ${tSE.x},${tSE.y} ${fSE.x},${fSE.y}" fill="#e8edf3" stroke="#64748b" stroke-width="1.2"/>`;
+
+        // 2. PISO (Z = 0)
+        s += `<rect x="${fNW.x}" y="${fNW.y}" width="${fNE.x - fNW.x}" height="${fSW.y - fNW.y}" fill="#fafbfc" stroke="#475569" stroke-width="1.8"/>`;
+
+        for (let gx = 0.5; gx < W; gx += 0.5) {
+            const pFloorTop = proyectarPunto3D(gx, 0, 0, geom);
+            const pFloorBot = proyectarPunto3D(gx, L, 0, geom);
+            const pCeilTop  = proyectarPunto3D(gx, 0, H, geom);
+            const pCeilBot  = proyectarPunto3D(gx, L, H, geom);
+            s += `<line x1="${pFloorTop.sx}" y1="${pFloorTop.sy}" x2="${pFloorBot.sx}" y2="${pFloorBot.sy}" stroke="#e2e8f0" stroke-width="0.9"/>`;
+            s += `<line x1="${pCeilTop.sx}" y1="${pCeilTop.sy}" x2="${pFloorTop.sx}" y2="${pFloorTop.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
+            s += `<line x1="${pCeilBot.sx}" y1="${pCeilBot.sy}" x2="${pFloorBot.sx}" y2="${pFloorBot.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
+        }
+        for (let gy = 0.5; gy < L; gy += 0.5) {
+            const pFloorL = proyectarPunto3D(0, gy, 0, geom);
+            const pFloorR = proyectarPunto3D(W, gy, 0, geom);
+            const pCeilL  = proyectarPunto3D(0, gy, H, geom);
+            const pCeilR  = proyectarPunto3D(W, gy, H, geom);
+            s += `<line x1="${pFloorL.sx}" y1="${pFloorL.sy}" x2="${pFloorR.sx}" y2="${pFloorR.sy}" stroke="#e2e8f0" stroke-width="0.9"/>`;
+            s += `<line x1="${pCeilL.sx}" y1="${pCeilL.sy}" x2="${pFloorL.sx}" y2="${pFloorL.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
+            s += `<line x1="${pCeilR.sx}" y1="${pCeilR.sy}" x2="${pFloorR.sx}" y2="${pFloorR.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
+        }
+
+        [0.30, 1.10].forEach(zRef => {
+            if (zRef < H) {
+                const c1 = proyectarPunto3D(0, 0, zRef, geom);
+                const c2 = proyectarPunto3D(W, 0, zRef, geom);
+                const c3 = proyectarPunto3D(W, L, zRef, geom);
+                const c4 = proyectarPunto3D(0, L, zRef, geom);
+                s += `<polygon points="${c1.sx},${c1.sy} ${c2.sx},${c2.sy} ${c3.sx},${c3.sy} ${c4.sx},${c4.sy}" fill="none" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,4" opacity="0.55"/>`;
+            }
+        });
+    } else {
+        s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="#fafafa"/>`;
+        for (let gx = 0.5; gx < W; gx += 0.5) {
+            const p1 = proyectarPunto3D(gx, 0, H, geom);
+            const p2 = proyectarPunto3D(gx, L, H, geom);
+            s += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${p2.sx}" y2="${p2.sy}" stroke="#f1f5f9" stroke-width="1"/>`;
+        }
+        for (let gy = 0.5; gy < L; gy += 0.5) {
+            const p1 = proyectarPunto3D(0, gy, H, geom);
+            const p2 = proyectarPunto3D(W, gy, H, geom);
+            s += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${p2.sx}" y2="${p2.sy}" stroke="#f1f5f9" stroke-width="1"/>`;
+        }
+    }
+
+    // 3. ABERTURAS EN PERSPECTIVA 3D
+    (estadoCroquis.aberturas || []).forEach(ab => {
+        s += dibujarAbertura3D(ab, geom);
+    });
+
+    // 4. CORONAMIENTO SUPERIOR DE MUROS
+    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="none" stroke="#0f172a" stroke-width="4.5"/>`;
+
+    // 5. COTAS EXTERIORES
+    s += `<line x1="${ox}" y1="${oy - 22}" x2="${ox + roomW}" y2="${oy - 22}" stroke="#475569" stroke-width="1"/>`;
+    s += `<line x1="${ox}" y1="${oy - 27}" x2="${ox}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<line x1="${ox + roomW}" y1="${oy - 27}" x2="${ox + roomW}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<rect x="${ox + roomW / 2 - 28}" y="${oy - 30}" width="56" height="15" fill="#ffffff"/>`;
+    s += `<text x="${ox + roomW / 2}" y="${oy - 19}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle">${W.toFixed(2)} m</text>`;
+
+    s += `<line x1="${ox - 22}" y1="${oy}" x2="${ox - 22}" y2="${oy + roomH}" stroke="#475569" stroke-width="1"/>`;
+    s += `<line x1="${ox - 27}" y1="${oy}" x2="${ox - 17}" y2="${oy}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<line x1="${ox - 27}" y1="${oy + roomH}" x2="${ox - 17}" y2="${oy + roomH}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<text x="${ox - 28}" y="${oy + roomH / 2}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle" transform="rotate(-90 ${ox - 28} ${oy + roomH / 2})">${L.toFixed(2)} m</text>`;
+
+    // 6. TRAMOS DE CAÑERÍA EN 3D REAL (PARED / TECHO / CONTRAPISO)
+    (estadoCroquis.tramos || []).forEach(tr => {
+        const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
+        const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
+        if (!a || !b) return;
+
+        const via = tr.via || 'TECHO';
+        const esBajada = tr.rol.startsWith('BAJADA') || tr.rol === 'COMBINACION';
+
+        let colorLinea = esBajada ? '#ea580c' : '#2563eb';
+        let dash = esBajada ? 'stroke-dasharray="4,2.5"' : '';
+        if (via === 'PARED') {
+            colorLinea = '#16a34a';
+            dash = '';
+        } else if (via === 'CONTRAPISO') {
+            colorLinea = '#0891b2';
+            dash = 'stroke-dasharray="5,3"';
+        }
+
+        const pA = proyectarPunto3D(a.x, a.y, a.z ?? 0, geom);
+        const pB = proyectarPunto3D(b.x, b.y, b.z ?? 0, geom);
+
+        if (via === 'PARED' && a.muro !== 'TECHO' && b.muro !== 'TECHO') {
+            let dPared = `M ${pA.sx} ${pA.sy} `;
+            if (a.muro === b.muro) {
+                // Misma pared: trazo recto horizontal y escalón vertical si difiere Z
+                const pMid = proyectarPunto3D(b.x, b.y, a.z ?? 0, geom);
+                dPared += `L ${pMid.sx} ${pMid.sy} L ${pB.sx} ${pB.sy}`;
+            } else if (!sonMurosOpuestos(a.muro, b.muro)) {
+                // Paredes contiguas: recorre muro A, dobla exactamente en la esquina 3D y sigue por muro B
+                const esqX = (a.muro === 'OESTE' || b.muro === 'OESTE') ? 0 : W;
+                const esqY = (a.muro === 'NORTE' || b.muro === 'NORTE') ? 0 : L;
+                const pEsqA = proyectarPunto3D(esqX, esqY, a.z ?? 0, geom);
+                const pEsqB = proyectarPunto3D(esqX, esqY, b.z ?? 0, geom);
+                dPared += `L ${pEsqA.sx} ${pEsqA.sy} L ${pEsqB.sx} ${pEsqB.sy} L ${pB.sx} ${pB.sy}`;
+            } else {
+                // Paredes opuestas por perímetro (muro conector más cercano)
+                if (a.muro === 'OESTE' || a.muro === 'ESTE') {
+                    const yConn = (a.y + b.y) <= L ? 0 : L;
+                    const pC1 = proyectarPunto3D(a.x, yConn, a.z ?? 0, geom);
+                    const pC2 = proyectarPunto3D(b.x, yConn, b.z ?? 0, geom);
+                    dPared += `L ${pC1.sx} ${pC1.sy} L ${pC2.sx} ${pC2.sy} L ${pB.sx} ${pB.sy}`;
+                } else {
+                    const xConn = (a.x + b.x) <= W ? 0 : W;
+                    const pC1 = proyectarPunto3D(xConn, a.y, a.z ?? 0, geom);
+                    const pC2 = proyectarPunto3D(xConn, b.y, b.z ?? 0, geom);
+                    dPared += `L ${pC1.sx} ${pC1.sy} L ${pC2.sx} ${pC2.sy} L ${pB.sx} ${pB.sy}`;
+                }
+            }
+            s += `<path d="${dPared}" fill="none" stroke="${colorLinea}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
+        } else if (via === 'CONTRAPISO' && vistaCubo3D) {
+            const pAPiso = proyectarPunto3D(a.x, a.y, 0, geom);
+            const pBPiso = proyectarPunto3D(b.x, b.y, 0, geom);
+            const cx = (pAPiso.sx + pBPiso.sx) / 2;
+            const cy = (pAPiso.sy + pBPiso.sy) / 2 + 12;
+            let dPiso = `M ${pA.sx} ${pA.sy} L ${pAPiso.sx} ${pAPiso.sy} Q ${cx} ${cy} ${pBPiso.sx} ${pBPiso.sy} L ${pB.sx} ${pB.sy}`;
+            s += `<path d="${dPiso}" fill="none" stroke="${colorLinea}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
+        } else if (vistaCubo3D) {
+            const pATecho = proyectarPunto3D(a.x, a.y, H, geom);
+            const pBTecho = proyectarPunto3D(b.x, b.y, H, geom);
+            const cx = (pATecho.sx + pBTecho.sx) / 2 + (ox + roomW / 2 - (pATecho.sx + pBTecho.sx) / 2) * 0.14;
+            const cy = (pATecho.sy + pBTecho.sy) / 2 + (oy + roomH / 2 - (pATecho.sy + pBTecho.sy) / 2) * 0.14;
+
+            let dPath = `M ${pA.sx} ${pA.sy} `;
+            if (a.muro !== 'TECHO' && (a.z ?? 0) < H - 0.05) {
+                dPath += `L ${pATecho.sx} ${pATecho.sy} `;
+            }
+            dPath += `Q ${cx} ${cy} ${pBTecho.sx} ${pBTecho.sy} `;
+            if (b.muro !== 'TECHO' && (b.z ?? 0) < H - 0.05) {
+                dPath += `L ${pB.sx} ${pB.sy}`;
+            }
+            s += `<path d="${dPath}" fill="none" stroke="${colorLinea}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
+        } else {
+            const cx = (pA.sx + pB.sx) / 2 + (ox + roomW / 2 - (pA.sx + pB.sx) / 2) * 0.18;
+            const cy = (pA.sy + pB.sy) / 2 + (oy + roomH / 2 - (pA.sy + pB.sy) / 2) * 0.18;
+            s += `<path d="M ${pA.sx} ${pA.sy} Q ${cx} ${cy} ${pB.sx} ${pB.sy}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
+        }
+    });
+
+     // 7. COTAS DINÁMICAS 3D DEL ELEMENTO SELECCIONADO
+    if (mostrarSeleccion && elementoSeleccionadoId) {
+        const sel = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+        if (sel) {
+            const pSel = proyectarPunto3D(sel.x, sel.y, sel.z ?? 0, geom);
+            s += `<circle cx="${pSel.sx}" cy="${pSel.sy}" r="18" fill="rgba(35,116,225,0.18)" stroke="#2374E1" stroke-width="1.6" stroke-dasharray="3,2"/>`;
+
+            if (sel.muro === 'TECHO') {
+                const pIzq = proyectarPunto3D(0, sel.y, H, geom);
+                const pArr = proyectarPunto3D(sel.x, 0, H, geom);
+                s += `<line x1="${pIzq.sx}" y1="${pIzq.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(pIzq.sx + pSel.sx) / 2}" y="${pSel.sy - 5}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">X:${sel.x.toFixed(2)}m</text>`;
+                s += `<line x1="${pArr.sx}" y1="${pArr.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${pSel.sx + 6}" y="${(pArr.sy + pSel.sy) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">Y:${sel.y.toFixed(2)}m</text>`;
+            } else {
+                const pPiso = proyectarPunto3D(sel.x, sel.y, 0, geom);
+                s += `<line x1="${pPiso.sx}" y1="${pPiso.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#dc2626" stroke-width="1.3" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(pPiso.sx + pSel.sx) / 2 + 5}" y="${(pPiso.sy + pSel.sy) / 2}" fill="#dc2626" font-size="8.5" font-weight="bold">Z:${(sel.z ?? 0).toFixed(2)}m</text>`;
+
+                const pEsq = (sel.muro === 'NORTE' || sel.muro === 'SUR')
+                    ? proyectarPunto3D(0, sel.y, sel.z ?? 0, geom)
+                    : proyectarPunto3D(sel.x, 0, sel.z ?? 0, geom);
+                const valHoriz = (sel.muro === 'NORTE' || sel.muro === 'SUR') ? sel.x : sel.y;
+                s += `<line x1="${pEsq.sx}" y1="${pEsq.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(pEsq.sx + pSel.sx) / 2}" y="${(pEsq.sy + pSel.sy) / 2 - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${valHoriz.toFixed(2)}m</text>`;
+            }
+        }
+    }
+
+    // 8. DIBUJO DE CAJAS Y SÍMBOLOS NORMALIZADOS
+    const elementosOrdenados = [...estadoCroquis.elementos].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
+    elementosOrdenados.forEach(el => {
+        const pt = proyectarPunto3D(el.x, el.y, el.z ?? 0, geom);
+
+        if (vistaCubo3D && el.muro === 'TECHO') {
+            const pSuelo = proyectarPunto3D(el.x, el.y, 0, geom);
+            s += `<line x1="${pt.sx}" y1="${pt.sy}" x2="${pSuelo.sx}" y2="${pSuelo.sy}" stroke="#94a3b8" stroke-width="0.9" stroke-dasharray="2,3" opacity="0.65"/>`;
+            s += `<circle cx="${pSuelo.sx}" cy="${pSuelo.sy}" r="2.2" fill="#94a3b8" opacity="0.65"/>`;
+        }
+
+        s += dibujarSimboloCroquis3D(el, pt.sx, pt.sy);
+    });
+
+    // 9. LEYENDA INFERIOR DENTRO DEL PLANO
+    const modoTxt = vistaCubo3D ? 'Vista 3D Cenital (Cubo)' : 'Vista Planta 2D';
+    s += `<text x="${ox}" y="${oy + roomH + 22}" fill="#334155" font-size="9.5" font-weight="bold">${escapeXml(estadoCroquis.nombre.toUpperCase())} • SUP: ${(W * L).toFixed(2)} m² • H: ${H.toFixed(2)} m</text>`;
+    s += `<text x="${ox + roomW}" y="${oy + roomH + 22}" fill="#64748b" font-size="8.8" text-anchor="end">${modoTxt} • AEA 90364</text>`;
+
+    s += `</svg>`;
+    return s;
+}
+
+function dibujarAbertura3D(ab, geom) {
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+    const H = geom.H || 2.60;
+    const maxLen = (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L;
+    const d1 = Math.max(0, Math.min(maxLen - 0.2, ab.offset));
+    const d2 = Math.max(d1 + 0.2, Math.min(maxLen, ab.offset + ab.ancho));
+
+    const esPuerta = ab.tipo.startsWith('PUERTA');
+    const zBot = esPuerta ? 0 : (ab.tipo === 'VENTANUCO' ? Math.min(H - 0.4, 1.60) : Math.min(H - 0.5, 0.90));
+    const zTop = Math.min(H - 0.05, esPuerta ? 2.05 : 2.10);
+
+    const getPt = (dist, zVal) => {
+        if (ab.pared === 'NORTE') return proyectarPunto3D(dist, 0, zVal, geom);
+        if (ab.pared === 'SUR')   return proyectarPunto3D(dist, L, zVal, geom);
+        if (ab.pared === 'OESTE') return proyectarPunto3D(0, dist, zVal, geom);
+        return proyectarPunto3D(W, dist, zVal, geom);
+    };
+
+    const p1 = getPt(d1, zBot);
+    const p2 = getPt(d2, zBot);
+    const p3 = getPt(d2, zTop);
+    const p4 = getPt(d1, zTop);
+
+    let out = '';
+    if (esPuerta) {
+        out += `<polygon points="${p1.sx},${p1.sy} ${p2.sx},${p2.sy} ${p3.sx},${p3.sy} ${p4.sx},${p4.sy}" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>`;
+        if (ab.pared === 'SUR') {
+            const pHoja = proyectarPunto3D(d1, L - ab.ancho, 0, geom);
+            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
+            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${p2.sx} ${pHoja.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+        } else if (ab.pared === 'NORTE') {
+            const pHoja = proyectarPunto3D(d1, ab.ancho, 0, geom);
+            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
+            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${p2.sx} ${pHoja.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+        } else if (ab.pared === 'OESTE') {
+            const pHoja = proyectarPunto3D(ab.ancho, d1, 0, geom);
+            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
+            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${pHoja.sx} ${p2.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+        } else if (ab.pared === 'ESTE') {
+            const pHoja = proyectarPunto3D(W - ab.ancho, d1, 0, geom);
+            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
+            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${pHoja.sx} ${p2.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+        }
+    } else {
+        const pmBot = getPt((d1 + d2) / 2, zBot);
+        const pmTop = getPt((d1 + d2) / 2, zTop);
+        out += `<polygon points="${p1.sx},${p1.sy} ${p2.sx},${p2.sy} ${p3.sx},${p3.sy} ${p4.sx},${p4.sy}" fill="#bae6fd" fill-opacity="0.65" stroke="#0284c7" stroke-width="1.4"/>`;
+        out += `<line x1="${pmBot.sx}" y1="${pmBot.sy}" x2="${pmTop.sx}" y2="${pmTop.sy}" stroke="#0284c7" stroke-width="1.1"/>`;
+    }
+    return out;
+}
+
+function dibujarSimboloCroquis3D(el, x, y) {
+    const rot = el.rot || 0;
+    let g = `<g transform="translate(${x}, ${y})">`;
+
+    if (vistaCubo3D && el.muro !== 'TECHO') {
+        g += `<rect x="-8" y="-8" width="16" height="16" rx="3" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+        switch (el.tipo) {
+            case 'APLIQUE':
+                g += `<circle cx="0" cy="0" r="5" fill="#fef08a" stroke="#0f172a" stroke-width="1.3"/>`;
+                g += `<line x1="-3.5" y1="-3.5" x2="3.5" y2="3.5" stroke="#0f172a" stroke-width="1.1"/>`;
+                g += `<line x1="3.5" y1="-3.5" x2="-3.5" y2="3.5" stroke="#0f172a" stroke-width="1.1"/>`;
+                break;
+            case 'LLAVE_1P':
+            case 'LLAVE_2P':
+            case 'LLAVE_3P':
+            case 'LLAVE_COMB': {
+                const cant = el.tipo === 'LLAVE_3P' ? 3 : (el.tipo === 'LLAVE_2P' ? 2 : 1);
+                g += `<circle cx="-1" cy="1" r="3.5" fill="#ffffff" stroke="#0f172a" stroke-width="1.4"/>`;
+                g += `<line x1="-1" y1="-2.5" x2="4.5" y2="-6" stroke="#0f172a" stroke-width="1.5"/>`;
+                if (el.tipo === 'LLAVE_COMB') {
+                    g += `<line x1="-1" y1="4.5" x2="-5.5" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
+                } else if (cant > 1) {
+                    g += `<text x="11" y="3" fill="#0f172a" font-size="7.5" font-weight="bold">×${cant}</text>`;
+                }
+                break;
+            }
+            case 'TOMA_10A':
+            case 'TOMA_DOBLE':
+            case 'TOMA_20A': {
+                g += `<path d="M -5 1 A 5 5 0 0 1 5 1" fill="none" stroke="#0f172a" stroke-width="1.6"/>`;
+                g += `<line x1="-5.5" y1="1.5" x2="5.5" y2="1.5" stroke="#0f172a" stroke-width="1.4"/>`;
+                g += `<line x1="0" y1="-5" x2="0" y2="-3.5" stroke="#0f172a" stroke-width="1.4"/>`;
+                if (el.tipo === 'TOMA_DOBLE') {
+                    g += `<text x="11" y="3" fill="#0f172a" font-size="7.5" font-weight="bold">×2</text>`;
+                } else if (el.tipo === 'TOMA_20A') {
+                    g += `<text x="12" y="3" fill="#dc2626" font-size="7" font-weight="bold">20A</text>`;
+                }
+                break;
+            }
+            case 'TABLERO':
+                g += `<rect x="-10" y="-7" width="20" height="14" rx="2" fill="#0f172a" stroke="#0f172a" stroke-width="1.4"/>`;
+                g += `<line x1="-10" y1="-7" x2="10" y2="7" stroke="#ffffff" stroke-width="1.2"/>`;
+                break;
+            default:
+                g += `<rect x="-5" y="-5" width="10" height="10" fill="#e2e8f0" stroke="#0f172a" stroke-width="1.3"/>`;
+                break;
+        }
+
+        const ly = -12;
+        const txtBadge = `${el.tag} (${(el.z ?? 0).toFixed(1)}m)`;
+        const boxW = txtBadge.length * 4.7 + 6;
+        g += `<rect x="${-boxW / 2}" y="${ly - 7.5}" width="${boxW}" height="10.5" rx="2.5" fill="rgba(255,255,255,0.94)" stroke="#cbd5e1" stroke-width="0.6"/>`;
+        g += `<text x="0" y="${ly}" fill="#0f172a" font-size="7.8" font-weight="bold" text-anchor="middle">${escapeXml(txtBadge)}</text>`;
+        g += `</g>`;
+        return g;
+    }
+
+    g += `<g transform="rotate(${rot})">`;
+    switch (el.tipo) {
+        case 'BOCA_TECHO':
+            g += `<circle cx="0" cy="0" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<line x1="-7" y1="-7" x2="7" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
+            g += `<line x1="7" y1="-7" x2="-7" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
+            break;
+        case 'APLIQUE':
+            g += `<line x1="0" y1="0" x2="0" y2="8" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<circle cx="0" cy="14" r="6.5" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            g += `<line x1="-4.5" y1="9.5" x2="4.5" y2="18.5" stroke="#0f172a" stroke-width="1.2"/>`;
+            g += `<line x1="4.5" y1="9.5" x2="-4.5" y2="18.5" stroke="#0f172a" stroke-width="1.2"/>`;
+            break;
+        case 'LLAVE_1P':
+        case 'LLAVE_2P':
+        case 'LLAVE_3P':
+        case 'LLAVE_COMB': {
+            const cant = el.tipo === 'LLAVE_3P' ? 3 : (el.tipo === 'LLAVE_2P' ? 2 : 1);
+            g += `<circle cx="0" cy="8" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            g += `<line x1="0" y1="3" x2="8" y2="-4" stroke="#0f172a" stroke-width="1.6"/>`;
+            if (el.tipo === 'LLAVE_COMB') {
+                g += `<line x1="0" y1="13" x2="-8" y2="20" stroke="#0f172a" stroke-width="1.6"/>`;
+            } else if (cant > 1) {
+                g += `<text x="10" y="11" fill="#0f172a" font-size="8" font-weight="bold">×${cant}</text>`;
+            }
+            break;
+        }
+        case 'TOMA_10A':
+        case 'TOMA_DOBLE':
+        case 'TOMA_20A': {
+            g += `<line x1="0" y1="0" x2="0" y2="7" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<path d="M -7 14 A 7 7 0 0 1 7 14" fill="none" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<line x1="-8" y1="14" x2="8" y2="14" stroke="#0f172a" stroke-width="1.6"/>`;
+            if (el.tipo === 'TOMA_DOBLE') {
+                g += `<text x="10" y="16" fill="#0f172a" font-size="8" font-weight="bold">×2</text>`;
+            } else if (el.tipo === 'TOMA_20A') {
+                g += `<text x="10" y="16" fill="#dc2626" font-size="7.5" font-weight="bold">20A</text>`;
+            }
+            break;
+        }
+        case 'TABLERO':
+            g += `<rect x="-12" y="2" width="24" height="10" fill="#0f172a" stroke="#0f172a" stroke-width="1.4"/>`;
+            g += `<line x1="-12" y1="2" x2="12" y2="12" stroke="#ffffff" stroke-width="1.2"/>`;
+            break;
+        default:
+            g += `<rect x="-6" y="3" width="12" height="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            break;
+    }
+    g += `</g>`;
+
+    let lx = 0, ly = -14;
+    if (el.muro !== 'TECHO') {
+        if (rot === 0) ly = 26;
+        else if (rot === 180) ly = -16;
+        else if (rot === 270) { lx = 22; ly = 4; }
+        else if (rot === 90) { lx = -22; ly = 4; }
+    }
+
+    g += `<rect x="${lx - 13}" y="${ly - 8}" width="26" height="11" rx="2" fill="rgba(255,255,255,0.92)"/>`;
+    g += `<text x="${lx}" y="${ly}" fill="#0f172a" font-size="8.5" font-weight="bold" text-anchor="middle">${escapeXml(el.tag)}</text>`;
+    g += `</g>`;
+    return g;
+              }
+
+// ==========================================================================
+// SINCRONIZACIÓN A4, EXPORTACIÓN PDF Y ENVÍO A MATERIALES
+// ==========================================================================
+function actualizarVistaPreviaPDF() {
+    const hoy = new Date().toLocaleDateString('es-AR');
+    const comp = calcularComputo25D();
+
+    const elFecha = document.getElementById('pdf-fecha');
+    if (elFecha) elFecha.innerText = hoy;
+
+    const elCli = document.getElementById('pdf-cliente');
+    if (elCli) elCli.innerText = document.getElementById('cliNombre')?.value.trim() || '-';
+
+    const elDir = document.getElementById('pdf-dir');
+    if (elDir) elDir.innerText = document.getElementById('cliDireccion')?.value.trim() || '-';
+
+    const elProy = document.getElementById('pdf-proyecto');
+    if (elProy) elProy.innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)}m)`;
+
+    const elSub = document.getElementById('pdf-sub-ambiente');
+    if (elSub) elSub.innerText = `${estadoCroquis.nombre} • Desperdicio +${estadoCroquis.desperdicio}%`;
+
+    const svgCont = document.getElementById('pdf-svg-container');
+    if (svgCont) svgCont.innerHTML = generarSVGCroquis(false);
+
+    const tbody = document.getElementById('pdf-tbody-computo');
+    if (tbody) {
+        if (comp.items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" style="padding:8px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Sin elementos o canalizaciones cargadas en el croquis.</td></tr>';
+        } else {
+            tbody.innerHTML = comp.items.slice(0, 14).map((it, idx) => `
+                <tr style="background: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+                    <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; font-weight: 700;">${escapeHtml(it.rubro)}</td>
+                    <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1;">${escapeHtml(it.desc)}</td>
+                    <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800;">${it.cant}</td>
+                    <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center;">${it.unid}</td>
+                </tr>
+            `).join('');
+        }
+    }
+
+    const notas = document.getElementById('obsGenerales')?.value.trim() || '';
+    const elNotas = document.getElementById('pdf-notas-texto');
+    if (elNotas) {
+        elNotas.innerText = notas || 'Cotas expresadas en metros desde ejes interiores. Alturas estándar: llaves 1,10 m, tomas 0,30 m, apliques 2,10 m NPT.';
+    }
+
+    actualizarPDFHeaders();
+}
+
+function actualizarPDFHeaders() {
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
+    const profTel = localStorage.getItem('villaser_conf_telefono') || '';
+    const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
+    const profLogo = localStorage.getItem('villaser_conf_logo') || '';
+    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
+
+    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        profEmail = firebase.auth().currentUser.email || '';
+    }
+
+    const lineaContacto = [
+        profTel ? `Tel.: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join('<br>');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) elHeaderContacto.innerHTML = lineaContacto;
+
+    const elFirmaSub = document.getElementById('pdf-firma-sub');
+    if (elFirmaSub) {
+        elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
+    }
+
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) elTelFooter.innerText = profCuit ? `CUIT: ${profCuit}` : '';
+
+    const imgPdf = document.getElementById('pdf-img-logo');
+    const txtPdf = document.getElementById('pdf-text-logo');
+    if (imgPdf && txtPdf) {
+        if (profLogo && profLogo.startsWith('data:image')) {
+            imgPdf.src = profLogo;
+            imgPdf.style.display = 'block';
+            txtPdf.style.display = 'none';
+        } else {
+            imgPdf.removeAttribute('src');
+            imgPdf.style.display = 'none';
+            txtPdf.innerText = profNombre.toUpperCase();
+            txtPdf.style.display = 'block';
+        }
+    }
+}
+
+async function convertirSvgCroquisAImagen() {
+    const contenedor = document.getElementById('pdf-svg-container');
+    if (!contenedor) return () => {};
+
+    const svgOriginalHTML = contenedor.innerHTML;
+    const svgEl = contenedor.querySelector('svg');
+    if (!svgEl) return () => {};
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    const ancho = (vb && vb.width) ? vb.width : 500;
+    const alto = (vb && vb.height) ? vb.height : 480;
+
+    const svgClon = svgEl.cloneNode(true);
+    svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClon.setAttribute('width', ancho);
+    svgClon.setAttribute('height', alto);
+
+    const xml = new XMLSerializer().serializeToString(svgClon);
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+
+    try {
+        const pngDataUrl = await new Promise((resolve, reject) => {
+            const imgLoader = new Image();
+            imgLoader.onload = () => {
+                try {
+                    const escala = 2;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = ancho * escala;
+                    canvas.height = alto * escala;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.scale(escala, escala);
+                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            imgLoader.onerror = reject;
+            imgLoader.src = dataUri;
+        });
+
+        const imgFinal = document.createElement('img');
+        imgFinal.src = pngDataUrl;
+        imgFinal.alt = 'Croquis Eléctrico 3D';
+        imgFinal.style.cssText = 'width: 100%; max-height: 410px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
+        contenedor.innerHTML = '';
+        contenedor.appendChild(imgFinal);
+
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
+    } catch (e) {
+        console.warn('Error rasterizando SVG croquis:', e);
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
+    }
+}
+
+function generarPDF() {
+    actualizarVistaPreviaPDF();
+    const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Croquis_${amb}_${cli}_${sufijo}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Descargar';
+    }
+}
+
+async function ejecutarDescargaPDF() {
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    }
+
+    const element = document.getElementById('plantilla-pdf');
+    const pdfContainer = element ? element.querySelector('.pdf-container') : null;
+    const modalVista = document.getElementById('modalVistaPrevia');
+    const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
+    const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
+
+    if (!modalAbierto && element) {
+        element.classList.remove('oculto');
+        element.style.display = 'block';
+        window.scrollTo(0, 0);
+    } else if (pdfContainer) {
+        pdfContainer.style.transform = 'none';
+    }
+
+    if (element) {
+        element.style.width = '794px';
+        element.style.height = '1115px';
+        element.style.overflow = 'hidden';
+    }
+
+    const marcaAgua = document.getElementById('marcaAguaPDF');
+    if (marcaAgua) marcaAgua.style.display = 'none';
+
+    let restaurarSvg = () => {};
+    try {
+        restaurarSvg = await convertirSvgCroquisAImagen();
+        const inputNombre = document.getElementById('nombreArchivoPDF');
+        const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Croquis_Electrico';
+
+        const opt = {
+            margin: 0,
+            filename: `${nombreFinal}.pdf`,
+            image: { type: 'jpeg', quality: 0.96 },
+            html2canvas: {
+                scale: 2,
+                useCORS: false,
+                allowTaint: false,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                width: 794,
+                height: 1115,
+                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !(el.getAttribute('src') || '').startsWith('data:image'))
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+        };
+
+        await html2pdf()
+            .set(opt)
+            .from(element)
+            .toPdf()
+            .get('pdf')
+            .then(pdf => {
+                const totalPages = pdf.internal.getNumberOfPages();
+                for (let i = totalPages; i > 1; i--) {
+                    pdf.deletePage(i);
+                }
+            })
+            .save();
+
+        cerrarModalPDF();
+        mostrarToast('Éxito', 'Croquis Eléctrico PDF generado.');
+
+        if (permiteGuardarNube) {
+            try {
+                guardarBorradorFirebase(false, true);
+            } catch (errNube) {
+                console.warn('Aviso respaldo automático:', errNube);
+            }
+        }
+    } catch (error) {
+        console.error('Error generando PDF Croquis:', error);
+        mostrarAlertaCorp('Error al Exportar', `No se pudo generar el PDF (${error.message || 'error interno'}).`);
+    } finally {
+        restaurarSvg();
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Descargar';
+        }
+        if (element) {
+            element.style.width = '';
+            element.style.height = '';
+            element.style.overflow = '';
+            if (teniaClaseOculto) element.classList.add('oculto');
+        }
+        if (marcaAgua) marcaAgua.style.display = 'flex';
+        if (modalAbierto) {
+            aplicarEscalaVistaPrevia(escalaActualPreview);
+        } else if (element && window.innerWidth < 992) {
+            element.style.display = 'none';
+        }
+    }
+      }
+  function exportarComputoAMateriales() {
+    const comp = calcularComputo25D();
+    if (comp.items.length === 0) {
+        mostrarAlertaCorp('Sin Materiales', 'Cargá primero bocas y tramos de cañería en el croquis.');
+        return;
+    }
+
+    const paquete = {
+        origen: 'croquis',
+        cliente: document.getElementById('cliNombre').value.trim(),
+        direccion: document.getElementById('cliDireccion').value.trim(),
+        proyecto: `${estadoCroquis.nombre} (${estadoCroquis.ancho}×${estadoCroquis.largo}m)`,
+        fecha: Date.now(),
+        items: comp.items
+    };
+
+    localStorage.setItem('villaser_computo_croquis_export', JSON.stringify(paquete));
+    guardarClienteGlobal();
+    mostrarToast('Cómputo Listo', `${comp.items.length} ítems guardados. Abriendo Materiales...`);
+    setTimeout(() => {
+        window.location.replace('../materiales/index.html?from=croquis');
+    }, 900);
+}
+
+// ==========================================================================
+// VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
+// ==========================================================================
+let escalaActualPreview = 1;
+
+function abrirVistaPrevia() {
+    actualizarVistaPreviaPDF();
+    const modal = document.getElementById('modalVistaPrevia');
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    const plantilla = document.getElementById('plantilla-pdf');
+
+    modal.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+
+    plantilla.style.display = 'inline-block';
+    cont.appendChild(plantilla);
+
+    const anchoDisp = Math.max(280, document.getElementById('areaScrollVistaPrevia').clientWidth - 28);
+    escalaActualPreview = Math.min(1, anchoDisp / 794);
+    aplicarEscalaVistaPrevia(escalaActualPreview);
+}
+
+function aplicarEscalaVistaPrevia(escala) {
+    escalaActualPreview = Math.min(1.6, Math.max(0.35, escala));
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    if (cont) {
+        cont.style.transform = `scale(${escalaActualPreview})`;
+        cont.style.width = `${794 * escalaActualPreview}px`;
+        cont.style.height = `${1115 * escalaActualPreview}px`;
+    }
+    const txt = document.getElementById('txtZoomPreview');
+    if (txt) txt.innerText = `${Math.round(escalaActualPreview * 100)}%`;
+}
+
+function cambiarZoomPreview(delta) {
+    aplicarEscalaVistaPrevia(escalaActualPreview + delta);
+}
+
+function cerrarVistaPrevia() {
+    const modal = document.getElementById('modalVistaPrevia');
+    const plantilla = document.getElementById('plantilla-pdf');
+    const aside = document.querySelector('.preview-panel');
+
+    modal.classList.add('oculto');
+    document.body.style.overflow = '';
+
+    if (aside && plantilla) {
+        plantilla.style.display = '';
+        aside.appendChild(plantilla);
+    }
+}
+
+function toggleAccionesMenu() {
+    document.getElementById('accionesMenu').classList.toggle('oculto');
+}
+
+function prepararEnvioWhatsApp() {
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'VILLASER GESTIÓN';
+    const cli = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const comp = calcularComputo25D();
+
+    let msg = `*${profNombre.toUpperCase()} - CROQUIS 3D Y CÓMPUTO 2.5D*\n`;
+    msg += `*Cliente:* ${cli}\n`;
+    msg += `*Ambiente:* ${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)} m)\n\n`;
+
+    if (comp.items.length > 0) {
+        msg += `*Materiales Calculados (+${estadoCroquis.desperdicio}% desp.):*\n`;
+        comp.items.forEach(it => {
+            msg += `• ${it.cant} ${it.unid} — ${it.desc}\n`;
+        });
+    }
+
+    if (typeof abrirModalWspGlobal === 'function') {
+        abrirModalWspGlobal(telefonoClienteActual, msg);
+    }
+}
+
+// ==========================================================================
+// BORRADORES EN FIREBASE (perfiles/{uid}/borradores_croquis)
+// ==========================================================================
+function guardarBorradorFirebase(pedirNombre = true, silencioso = false) {
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        if (!silencioso) mostrarAlertaCorp('Sin Sesión', 'No se detectó sesión activa para guardar en la nube.');
+        return;
+    }
+    if (!permiteGuardarNube) {
+        if (!silencioso) mostrarAlertaCorp('Cliente no Agendado', 'Vinculá el cliente desde Agenda para respaldar en la nube.');
+        return;
+    }
+
+    if (pedirNombre) {
+        const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+        const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
+        const fecha = new Date().toISOString().slice(0, 10);
+        document.getElementById('inputNombreBorrador').value = nombreBorradorActual || `Croquis_${amb}_${cli}_${fecha}`;
+        document.getElementById('modalGuardarBorrador').classList.remove('oculto');
+        return;
+    }
+
+    const nombreFinal = nombreBorradorActual || `Croquis_${Date.now()}`;
+    ejecutarGuardadoEnNube(nombreFinal, silencioso);
+}
+
+function cerrarModalGuardarBorrador() {
+    document.getElementById('modalGuardarBorrador').classList.add('oculto');
+}
+
+function ejecutarGuardarBorrador() {
+    const nombre = document.getElementById('inputNombreBorrador').value.trim();
+    if (!nombre) {
+        mostrarAlertaCorp('Faltan Datos', 'Ingresá un nombre para identificar el borrador.');
+        return;
+    }
+    nombreBorradorActual = nombre;
+    cerrarModalGuardarBorrador();
+    ejecutarGuardadoEnNube(nombre, false);
+}
+
+function normalizarEstadoCroquis(raw) {
+    const base = Object.assign(crearPlantillaDormitorio(), raw || {});
+    if (!Array.isArray(base.aberturas)) base.aberturas = [];
+    if (!Array.isArray(base.elementos)) base.elementos = [];
+    if (!Array.isArray(base.tramos)) base.tramos = [];
+    base.tramos.forEach(tr => {
+        if (!tr.via) tr.via = 'TECHO';
+    });
+    return base;
+}
+
+function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    const badge = document.getElementById('ui-cloud-badge');
+    if (badge) {
+        badge.className = 'pres-cloud-pill saving';
+        badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
+    }
+
+    const docId = nombreDoc.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    const payload = JSON.parse(JSON.stringify({
+        cliNombre: document.getElementById('cliNombre').value.trim(),
+        cliDireccion: document.getElementById('cliDireccion').value.trim(),
+        cliProyecto: document.getElementById('cliProyecto').value.trim(),
+        obsGenerales: document.getElementById('obsGenerales').value,
+        estadoCroquis: normalizarEstadoCroquis(estadoCroquis),
+        nombreBorrador: nombreDoc,
+        telefonoClienteActual: telefonoClienteActual || '',
+        fechaGuardado: Date.now()
+    }));
+
+    const escritura = db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).set(payload);
+    const timeoutNube = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado')), 8000));
+
+    Promise.race([escritura, timeoutNube])
+        .then(() => {
+            if (badge) {
+                badge.className = 'pres-cloud-pill saved';
+                badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
+            }
+            if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
+        })
+        .catch(err => {
+            console.error('Error guardando croquis:', err);
+            if (badge) actualizarBadgeNube();
+            if (!silencioso) mostrarAlertaCorp('Error de Nube', 'No se pudo sincronizar con Firebase.');
+        });
+}
+
+function abrirModalBorradores() {
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Sesión', 'Iniciá sesión para acceder a tus borradores en la nube.');
+        return;
+    }
+
+    const modal = document.getElementById('modalBorradores');
+    const lista = document.getElementById('listaBorradores');
+    lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando...</p>';
+    modal.classList.remove('oculto');
+
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').orderBy('fechaGuardado', 'desc').get()
+        .then(snap => {
+            if (snap.empty) {
+                lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No tenés croquis guardados aún.</p>';
+                return;
+            }
+            lista.innerHTML = '';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const div = document.createElement('div');
+                div.className = 'modal-list-item';
+                div.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <h4 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                        <small>${escapeHtml(d.cliNombre || 'Sin cliente')} • ${escapeHtml(d.estadoCroquis?.nombre || 'Ambiente')}</small>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="corp-btn-small primary-action" onclick="cargarBorradorCroquis('${escapeJs(doc.id)}')">Abrir</button>
+                        <button type="button" class="corp-btn-small danger" onclick="confirmarEliminarBorrador('${escapeJs(doc.id)}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        })
+        .catch(() => {
+            lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al cargar borradores.</p>';
+        });
+}
+
+function cerrarModalBorradores() {
+    document.getElementById('modalBorradores').classList.add('oculto');
+}
+
+function cargarBorradorCroquis(docId) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).get().then(doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        document.getElementById('cliNombre').value = d.cliNombre || '';
+        document.getElementById('cliDireccion').value = d.cliDireccion || '';
+        document.getElementById('cliProyecto').value = d.cliProyecto || '';
+        document.getElementById('obsGenerales').value = d.obsGenerales || '';
+        if (d.estadoCroquis) {
+            estadoCroquis = normalizarEstadoCroquis(d.estadoCroquis);
+        }
+
+        clienteDesdeAgenda = true;
+        permiteGuardarNube = true;
+        nombreBorradorActual = d.nombreBorrador || docId;
+        telefonoClienteActual = d.telefonoClienteActual || '';
+
+        resetearZoomPlano();
+        cerrarModalBorradores();
+        avanzarPasoTrabajo(true);
+        mostrarToast('Borrador Cargado', `Croquis "${nombreBorradorActual}" listo.`);
+    });
+}
+
+function confirmarEliminarBorrador(docId) {
+    borradorPendienteEliminar = docId;
+    document.getElementById('modalConfirmarEliminar').classList.remove('oculto');
+}
+
+function cerrarModalEliminarBorrador() {
+    borradorPendienteEliminar = null;
+    document.getElementById('modalConfirmarEliminar').classList.add('oculto');
+}
+
+function ejecutarEliminarBorrador() {
+    const uid = obtenerUid();
+    if (!uid || !db || !borradorPendienteEliminar) return;
+    const idBorrar = borradorPendienteEliminar;
+    cerrarModalEliminarBorrador();
+
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(idBorrar).delete()
+        .then(() => {
+            mostrarToast('Eliminado', 'Borrador borrado de la nube.');
+            abrirModalBorradores();
+        });
+}
+
+// ==========================================================================
+// REINICIO DE MÓDULO Y UTILIDADES
+// ==========================================================================
+function ejecutarNuevoCroquis() {
+    if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
+
+    document.getElementById('cliNombre').value = '';
+    document.getElementById('cliDireccion').value = '';
+    document.getElementById('cliProyecto').value = '';
+    document.getElementById('obsGenerales').value = '';
+
+    clienteDesdeAgenda = false;
+    permiteGuardarNube = true;
+    nombreBorradorActual = null;
+    telefonoClienteActual = '';
+    elementoSeleccionadoId = null;
+    origenConexionId = null;
+    resetearZoomPlano();
+
+    estadoCroquis = crearPlantillaDormitorio();
+    localStorage.removeItem(STORAGE_KEY_CROQUIS);
+
+    const acc = document.getElementById('accionesMenu');
+    if (acc) acc.classList.add('oculto');
+
+    document.getElementById('step-trabajo').classList.add('oculto');
+    document.getElementById('step-cliente').classList.remove('oculto');
+    actualizarVistaPreviaPDF();
+}
+
+function generarSiguienteTag(prefijo) {
+    let n = 1;
+    while (estadoCroquis.elementos.some(e => e.tag.toUpperCase() === `${prefijo}${n}`)) {
+        n++;
+    }
+    return `${prefijo}${n}`;
+}
+
+function redondear05(val) {
+    return Math.round(val * 20) / 20;
+}
+
+function mostrarAlertaCorp(titulo, mensaje) {
+    document.getElementById('modalAlertaTitulo').innerText = titulo;
+    document.getElementById('modalAlertaMensaje').innerText = mensaje;
+    document.getElementById('modalAlertaCorp').classList.remove('oculto');
+}
+
+function cerrarModalAlertaCorp() {
+    document.getElementById('modalAlertaCorp').classList.add('oculto');
+}
+
+function mostrarToast(titulo, mensaje) {
+    const toast = document.getElementById('toastCliente');
+    if (!toast) return;
+    document.getElementById('toastTitle').innerText = titulo;
+    document.getElementById('toastMessage').innerText = mensaje;
+    toast.classList.remove('oculto');
+    setTimeout(() => toast.classList.add('mostrar'), 80);
+    setTimeout(() => {
+        toast.classList.remove('mostrar');
+        setTimeout(() => toast.classList.add('oculto'), 350);
+    }, 3500);
+}
+
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function escapeXml(str) {
+    return String(str || '').replace(/[<>&'"]/g, m => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[m]));
+}
+
+function escapeJs(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+               }
+
