@@ -7,25 +7,26 @@
     <meta name="theme-color" content="#18191A">
     <title>Villaser - Croquis Eléctrico</title>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="../global.css">
 
     <script>
-        (function() {
-            const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
-            const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
-            if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
-        })();
+    (function() {
+        const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
     </script>
 
     <!-- SDKs de Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Puente de conexión centralizado -->
     <script src="../firebase-config.js"></script>
 
     <!-- Guardián de seguridad -->
@@ -34,735 +35,758 @@
             if (!user || !user.emailVerified) window.location.replace('../index.html');
         });
     </script>
-
-    <style>
-        /* Estilos específicos del editor técnico de Croquis */
-        .croquis-toolbar {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-        }
-        .tool-simbolo-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            padding: 8px 4px;
-            border-radius: 8px;
-            background: var(--ngc-bg-input);
-            border: 1px solid var(--ngc-privacy-border);
-            color: var(--ngc-text-main);
-            font-size: 0.68rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-align: center;
-            min-height: 54px;
-            transition: all 0.15s ease;
-        }
-        .tool-simbolo-btn.activo {
-            background: rgba(35, 116, 225, 0.14);
-            border-color: var(--ngc-neon);
-            color: var(--ngc-neon);
-            box-shadow: 0 0 0 1px var(--ngc-neon);
-        }
-        .tool-simbolo-btn.modo-cano.activo {
-            background: rgba(245, 195, 59, 0.16);
-            border-color: var(--ngc-warning);
-            color: var(--ngc-warning);
-            box-shadow: 0 0 0 1px var(--ngc-warning);
-        }
-        .svg-stage-wrapper {
-            width: 100%;
-            background: #ffffff;
-            border: 1px solid var(--ngc-privacy-border);
-            border-radius: 10px;
-            padding: 8px;
-            touch-action: manipulation;
-            overflow: hidden;
-            position: relative;
-        }
-        .svg-stage-wrapper svg {
-            width: 100%;
-            height: auto;
-            display: block;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        .dpad-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 44px);
-            grid-template-rows: repeat(3, 40px);
-            gap: 6px;
-            justify-content: center;
-            align-items: center;
-        }
-        .dpad-btn {
-            width: 44px;
-            height: 40px;
-            border-radius: 8px;
-            border: 1px solid var(--ngc-privacy-border);
-            background: var(--ngc-bg-input);
-            color: var(--ngc-text-main);
-            font-size: 0.95rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-        }
-        .dpad-btn:active {
-            background: var(--ngc-neon);
-            color: #ffffff;
-        }
-        .cloud-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 20px;
-            background: rgba(35, 116, 225, 0.12);
-            color: var(--ngc-neon);
-            white-space: nowrap;
-        }
-        .cloud-pill.guardando {
-            background: rgba(245, 195, 59, 0.16);
-            color: var(--ngc-warning);
-        }
-        .cloud-pill.error {
-            background: rgba(228, 30, 63, 0.15);
-            color: var(--error-red);
-        }
-        .cloud-pill.local {
-            background: rgba(150, 150, 150, 0.15);
-            color: var(--ngc-text-faded);
-        }
-
-        /* Vista Previa y Plantilla A4 Exacta */
-        #plantilla-pdf .pdf-container {
-            width: 794px;
-            height: 1115px;
-            max-height: 1115px;
-            padding: 26px 32px;
-            box-sizing: border-box;
-            background: #ffffff;
-            color: #0f172a;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            overflow: hidden;
-            position: relative;
-        }
-        .pdf-croquis-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 10px;
-        }
-        .pdf-croquis-table th {
-            background: #0f172a;
-            color: #ffffff;
-            padding: 5px 7px;
-            text-align: left;
-            font-weight: 700;
-            text-transform: uppercase;
-            font-size: 9px;
-            letter-spacing: 0.3px;
-        }
-        .pdf-croquis-table td {
-            padding: 4px 7px;
-            border-bottom: 1px solid #cbd5e1;
-            color: #1e293b;
-        }
-        .pdf-croquis-table tr:nth-child(even) td {
-            background: #f8fafc;
-        }
-    </style>
 </head>
 <body>
 
-<!-- TOAST NOTIFICACIÓN CORPORATIVA -->
-<div id="toastCliente" class="toast-corp oculto gpu-accel">
-    <div class="toast-icon"><i id="toastIcon" class="fa-solid fa-check-circle"></i></div>
-    <div class="toast-content">
-        <div id="toastTitle" class="toast-title">Acción Exitosa</div>
-        <div id="toastMessage" class="toast-msg">Operación completada.</div>
+    <!-- TOAST NOTIFICACIÓN CORPORATIVA -->
+    <div id="toastCliente" class="toast-corp oculto gpu-accel">
+        <div class="toast-icon"><i class="fa-solid fa-check-circle"></i></div>
+        <div class="toast-content">
+            <div id="toastTitle" class="toast-title">Notificación</div>
+            <div id="toastMessage" class="toast-msg">Operación realizada con éxito.</div>
+        </div>
     </div>
-</div>
 
-<!-- CONTENEDOR PRINCIPAL -->
-<div class="layout-wrapper">
-    <main class="container">
+    <!-- WRAPPER PRINCIPAL -->
+    <div class="layout-wrapper">
+        <main class="container">
 
-        <!-- BARRA DE NAVEGACIÓN SUPERIOR -->
-        <nav class="corp-top-nav">
-            <button type="button" class="corp-btn-icon" onclick="window.location.href='../index.html'" aria-label="Volver al menú principal">
-                <i class="fa-solid fa-arrow-left corp-accent-color"></i>
-            </button>
-            <div class="corp-nav-title">
-                <i class="fa-solid fa-compass-drafting corp-accent-color"></i> CROQUIS ELÉCTRICO
-            </div>
-            <button type="button" class="corp-btn-icon danger" onclick="abrirModalConfirmarNuevoGlobal()" title="Nuevo Croquis">
-                <i class="fa-solid fa-rotate-right"></i>
-            </button>
-        </nav>
-
-        <!-- PASO 1: DATOS DEL CLIENTE Y AMBIENTE -->
-        <section id="step-cliente" class="corp-card gpu-accel">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <h4 class="corp-card-title" style="margin: 0;">
-                    <i class="fa-solid fa-user-tag corp-accent-color"></i> Datos del Proyecto
-                </h4>
-                <button type="button" class="corp-btn-small" onclick="abrirModalAgendaGlobal()">
-                    <i class="fa-solid fa-address-book"></i> Agenda
-                </button>
-            </div>
-
-            <div class="row-group">
-                <label for="cliNombre">Nombre del Cliente *</label>
-                <input type="text" id="cliNombre" class="corp-input" placeholder="Ej: Familia Gómez" oninput="marcarClienteManual()">
-            </div>
-
-            <div class="row-group">
-                <label for="cliDireccion">Dirección de Obra</label>
-                <input type="text" id="cliDireccion" class="corp-input" placeholder="Ej: San Martín 123, Córdoba" oninput="marcarClienteManual()">
-            </div>
-
-            <div class="row-group">
-                <label for="ambNombre">Nombre del Ambiente *</label>
-                <input type="text" id="ambNombre" class="corp-input" placeholder="Ej: Cocina - Comedor / Baño Principal" value="Dormitorio Principal">
-            </div>
-
-            <div class="row-group-stretch">
-                <div class="flex-1">
-                    <label for="ambAncho">Ancho (m) *</label>
-                    <input type="number" id="ambAncho" class="corp-input" step="0.05" min="0.8" max="30" value="4.00">
+            <!-- BARRA SUPERIOR ESTANDARIZADA -->
+            <nav class="corp-top-nav">
+                <div style="width: 42px;"></div>
+                <div class="corp-nav-title">
+                    <i class="fa-solid fa-compass-drafting corp-accent-color"></i> CROQUIS ELÉCTRICO
                 </div>
-                <div class="flex-1">
-                    <label for="ambLargo">Largo (m) *</label>
-                    <input type="number" id="ambLargo" class="corp-input" step="0.05" min="0.8" max="30" value="3.50">
-                </div>
-                <div class="flex-1">
-                    <label for="ambAlto">Altura (m)</label>
-                    <input type="number" id="ambAlto" class="corp-input" step="0.05" min="2.0" max="6.0" value="2.60">
-                </div>
-            </div>
-
-            <button type="button" class="corp-btn primary-action" style="width: 100%; margin-top: 10px;" onclick="iniciarCroquis()">
-                <i class="fa-solid fa-pen-ruler"></i> Abrir Tablero de Dibujo
-            </button>
-
-            <div class="action-grid-main" style="margin-top: 10px;">
-                <button type="button" class="corp-btn" onclick="abrirModalImportarPotencia()" style="color: var(--ngc-warning); border: 1px dashed var(--ngc-warning); background: transparent;">
-                    <i class="fa-solid fa-bolt"></i> Traer de Potencia
+                <button type="button" class="corp-btn-icon danger" onclick="abrirModalConfirmarNuevoGlobal()" title="Nuevo Croquis">
+                    <i class="fa-solid fa-rotate-right"></i>
                 </button>
-                <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: var(--ngc-neon); border: 1px dashed var(--ngc-neon); background: transparent;">
-                    <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
-                </button>
-            </div>
+            </nav>
 
-            <input type="file" id="fileInputJSON" accept=".json" style="display: none;" onchange="cargarDesdeJSON(event)">
-            <button type="button" class="corp-btn-small" onclick="document.getElementById('fileInputJSON').click()" style="width: 100%; justify-content: center; margin-top: 10px; background: transparent; border-style: dashed; color: #e91e63; border-color: #e91e63;">
-                <i class="fa-solid fa-folder-open"></i> Importar Respaldo Local (.json)
-            </button>
-        </section>
+            <!-- PASO 1: DATOS DEL PROYECTO (RÉPLICA EXACTA DE UNIFILAR Y TOPOGRÁFICO) -->
+            <section id="step-cliente" class="corp-card gpu-accel">
+                <h4 class="corp-card-title"><i class="fa-solid fa-user-tag corp-accent-color"></i> Datos del Proyecto</h4>
+                <div class="action-grid-main" style="margin-bottom: 15px;">
+                    <button type="button" class="corp-btn success-btn" onclick="abrirModalAgendaGlobal()"><i class="fa-solid fa-address-book"></i> Agenda</button>
+                    <button type="button" class="corp-btn primary-action" onclick="abrirModalBorradores()"><i class="fa-solid fa-cloud"></i> Borradores</button>
+                </div>
 
-        <!-- PASO 2: ÁREA DE TRABAJO INTERACTIVA -->
-        <section id="step-trabajo" class="oculto flex-column gap-15">
+                <div class="row-group">
+                    <label>Nombre del Cliente</label>
+                    <input type="text" id="cliNombre" class="corp-input" placeholder="Ej: Familia Gómez" oninput="marcarClienteManual()">
+                </div>
 
-            <!-- RESUMEN DE AMBIENTE Y ESTADO DE SINCRONIZACIÓN -->
-            <div class="corp-card" style="padding: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <div>
-                        <div style="font-weight: 800; font-size: 0.95rem; color: var(--ngc-text-main);" id="lblResumenAmbiente">Ambiente (4.00m × 3.50m)</div>
-                        <div style="font-size: 0.78rem; color: var(--ngc-text-faded);" id="lblResumenCliente">Cliente: -</div>
+                <div class="row-group-stretch">
+                    <div class="flex-1">
+                        <label>Dirección</label>
+                        <input type="text" id="cliDireccion" class="corp-input" placeholder="Ej: Francisco Zelada 2342">
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <span id="ui-cloud-badge" class="cloud-pill"><i class="fa-solid fa-cloud-check"></i> Sincronizado</span>
-                        <button type="button" class="corp-btn-small" onclick="volverEditarDatos()">
-                            <i class="fa-solid fa-pen"></i> Datos
-                        </button>
+                    <div class="flex-1">
+                        <label>Proyecto / Obra</label>
+                        <input type="text" id="cliProyecto" class="corp-input" placeholder="Ej: Replanteo Planta Baja">
                     </div>
                 </div>
-            </div>
 
-            <!-- PALETA DE HERRAMIENTAS Y SÍMBOLOS NORMALIZADOS -->
-            <div class="corp-card" style="padding: 14px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <span style="font-size: 0.8rem; font-weight: 700; color: var(--ngc-text-main); text-transform: uppercase;">
-                        <i class="fa-solid fa-toolbox corp-accent-color"></i> Herramientas y Símbolos
-                    </span>
-                    <div style="display: flex; gap: 6px;">
-                        <button type="button" class="corp-btn-small" onclick="deshacerUltimaAccion()" title="Deshacer">
-                            <i class="fa-solid fa-rotate-left"></i>
-                        </button>
-                        <button type="button" class="corp-btn-small" onclick="alternarCotas()" id="btnToggleCotas" title="Mostrar/Ocultar Cotas">
-                            <i class="fa-solid fa-ruler-combined"></i> Cotas
+                <button type="button" class="corp-btn primary-action" style="margin-top: 10px;" onclick="iniciarCroquis()">
+                    <i class="fa-solid fa-play"></i> Comenzar Croquis de Ambiente
+                </button>
+            </section>
+
+            <!-- PASO 2: REPLANTEO EN PLANTA Y CÓMPUTO 2.5D -->
+            <section id="step-trabajo" class="oculto flex-column gap-15">
+
+                <!-- CABECERA ACTIVA DEL PROYECTO -->
+                <div class="pot-project-bar gpu-accel">
+                    <div class="pot-project-info">
+                        <div class="pot-project-name" id="ui-proyecto-cliente">Cliente</div>
+                        <div class="pot-project-sub" id="ui-proyecto-detalle">Sin detalles adicionales</div>
+                    </div>
+                    <div class="pot-project-actions" style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;">
+                        <span id="ui-cloud-badge" class="pres-cloud-pill ready" style="white-space: nowrap;">
+                            <i class="fa-solid fa-cloud"></i> Nube Lista
+                        </span>
+                        <button type="button" class="corp-btn-small pres-btn-edit-client" style="margin-top: 0; white-space: nowrap;" onclick="volverAEditarCliente()">
+                            <i class="fa-solid fa-pen"></i> Editar Datos
                         </button>
                     </div>
                 </div>
 
-                <!-- Herramientas principales de modo -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                    <button type="button" id="tool-seleccionar" class="tool-simbolo-btn activo" style="min-height: 42px; flex-direction: row;" onclick="seleccionarHerramienta('seleccionar')">
-                        <i class="fa-solid fa-arrow-pointer"></i> <span>Mover / Editar</span>
-                    </button>
-                    <button type="button" id="tool-conectar" class="tool-simbolo-btn modo-cano" style="min-height: 42px; flex-direction: row;" onclick="seleccionarHerramienta('conectar')">
-                        <i class="fa-solid fa-bezier-curve"></i> <span>Conectar Caño</span>
-                    </button>
+                <!-- PLANTILLAS RÁPIDAS E IMPORTACIÓN DESDE POTENCIA -->
+                <div class="corp-card gpu-accel" style="padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+                        <span style="font-size:0.74rem; font-weight:700; color:var(--ngc-text-faded); text-transform:uppercase;">
+                            <i class="fa-solid fa-wand-magic-sparkles corp-accent-color"></i> Plantillas e Importación
+                        </span>
+                        <button type="button" class="corp-btn-small" onclick="abrirModalImportarPotencia()" style="background: rgba(245, 195, 59, 0.14); color: var(--ngc-warning); border: 1px solid rgba(245, 195, 59, 0.4);">
+                            <i class="fa-solid fa-bolt"></i> Importar de Potencia
+                        </button>
+                    </div>
+                    <div class="uni-presets-row">
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaCroquis('dormitorio')">
+                            <i class="fa-solid fa-bed"></i> Dormitorio
+                        </button>
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaCroquis('cocina')">
+                            <i class="fa-solid fa-utensils"></i> Cocina
+                        </button>
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaCroquis('bano')">
+                            <i class="fa-solid fa-bath"></i> Baño
+                        </button>
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaCroquis('vacio')">
+                            <i class="fa-solid fa-eraser"></i> Ambiente Vacío
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Símbolos Eléctricos -->
-                <div class="croquis-toolbar">
-                    <button type="button" id="tool-boca_centro" class="tool-simbolo-btn" onclick="seleccionarHerramienta('boca_centro')">
-                        <i class="fa-regular fa-circle-xmark" style="font-size: 1.1rem;"></i>
-                        <span>Boca Techo</span>
-                    </button>
-                    <button type="button" id="tool-aplique_pared" class="tool-simbolo-btn" onclick="seleccionarHerramienta('aplique_pared')">
-                        <i class="fa-solid fa-lightbulb" style="font-size: 1.1rem;"></i>
-                        <span>Aplique</span>
-                    </button>
-                    <button type="button" id="tool-toma_simple" class="tool-simbolo-btn" onclick="seleccionarHerramienta('toma_simple')">
-                        <i class="fa-solid fa-plug" style="font-size: 1.1rem;"></i>
-                        <span>Toma 10A</span>
-                    </button>
-                    <button type="button" id="tool-toma_doble" class="tool-simbolo-btn" onclick="seleccionarHerramienta('toma_doble')">
-                        <i class="fa-solid fa-plug-circle-plus" style="font-size: 1.1rem;"></i>
-                        <span>Toma Doble</span>
-                    </button>
-                    <button type="button" id="tool-toma_especial" class="tool-simbolo-btn" onclick="seleccionarHerramienta('toma_especial')">
-                        <i class="fa-solid fa-bolt" style="font-size: 1.1rem;"></i>
-                        <span>Toma 20A</span>
-                    </button>
-                    <button type="button" id="tool-llave_1p" class="tool-simbolo-btn" onclick="seleccionarHerramienta('llave_1p')">
-                        <i class="fa-solid fa-toggle-on" style="font-size: 1.1rem;"></i>
-                        <span>Llave 1P</span>
-                    </button>
-                    <button type="button" id="tool-llave_2p" class="tool-simbolo-btn" onclick="seleccionarHerramienta('llave_2p')">
-                        <i class="fa-solid fa-sliders" style="font-size: 1.1rem;"></i>
-                        <span>Llave 2P</span>
-                    </button>
-                    <button type="button" id="tool-llave_comb" class="tool-simbolo-btn" onclick="seleccionarHerramienta('llave_comb')">
-                        <i class="fa-solid fa-code-branch" style="font-size: 1.1rem;"></i>
-                        <span>Combinada</span>
-                    </button>
-                    <button type="button" id="tool-llave_3p" class="tool-simbolo-btn" onclick="seleccionarHerramienta('llave_3p')">
-                        <i class="fa-solid fa-bars-staggered" style="font-size: 1.1rem;"></i>
-                        <span>Llave 3P</span>
-                    </button>
-                    <button type="button" id="tool-tablero" class="tool-simbolo-btn" onclick="seleccionarHerramienta('tablero')">
-                        <i class="fa-solid fa-server" style="font-size: 1.1rem;"></i>
-                        <span>Tablero</span>
-                    </button>
-                    <button type="button" id="tool-caja_paso" class="tool-simbolo-btn" onclick="seleccionarHerramienta('caja_paso')">
-                        <i class="fa-regular fa-square" style="font-size: 1.1rem;"></i>
-                        <span>Caja Paso</span>
-                    </button>
-                    <button type="button" class="tool-simbolo-btn" style="color: var(--error-red);" onclick="confirmarLimpiarPlano()">
-                        <i class="fa-solid fa-trash-can" style="font-size: 1.1rem;"></i>
-                        <span>Vaciar Plano</span>
-                    </button>
+                <!-- BANNER NORMATIVO AEA 90364 -->
+                <div id="ui-aea-croquis-status" class="pot-aea-banner ok">
+                    <i class="fa-solid fa-circle-check"></i> Verificación de bocas y grados de electrificación AEA lista.
                 </div>
 
-                <p id="ayudaHerramienta" style="margin: 10px 0 0 0; font-size: 0.76rem; color: var(--ngc-text-faded); text-align: center;">
-                    Tocá un elemento del plano para seleccionarlo o ajustarlo con precisión.
-                </p>
-            </div>
-
-            <!-- LIENZO INTERACTIVO SVG -->
-            <div class="corp-card" style="padding: 12px;">
-                <div class="svg-stage-wrapper">
-                    <svg id="svgCroquis" viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg"></svg>
-                </div>
-
-                <!-- PANEL DE PRECISIÓN PARA NODO SELECCIONADO (6 PULGADAS) -->
-                <div id="panelEdicionNodo" class="oculto" style="margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--ngc-bg-input); border: 1px solid var(--ngc-neon);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <strong id="lblNodoSeleccionado" style="font-size: 0.85rem; color: var(--ngc-neon);">Elemento</strong>
-                        <div style="display: flex; gap: 6px;">
-                            <button type="button" class="corp-btn-small" onclick="rotarNodoSeleccionado()" title="Rotar 90°">
-                                <i class="fa-solid fa-rotate"></i> 90°
+                <!-- CONFIGURACIÓN DE AMBIENTE Y ABERTURAS -->
+                <div class="corp-card gpu-accel" style="padding: 13px 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 6px; margin-bottom:10px; flex-wrap: wrap;">
+                        <h4 class="corp-card-title" style="margin:0; font-size:0.95rem;">
+                            <i class="fa-solid fa-vector-square corp-accent-color"></i> <span id="ui-titulo-ambiente">Dormitorio (3,50 × 3,20 m)</span>
+                        </h4>
+                        <div style="display:flex; gap:6px;">
+                            <button type="button" class="corp-btn-small" onclick="abrirModalAbertura()">
+                                <i class="fa-solid fa-door-open"></i> Aberturas
                             </button>
-                            <button type="button" class="corp-btn-small danger" onclick="eliminarElementoSeleccionado()" title="Eliminar">
+                            <button type="button" class="corp-btn-small primary-action" onclick="abrirModalAmbiente()">
+                                <i class="fa-solid fa-ruler-combined"></i> Medidas
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="topo-cabinet-bar">
+                        <div class="topo-stat-box">
+                            <span>Superficie / Altura</span>
+                            <strong id="ui-stat-superficie">11,20 m² • Z 2,60m</strong>
+                        </div>
+                        <div class="topo-stat-box">
+                            <span>Bocas / Puntos</span>
+                            <strong id="ui-stat-bocas">5 cajas</strong>
+                        </div>
+                        <div class="topo-stat-box">
+                            <span>Cañería 2.5D</span>
+                            <strong id="ui-stat-caneria" style="color:var(--ngc-neon);">0,00 m</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BARRA DE HERRAMIENTAS DE REPLANTEO + LIENZO SVG INTERACTIVO -->
+                <div class="corp-card gpu-accel" style="padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap: 6px; flex-wrap: wrap;">
+                        <span style="font-size:0.74rem; font-weight:700; color:var(--ngc-text-faded); text-transform:uppercase;">
+                            <i class="fa-solid fa-hand-pointer corp-accent-color"></i> Herramienta Táctil
+                        </span>
+                        <button type="button" class="corp-btn-small" onclick="centrarBocaTecho()" style="background: rgba(49, 162, 76, 0.14); color: var(--success-green);">
+                            <i class="fa-solid fa-crosshairs"></i> Centrar Boca Techo
+                        </button>
+                    </div>
+
+                    <!-- PALETA DE SÍMBOLOS NORMALIZADOS -->
+                    <div id="paletaHerramientas" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;">
+                        <button type="button" class="corp-btn-small primary-action" data-tool="SELECT" onclick="seleccionarHerramienta('SELECT')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-solid fa-arrow-pointer"></i><br>Mover
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="BOCA_TECHO" onclick="seleccionarHerramienta('BOCA_TECHO')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-regular fa-sun"></i><br>Techo
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="APLIQUE" onclick="seleccionarHerramienta('APLIQUE')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-solid fa-lightbulb"></i><br>Aplique
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="LLAVE_1P" onclick="seleccionarHerramienta('LLAVE_1P')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-solid fa-toggle-on"></i><br>Llave
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="TOMA_10A" onclick="seleccionarHerramienta('TOMA_10A')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-solid fa-plug"></i><br>Toma
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="TABLERO" onclick="seleccionarHerramienta('TABLERO')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-solid fa-server"></i><br>Tablero
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="CAJA_PASO" onclick="seleccionarHerramienta('CAJA_PASO')" style="padding: 8px 4px; text-align: center;">
+                            <i class="fa-regular fa-square"></i><br>Paso
+                        </button>
+                        <button type="button" class="corp-btn-small" data-tool="CONECTAR" onclick="seleccionarHerramienta('CONECTAR')" style="padding: 8px 4px; text-align: center; color: var(--ngc-warning);">
+                            <i class="fa-solid fa-bezier-curve"></i><br>Caño
+                        </button>
+                    </div>
+
+                    <div id="ui-hint-herramienta" style="font-size: 0.76rem; color: var(--ngc-text-faded); background: var(--ngc-bg-input); border: 1px dashed var(--ngc-privacy-border); border-radius: 7px; padding: 7px 10px; margin-bottom: 10px; text-align: center;">
+                        Tocá un símbolo en el plano para moverlo o editarlo, o elegí una herramienta arriba para insertar.
+                    </div>
+
+                    <!-- LIENZO SVG DEL AMBIENTE -->
+                    <div id="contenedorSvgPantalla" class="uni-svg-stage" style="padding: 6px;"></div>
+
+                    <!-- PANEL DE PRECISIÓN MILIMÉTRICA PARA ELEMENTO SELECCIONADO -->
+                    <div id="panelControlSeleccion" class="oculto" style="margin-top: 10px; background: var(--ngc-bg-input); border: 1px solid var(--ngc-neon); border-radius: 10px; padding: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                <strong id="selElemTitulo" style="font-size: 0.88rem; color: var(--ngc-neon);">[B1] Boca de Techo</strong>
+                                <div id="selElemCoords" style="font-size: 0.74rem; color: var(--ngc-text-faded);">X: 1,75 m • Y: 1,60 m • Z: 2,60 m</div>
+                            </div>
+                            <select id="selPasoFino" class="corp-input" style="width: auto; padding: 5px 8px; font-size: 0.75rem;">
+                                <option value="0.05">Paso 5 cm</option>
+                                <option value="0.10" selected>Paso 10 cm</option>
+                                <option value="0.25">Paso 25 cm</option>
+                            </select>
+                        </div>
+
+                        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px;">
+                            <button type="button" class="corp-btn-small" onclick="moverElementoSeleccionado(-1, 0)"><i class="fa-solid fa-arrow-left"></i> Izq</button>
+                            <button type="button" class="corp-btn-small" onclick="moverElementoSeleccionado(0, -1)"><i class="fa-solid fa-arrow-up"></i> Arr</button>
+                            <button type="button" class="corp-btn-small" onclick="moverElementoSeleccionado(0, 1)"><i class="fa-solid fa-arrow-down"></i> Aba</button>
+                            <button type="button" class="corp-btn-small" onclick="moverElementoSeleccionado(1, 0)"><i class="fa-solid fa-arrow-right"></i> Der</button>
+                        </div>
+
+                        <div style="display: flex; gap: 6px;">
+                            <button type="button" class="corp-btn-small primary-action" style="flex: 1;" onclick="abrirModalEditarElemento()">
+                                <i class="fa-solid fa-sliders"></i> Configurar Caja
+                            </button>
+                            <button type="button" class="corp-btn-small" style="flex: 1; color: var(--ngc-warning);" onclick="iniciarConexionDesdeSeleccionado()">
+                                <i class="fa-solid fa-bezier-curve"></i> Conectar Caño
+                            </button>
+                            <button type="button" class="corp-btn-small danger" onclick="eliminarElementoSeleccionado()">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         </div>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center;">
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div style="display: flex; gap: 6px;">
-                                <div style="flex: 1;">
-                                    <label style="font-size: 0.68rem;">Circuito</label>
-                                    <input type="text" id="inpNodoCircuito" class="corp-input" style="padding: 6px 8px; font-size: 0.8rem;" placeholder="Ej: C1" oninput="actualizarPropiedadesNodo()">
-                                </div>
-                                <div style="flex: 1;">
-                                    <label style="font-size: 0.68rem;">Altura Z (m)</label>
-                                    <input type="number" id="inpNodoZ" class="corp-input" style="padding: 6px 8px; font-size: 0.8rem;" step="0.05" min="0" max="6" oninput="actualizarPropiedadesNodo()">
-                                </div>
-                            </div>
-                            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
-                                <span style="font-size: 0.72rem; color: var(--ngc-text-faded);">Paso fino:</span>
-                                <div style="display: flex; gap: 4px;">
-                                    <button type="button" id="btnPaso10" class="corp-btn-small" style="border-color: var(--ngc-neon); color: var(--ngc-neon);" onclick="setPasoFino(0.10)">0,10m</button>
-                                    <button type="button" id="btnPaso25" class="corp-btn-small" onclick="setPasoFino(0.25)">0,25m</button>
-                                </div>
-                            </div>
-                            <div id="lblCotasParedes" style="font-size: 0.72rem; color: var(--success-green); font-weight: 600;">
-                                Dist. paredes: -
-                            </div>
-                        </div>
-
-                        <!-- Cruceta táctil -->
-                        <div class="dpad-grid">
-                            <div></div>
-                            <button type="button" class="dpad-btn" onclick="moverNodoPaso(0, -1)" aria-label="Mover arriba"><i class="fa-solid fa-arrow-up"></i></button>
-                            <div></div>
-                            <button type="button" class="dpad-btn" onclick="moverNodoPaso(-1, 0)" aria-label="Mover izquierda"><i class="fa-solid fa-arrow-left"></i></button>
-                            <button type="button" class="dpad-btn" style="font-size: 0.7rem; color: var(--ngc-neon);" onclick="deseleccionarTodo()">OK</button>
-                            <button type="button" class="dpad-btn" onclick="moverNodoPaso(1, 0)" aria-label="Mover derecha"><i class="fa-solid fa-arrow-right"></i></button>
-                            <div></div>
-                            <button type="button" class="dpad-btn" onclick="moverNodoPaso(0, 1)" aria-label="Mover abajo"><i class="fa-solid fa-arrow-down"></i></button>
-                            <div></div>
-                        </div>
-                    </div>
                 </div>
 
-                <!-- PANEL DE TRAMO SELECCIONADO -->
-                <div id="panelEdicionTramo" class="oculto" style="margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--ngc-bg-input); border: 1px solid var(--ngc-warning);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <strong id="lblTramoSeleccionado" style="font-size: 0.85rem; color: var(--ngc-warning);">Tramo de Caño</strong>
-                        <button type="button" class="corp-btn-small danger" onclick="eliminarElementoSeleccionado()">
-                            <i class="fa-solid fa-trash"></i> Quitar Tramo
+                <!-- CANALIZACIONES Y TRAMOS 2.5D -->
+                <div class="uni-level-card nivel-1 gpu-accel">
+                    <div class="uni-level-header">
+                        <div>
+                            <span class="uni-level-badge" style="color:var(--ngc-warning); background:rgba(245,195,59,0.14);">Canalizaciones • Cota Z Real</span>
+                            <div class="uni-level-title"><i class="fa-solid fa-route"></i> Tramos de Cañería (<span id="ui-cant-tramos">0</span>)</div>
+                        </div>
+                        <button type="button" class="corp-btn-small" style="color:var(--ngc-warning); background:rgba(245,195,59,0.14);" onclick="abrirModalTramoManual()">
+                            <i class="fa-solid fa-plus"></i> Tramo
                         </button>
                     </div>
-                    <div style="display: flex; gap: 8px; align-items: center;">
-                        <div style="flex: 1;">
-                            <label style="font-size: 0.68rem;">Tipo de Circuito / Sección</label>
-                            <select id="selTramoTipo" class="corp-input" style="padding: 6px 8px; font-size: 0.8rem;" onchange="actualizarTipoTramo()">
-                                <option value="IUG">IUG - Iluminación (1,5 mm²)</option>
-                                <option value="TUG">TUG - Tomas Generales (2,5 mm²)</option>
-                                <option value="TUE">TUE - Toma Especial (4 mm²)</option>
-                                <option value="RETORNO_1">Bajada Llave 1 Punto (1,5 mm²)</option>
-                                <option value="RETORNO_2">Bajada Llave 2 Puntos (1,5 mm²)</option>
-                                <option value="RETORNO_3">Bajada Llave 3 Puntos (1,5 mm²)</option>
-                                <option value="COMBINACION">Puente Combinación (1,5 mm²)</option>
-                            </select>
+                    <div id="ui-lista-tramos" class="uni-circ-list"></div>
+                </div>
+
+                <!-- CÓMPUTO DE MATERIALES GENERADO EN VIVO -->
+                <div class="uni-level-card nivel-3 gpu-accel">
+                    <div class="uni-level-header">
+                        <div>
+                            <span class="uni-level-badge" style="color:var(--success-green); background:rgba(49,162,76,0.14);">Cómputo Automático 2.5D</span>
+                            <div class="uni-level-title"><i class="fa-solid fa-boxes-stacked"></i> Materiales Calculados</div>
                         </div>
-                        <button type="button" class="corp-btn-small" style="margin-top: 16px;" onclick="deseleccionarTodo()">Listo</button>
+                        <button type="button" class="corp-btn-small success-btn" onclick="exportarComputoAMateriales()">
+                            <i class="fa-solid fa-share-from-square"></i> A Materiales
+                        </button>
+                    </div>
+                    <div id="ui-lista-computo" class="uni-circ-list"></div>
+                </div>
+
+                <!-- OBSERVACIONES TÉCNICAS -->
+                <div class="corp-card gpu-accel" style="padding: 13px 12px;">
+                    <label>Notas de Replanteo / Canalización / Circuitos</label>
+                    <textarea id="obsGenerales" class="corp-input" rows="2" placeholder="Ej: Cañería embutida en losa de viguetas. Bajadas a llaves a 1,10 m NPT..." oninput="guardarEstadoLocal(); actualizarVistaPreviaPDF();"></textarea>
+                </div>
+
+                <!-- MENÚ AGRUPADOR DE ACCIONES -->
+                <div class="acciones-dropdown-container" style="margin-top: 4px;">
+                    <button type="button" class="corp-btn" onclick="toggleAccionesMenu()" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 15px; background: rgba(35, 116, 225, 0.12); color: var(--ngc-neon); border: 1px solid var(--ngc-neon);">
+                        <i class="fa-solid fa-layer-group"></i> Acciones
+                    </button>
+
+                    <div id="accionesMenu" class="oculto" style="margin-top: 14px; border-top: 1px solid var(--ngc-privacy-border); padding-top: 14px;">
+                        <div class="action-grid-main" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button type="button" id="btnVistaPreviaMobile" class="corp-btn" onclick="abrirVistaPrevia()" style="color: var(--ngc-text-main); background: var(--ngc-bg-input);">
+                                <i class="fa-solid fa-eye"></i> Vista Previa A4
+                            </button>
+                            <button type="button" class="corp-btn danger-btn" onclick="generarPDF()">
+                                <i class="fa-solid fa-file-pdf"></i> Generar PDF
+                            </button>
+                            <button type="button" class="corp-btn success-btn" style="grid-column: span 2;" onclick="prepararEnvioWhatsApp()">
+                                <i class="fa-brands fa-whatsapp"></i> Enviar por WhatsApp
+                            </button>
+                            <button type="button" class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
+                            </button>
+                            <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: #e91e63; background: rgba(233, 30, 99, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- CÓMPUTO ESTIMADO DE MATERIALES EN VIVO -->
-            <div class="corp-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-                    <h4 class="corp-card-title" style="margin: 0;">
-                        <i class="fa-solid fa-list-check corp-accent-color"></i> Cómputo de Materiales
-                    </h4>
-                    <div style="display: flex; align-items: center; gap: 6px;">
-                        <label for="selDesperdicio" style="margin: 0; font-size: 0.75rem;">Desperdicio:</label>
-                        <select id="selDesperdicio" class="corp-input" style="width: auto; padding: 4px 8px; font-size: 0.78rem;" onchange="recalcularYRenderizar()">
-                            <option value="0.05">+5%</option>
-                            <option value="0.10" selected>+10%</option>
-                            <option value="0.15">+15%</option>
-                        </select>
+            </section>
+        </main>
+
+        <!-- PANEL DERECHO / PLANTILLA A4 PARA PDF -->
+        <aside class="preview-panel">
+            <div id="plantilla-pdf">
+                <div class="pdf-container" style="position: relative; background: #ffffff; color: #0f172a; width: 794px; height: 1115px; max-height: 1115px; overflow: hidden; padding: 10mm 13mm; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; justify-content: space-between;">
+
+                    <!-- SELLO DE AGUA PROTECTOR (SOLO VISTA PREVIA) -->
+                    <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.28; pointer-events: none; z-index: 10; width: 100%;">
+                        <img src="../img/negro1024.png" style="width: 65%; max-width: 420px;" alt="Logo Agua">
+                        <h1 style="font-size: 4.6rem; color: #000000; text-align: center; margin-top: 12px; font-weight: 900; font-family: 'Arial Black', sans-serif; line-height: 1.05; letter-spacing: 2px;">PLATAFORMA<br>VILLASER</h1>
                     </div>
-                </div>
 
-                <div class="table-scroll-container">
-                    <table class="corp-table" style="font-size: 0.8rem;">
-                        <thead>
-                            <tr style="color: var(--ngc-neon); border-bottom: 1px solid var(--ngc-privacy-border);">
-                                <th style="text-align: left; padding: 6px 4px;">Material / Conductor</th>
-                                <th style="text-align: right; padding: 6px 4px;">Neto</th>
-                                <th style="text-align: right; padding: 6px 4px;">Comercial</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbodyComputoUI"></tbody>
-                    </table>
-                </div>
+                    <!-- BLOQUE SUPERIOR Y CENTRAL -->
+                    <div style="position: relative; z-index: 1;">
 
-                <div class="row-group" style="margin-top: 12px; margin-bottom: 0;">
-                    <label for="obsGenerales">Observaciones Técnicas del Plano</label>
-                    <textarea id="obsGenerales" class="corp-input" style="min-height: 62px;" placeholder="Ej: Cañería embutida en mampostería según AEA 90364-7-770..." oninput="programarAutoGuardado()"></textarea>
-                </div>
-            </div>
-
-            <!-- BOTÓN MENÚ DE EXPORTACIÓN Y ACCIONES -->
-            <button type="button" class="corp-btn primary-action" style="width: 100%;" onclick="toggleAccionesMenu()">
-                <i class="fa-solid fa-share-nodes"></i> Exportar, Guardar o Enviar
-            </button>
-
-            <div id="contenedorAcciones" class="action-grid-main oculto">
-                <button type="button" class="corp-btn" onclick="abrirVistaPreviaMobile()">
-                    <i class="fa-solid fa-eye"></i> Vista Previa A4
-                </button>
-                <button type="button" class="corp-btn danger-btn" onclick="generarPDF()">
-                    <i class="fa-solid fa-file-pdf"></i> Descargar PDF
-                </button>
-                <button type="button" class="corp-btn" style="grid-column: span 2; color: var(--success-green); border: 1px solid var(--success-green);" onclick="enviarComputoAMateriales()">
-                    <i class="fa-solid fa-boxes-stacked"></i> Enviar Cómputo a Materiales
-                </button>
-                <button type="button" class="corp-btn success-btn" style="grid-column: span 2;" onclick="prepararEnvioWhatsApp()">
-                    <i class="fa-brands fa-whatsapp"></i> Enviar Resumen por WhatsApp
-                </button>
-                <button type="button" class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
-                </button>
-                <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.1);">
-                    <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
-                </button>
-                <button type="button" class="corp-btn-small" onclick="descargarPNG()" style="justify-content: center;">
-                    <i class="fa-solid fa-image"></i> Guardar PNG
-                </button>
-                <button type="button" class="corp-btn-small" onclick="guardarComoJSON()" style="justify-content: center;">
-                    <i class="fa-solid fa-download"></i> Respaldo JSON
-                </button>
-            </div>
-
-        </section>
-    </main>
-
-    <!-- PANEL DERECHO: VISTA PREVIA PDF EN VIVO (PC) -->
-    <aside class="preview-panel">
-        <div id="plantilla-pdf">
-            <div class="pdf-container">
-
-                <!-- MARCA DE AGUA SOLO VISTA PREVIA (EXCLUIDA AL EXPORTAR PDF) -->
-                <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.18; z-index: 50; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-                    <img src="../img/negro1024.png" alt="Sello Villaser" style="max-width: 420px; width: 65%; margin-bottom: 14px;">
-                    <div style="font-size: 3.4rem; color: #000000; font-weight: 900; letter-spacing: 3px; text-align: center; line-height: 1.05;">PLATAFORMA<br>VILLASER</div>
-                </div>
-
-                <!-- BLOQUE SUPERIOR: MEMBRETE + PLANO ACOTADO + REFERENCIAS -->
-                <div style="position: relative; z-index: 1;">
-                    <header style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 12px;">
-                        <!-- Izquierda: Título y Datos del Proyecto -->
-                        <div style="flex: 1;">
-                            <div style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 6px;">
-                                CROQUIS ELÉCTRICO DE AMBIENTE
+                        <!-- ENCABEZADO CORPORATIVO -->
+                        <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 2px solid #0f172a; padding-bottom: 10px; margin-bottom: 10px;">
+                            <div class="pdf-info-box" style="text-align: left; flex: 1;">
+                                <div style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: 0.4px; text-transform: uppercase; margin: 0 0 2px 0;">
+                                    Croquis de Replanteo Eléctrico
+                                </div>
+                                <div style="font-size: 9.5px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px;">
+                                    Planta Acotada y Cómputo de Materiales 2.5D • Reglamentación AEA 90364
+                                </div>
+                                <div style="display: grid; grid-template-columns: 74px 1fr; row-gap: 3px; font-size: 10.5px; color: #1e293b;">
+                                    <b style="color: #475569;">Fecha:</b> <span id="pdf-fecha"></span>
+                                    <b style="color: #475569;">Cliente:</b> <span id="pdf-cliente" style="font-weight: 600;"></span>
+                                    <b style="color: #475569;">Dirección:</b> <span id="pdf-dir"></span>
+                                    <b style="color: #475569;">Ambiente:</b> <span id="pdf-proyecto" style="font-weight: 600;"></span>
+                                </div>
                             </div>
-                            <div style="font-size: 10.5px; line-height: 1.45; color: #1e293b;">
-                                <div><b>Fecha:</b> <span id="pdf-fecha"></span></div>
-                                <div><b>Cliente:</b> <span id="pdf-cliente"></span></div>
-                                <div id="pdf-row-direccion"><b>Dirección:</b> <span id="pdf-direccion"></span></div>
-                                <div><b>Ambiente:</b> <span id="pdf-ambiente" style="font-weight: 700; color: #0284c7;"></span></div>
+
+                            <div class="pdf-logo-box" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 250px;">
+                                <img id="pdf-img-logo" alt="Logo Profesional" style="max-width: 185px; max-height: 60px; object-fit: contain; display: none; margin-bottom: 4px;">
+                                <div id="pdf-text-logo" style="color: #0f172a; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;"></div>
+                                <div id="pdf-header-contacto" style="font-size: 9px; color: #475569; line-height: 1.4;"></div>
+                            </div>
+                        </header>
+
+                        <!-- CONTENEDOR DEL CROQUIS SVG -->
+                        <div id="pdf-svg-container" style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; text-align: center; margin-bottom: 9px;"></div>
+
+                        <!-- TABLA DE CÓMPUTO DE MATERIALES Y REFERENCIAS -->
+                        <div style="font-size: 9.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                            Cómputo Estimado de Materiales (<span id="pdf-sub-ambiente"></span>)
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 8.6px; text-align: left;">
+                            <thead>
+                                <tr style="background: #0f172a; color: #ffffff;">
+                                    <th style="padding: 4px 6px; border: 1px solid #0f172a; width: 18%;">Rubro</th>
+                                    <th style="padding: 4px 6px; border: 1px solid #0f172a; width: 52%;">Descripción / Especificación IRAM</th>
+                                    <th style="padding: 4px 6px; border: 1px solid #0f172a; width: 15%; text-align: center;">Cantidad</th>
+                                    <th style="padding: 4px 6px; border: 1px solid #0f172a; width: 15%; text-align: center;">Unidad</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pdf-tbody-computo"></tbody>
+                        </table>
+
+                        <!-- NOTAS TÉCNICAS -->
+                        <div style="margin-top: 7px; background: #f8fafc; border-left: 3px solid #334155; padding: 5px 9px; font-size: 8.5px; color: #334155; line-height: 1.35;">
+                            <strong style="color: #0f172a;">Notas de Obra:</strong> <span id="pdf-notas-texto">Cotas expresadas en metros desde ejes interiores. Alturas estándar: llaves 1,10 m, tomas 0,30 m, apliques 2,10 m NPT.</span>
+                        </div>
+                    </div>
+
+                    <!-- BLOQUE INFERIOR: REFERENCIAS, FIRMA Y PIE DE PÁGINA -->
+                    <div style="position: relative; z-index: 1; margin-top: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 6px;">
+                            <div style="font-size: 7.8px; color: #64748b; max-width: 440px; line-height: 1.35;">
+                                <strong>Simbología:</strong> ⊗ Boca Techo • ◒ Aplique Pared • ⏚ Toma 10A/20A • ⚯ Llave 1/2/3P • ▣ Tablero Seccional • □ Caja Paso • Línea continua = Cañería Losa/Pared.
+                            </div>
+                            <div style="width: 210px; text-align: center; padding-top: 16px;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 4px; font-size: 9px; font-weight: 700; color: #1e293b;">
+                                    Firma y Sello del Profesional
+                                </div>
+                                <div id="pdf-firma-sub" style="font-size: 8px; color: #64748b; margin-top: 1px;"></div>
                             </div>
                         </div>
 
-                        <!-- Derecha: Datos Profesionales (Única ubicación, sin duplicar en footer) -->
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 265px;">
-                            <img id="pdf-img-logo" alt="Logo Profesional" style="display: none; max-height: 56px; max-width: 185px; object-fit: contain; margin-bottom: 4px;">
-                            <div id="pdf-text-logo" style="font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 2px;">
-                                PROFESIONAL INDEPENDIENTE
+                        <footer class="pdf-footer" style="border-top: 1.5px solid #cbd5e1; padding-top: 6px; display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
+                            <div style="font-size: 8px; color: #64748b;">
+                                Documento técnico generado con <strong style="color: #334155;">Plataforma Villaser</strong> • villaser.com.ar
                             </div>
-                            <div id="pdf-prof-nombre" style="font-size: 10.5px; font-weight: 700; color: #1e293b;"></div>
-                            <div id="pdf-slogan" style="font-size: 9.5px; font-style: italic; color: #475569; margin-bottom: 3px;"></div>
-                            <div id="pdf-header-contacto" style="font-size: 9.5px; color: #334155; line-height: 1.35;"></div>
-                        </div>
-                    </header>
-
-                    <!-- CONTENEDOR DEL PLANO SVG / IMAGEN RASTERIZADA -->
-                    <div id="pdf-svg-container" style="width: 100%; border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; text-align: center; margin-bottom: 8px;"></div>
-
-                    <!-- REFERENCIAS SIMBÓLICAS COMPACTAS -->
-                    <div id="pdf-leyenda-simbolos" style="display: flex; flex-wrap: wrap; gap: 10px 16px; padding: 6px 10px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 9.5px; color: #1e293b; margin-bottom: 10px;"></div>
-
-                    <!-- TABLA DE CÓMPUTO ESTIMADO -->
-                    <div style="font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; margin-bottom: 4px;">
-                        Cómputo Estimado de Materiales y Conductores
+                            <div class="pdf-right-footer" style="text-align: right;">
+                                <div id="pdf-slogan" style="font-size: 10px; font-weight: 700; color: #0f172a; font-style: italic; margin-bottom: 1px;"></div>
+                                <div id="pdf-tel-footer" style="font-size: 8.5px; color: #475569;"></div>
+                            </div>
+                        </footer>
                     </div>
-                    <table class="pdf-croquis-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 24%;">Rubro</th>
-                                <th style="width: 44%;">Descripción / Sección</th>
-                                <th style="width: 16%; text-align: right;">Neto</th>
-                                <th style="width: 16%; text-align: right;">Comercial</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pdf-tbody-materiales"></tbody>
-                    </table>
 
-                    <div id="pdf-notas-box" style="margin-top: 8px; padding: 6px 9px; background: #f8fafc; border-left: 3px solid #0284c7; font-size: 9.5px; color: #334155; display: none;">
-                        <b>Observaciones:</b> <span id="pdf-notas"></span>
-                    </div>
                 </div>
+            </div>
+        </aside>
+    </div>
 
-                <!-- PIE DE PÁGINA LIMPIO -->
-                <footer style="position: relative; z-index: 1; border-top: 1px solid #cbd5e1; padding-top: 7px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: #64748b;">
-                    <span>Documento técnico generado con <strong id="pdf-footer-brand" style="color: #0f172a;">Villaser Gestión</strong></span>
-                    <span>Cómputo orientativo según trazado en planta • Verificar en obra</span>
-                </footer>
+    <!-- ===================================================================== -->
+    <!-- MODALES ESPECÍFICOS DEL MÓDULO CROQUIS                                -->
+    <!-- ===================================================================== -->
 
+    <!-- MODAL: MEDIDAS DEL AMBIENTE -->
+    <div id="modalAmbiente" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 88vh; overflow-y: auto;">
+            <h3><i class="fa-solid fa-ruler-combined corp-accent-color"></i> Medidas del Ambiente</h3>
+            <div class="row-group">
+                <label>Nombre del Ambiente</label>
+                <input type="text" id="ambNombre" class="corp-input" placeholder="Ej: Dormitorio Principal">
+            </div>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Ancho X (m)</label>
+                    <input type="number" id="ambAncho" class="corp-input" step="0.05" min="1" max="25" value="3.50">
+                </div>
+                <div class="flex-1">
+                    <label>Largo Y (m)</label>
+                    <input type="number" id="ambLargo" class="corp-input" step="0.05" min="1" max="25" value="3.20">
+                </div>
+            </div>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Altura Techo Z (m)</label>
+                    <input type="number" id="ambAlto" class="corp-input" step="0.05" min="2" max="6" value="2.60">
+                </div>
+                <div class="flex-1">
+                    <label>Desperdicio Obra</label>
+                    <select id="ambDesperdicio" class="corp-input">
+                        <option value="5">+5 % (Ajustado)</option>
+                        <option value="10" selected>+10 % (Estándar)</option>
+                        <option value="15">+15 % (Losa / Cortes)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-group">
+                <label>Diámetro Cañería Principal</label>
+                <select id="ambCanoDiam" class="corp-input">
+                    <option value='3/4" (Ø 20mm)' selected>3/4" (Ø 20 mm) - Estándar AEA</option>
+                    <option value='7/8" (Ø 22mm)'>7/8" (Ø 22 mm) - Troncales</option>
+                    <option value='1" (Ø 25mm)'>1" (Ø 25 mm) - Montantes</option>
+                </select>
+            </div>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 12px;">
+                <button type="button" class="corp-btn" style="flex: 1;" onclick="cerrarModalAmbiente()">Cancelar</button>
+                <button type="button" class="corp-btn primary-action" style="flex: 1;" onclick="guardarConfigAmbiente()">Aplicar</button>
             </div>
         </div>
-    </aside>
-</div>
-
-<!-- ========================================================= -->
-<!-- MODALES CORPORATIVOS ESTANDARIZADOS                       -->
-<!-- ========================================================= -->
-
-<!-- MODAL AGENDA GLOBAL -->
-<div id="modalAgenda" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;"><i class="fa-solid fa-address-book corp-accent-color"></i> Mis Contactos</h3>
-            <button type="button" class="corp-btn-icon" onclick="cerrarModalAgendaGlobal()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <input type="text" id="buscadorAgenda" class="corp-input" placeholder="Buscar por nombre o dirección..." oninput="filtrarAgendaGlobal()" style="margin-bottom: 12px;">
-        <div id="listaAgenda" class="modal-list-container"></div>
     </div>
-</div>
 
-<!-- MODAL CLIENTE NO AGENDADO -->
-<div id="modalAgendarCliente" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <i class="fa-solid fa-user-plus corp-modal-icon"></i>
-        <h3>Cliente No Agendado</h3>
-        <p>Para guardar el croquis en la nube y vincularlo al historial del cliente, te recomendamos agendarlo primero.</p>
-        <div class="corp-modal-actions">
-            <button type="button" class="corp-btn primary-action" onclick="accionAgendarCliente()">
-                <i class="fa-solid fa-address-book"></i> Agendar Cliente
+    <!-- MODAL: ABERTURAS (PUERTAS Y VENTANAS) -->
+    <div id="modalAbertura" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 88vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0;"><i class="fa-solid fa-door-open corp-accent-color"></i> Aberturas</h3>
+                <button type="button" class="corp-btn-icon" onclick="cerrarModalAbertura()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="listaAberturasModal" class="modal-list-container" style="margin-bottom: 12px; max-height: 150px;"></div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Tipo</label>
+                    <select id="abTipo" class="corp-input">
+                        <option value="PUERTA">Puerta (0,80 m)</option>
+                        <option value="PUERTA_DOBLE">Puerta Doble (1,40 m)</option>
+                        <option value="VENTANA">Ventana (1,20 m)</option>
+                        <option value="VENTANUCO">Ventanuco (0,60 m)</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Pared</label>
+                    <select id="abPared" class="corp-input">
+                        <option value="SUR">Pared Inferior (Sur)</option>
+                        <option value="NORTE">Pared Superior (Norte)</option>
+                        <option value="OESTE">Pared Izquierda (Oeste)</option>
+                        <option value="ESTE">Pared Derecha (Este)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Dist. desde Esquina (m)</label>
+                    <input type="number" id="abOffset" class="corp-input" step="0.05" min="0" value="0.20">
+                </div>
+                <div class="flex-1">
+                    <label>Ancho Abertura (m)</label>
+                    <input type="number" id="abAncho" class="corp-input" step="0.05" min="0.40" max="4" value="0.80">
+                </div>
+            </div>
+            <button type="button" class="corp-btn success-btn" style="margin-top: 8px;" onclick="agregarAbertura()">
+                <i class="fa-solid fa-plus"></i> Agregar Abertura
             </button>
-            <button type="button" class="corp-btn" onclick="opcionBuscarAgenda()">
-                <i class="fa-solid fa-magnifying-glass"></i> Buscar en Mi Agenda
-            </button>
-            <button type="button" class="corp-btn danger-btn" style="background: transparent; border: 1px solid var(--error-red);" onclick="opcionContinuarSinAgenda()">
-                Continuar sin agendar (Solo local)
-            </button>
         </div>
     </div>
-</div>
 
-<!-- MODAL CONFIRMAR SIN AGENDA -->
-<div id="modalConfirmarSinAgenda" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <i class="fa-solid fa-triangle-exclamation corp-modal-icon" style="color: var(--ngc-warning);"></i>
-        <h3>Modo Solo Local</h3>
-        <p>El croquis no se respaldará en Firebase, pero podrás descargar el PDF y guardar un respaldo `.json` en tu dispositivo.</p>
-        <div class="corp-modal-actions">
-            <button type="button" class="corp-btn primary-action" onclick="ejecutarContinuarSinAgenda()">Entendido, continuar</button>
-            <button type="button" class="corp-btn" onclick="cerrarModalConfirmarSinAgenda()">Volver</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL BORRADORES EN NUBE -->
-<div id="modalBorradores" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;"><i class="fa-solid fa-cloud-arrow-down corp-accent-color"></i> Croquis en Nube</h3>
-            <button type="button" class="corp-btn-icon" onclick="cerrarModalBorradoresGlobal()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div id="listaBorradores" class="modal-list-container"></div>
-    </div>
-</div>
-
-<!-- MODAL IMPORTAR AMBIENTE DESDE POTENCIA -->
-<div id="modalImportarPotencia" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <h3 style="margin: 0;"><i class="fa-solid fa-bolt" style="color: var(--ngc-warning);"></i> Importar de Potencia</h3>
-            <button type="button" class="corp-btn-icon" onclick="cerrarModalImportarPotencia()"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <p style="font-size: 0.82rem; margin-bottom: 12px;">Seleccioná un proyecto de Potencia guardado para traer sus medidas y bocas.</p>
-        <div id="listaProyectosPotencia" class="modal-list-container"></div>
-    </div>
-</div>
-
-<!-- MODAL DESCARGAR PDF -->
-<div id="modalDescargarPDF" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <h3 style="justify-content: flex-start;"><i class="fa-solid fa-file-pdf" style="color: var(--error-red);"></i> Exportar Croquis PDF</h3>
-        <div style="position: relative; margin: 18px 0 22px 0;">
-            <label style="position: absolute; top: -10px; left: 10px; background: var(--bg-body); padding: 0 5px; font-size: 0.75rem; color: var(--ngc-text-faded); z-index: 1;">Nombre del archivo</label>
-            <div style="display: flex; align-items: center; border: 1px solid var(--ngc-privacy-border); border-radius: 8px; overflow: hidden; background: var(--ngc-bg-input);">
-                <input type="text" id="nombreArchivoPDF" class="corp-input" style="border: none; border-radius: 0; flex: 1; padding: 14px; outline: none; box-shadow: none;">
-                <span style="padding: 0 14px; color: var(--ngc-text-faded); background: var(--ngc-bg-input);">.pdf</span>
+    <!-- MODAL: EDITAR CAJA / ELEMENTO ELÉCTRICO -->
+    <div id="modalElemento" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 90vh; overflow-y: auto;">
+            <h3><i class="fa-solid fa-sliders corp-accent-color"></i> Configurar Punto / Caja</h3>
+            <div class="row-group-stretch">
+                <div style="flex: 0.7;">
+                    <label>Tag / Código</label>
+                    <input type="text" id="elTag" class="corp-input" placeholder="B1 / T1">
+                </div>
+                <div style="flex: 1.3;">
+                    <label>Tipo de Boca / Mecanismo</label>
+                    <select id="elTipo" class="corp-input" onchange="actualizarAlturaPorTipo()">
+                        <option value="BOCA_TECHO">Boca de Centro (Techo)</option>
+                        <option value="APLIQUE">Aplique de Pared</option>
+                        <option value="LLAVE_1P">Llave 1 Punto (1 Efecto)</option>
+                        <option value="LLAVE_2P">Llave 2 Puntos (2 Efectos)</option>
+                        <option value="LLAVE_3P">Llave 3 Puntos (3 Efectos)</option>
+                        <option value="LLAVE_COMB">Llave Combinación</option>
+                        <option value="TOMA_10A">Tomacorriente Simple 10A</option>
+                        <option value="TOMA_DOBLE">Tomacorriente Doble 2×10A</option>
+                        <option value="TOMA_20A">Tomacorriente Especial 20A</option>
+                        <option value="TABLERO">Tablero Seccional (TS)</option>
+                        <option value="CAJA_PASO">Caja de Paso / Derivación</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Circuito Asignado</label>
+                    <select id="elCircuito" class="corp-input">
+                        <option value="C1">C1 (IUG - Iluminación)</option>
+                        <option value="C2">C2 (TUG - Tomas Gen.)</option>
+                        <option value="C3">C3 (TUE - Especial)</option>
+                        <option value="C4">C4 (ACU - Aire Acond.)</option>
+                        <option value="TS">TS (Alimentación)</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Cota Altura Z (m)</label>
+                    <input type="number" id="elZ" class="corp-input" step="0.05" min="0" max="6" value="1.10">
+                </div>
+            </div>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Posición X (m)</label>
+                    <input type="number" id="elX" class="corp-input" step="0.05" min="0">
+                </div>
+                <div class="flex-1">
+                    <label>Posición Y (m)</label>
+                    <input type="number" id="elY" class="corp-input" step="0.05" min="0">
+                </div>
+            </div>
+            <div class="row-group">
+                <label>Observación / Módulos Extra</label>
+                <input type="text" id="elNota" class="corp-input" placeholder="Ej: Con módulo USB / Altura mesada">
+            </div>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 12px;">
+                <button type="button" class="corp-btn" style="flex: 1;" onclick="cerrarModalElemento()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarEdicionElemento()">Guardar</button>
             </div>
         </div>
-        <div class="corp-modal-actions" style="flex-direction: row; justify-content: flex-end; gap: 12px;">
-            <button type="button" class="corp-btn" style="width: auto; background: transparent;" onclick="cerrarModalPDF()">Cancelar</button>
-            <button type="button" id="btnConfirmarDescargaPDF" class="corp-btn danger-btn" style="width: auto; font-weight: bold; padding: 10px 20px;" onclick="ejecutarDescargaPDF()">Descargar</button>
+    </div>
+
+    <!-- MODAL: AGREGAR TRAMO DE CAÑERÍA MANUAL -->
+    <div id="modalTramo" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 88vh; overflow-y: auto;">
+            <h3><i class="fa-solid fa-bezier-curve corp-accent-color"></i> Conectar Cañería 2.5D</h3>
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Desde Caja (Origen)</label>
+                    <select id="tramoDesde" class="corp-input"></select>
+                </div>
+                <div class="flex-1">
+                    <label>Hasta Caja (Destino)</label>
+                    <select id="tramoHasta" class="corp-input"></select>
+                </div>
+            </div>
+            <div class="row-group">
+                <label>Tipo de Circuito / Conductores del Tramo</label>
+                <select id="tramoRol" class="corp-input">
+                    <option value="ALIM_IUG">Troncal Iluminación (3×1,5 mm²: F+N+PE)</option>
+                    <option value="ALIM_TUG">Troncal Tomas Gen. (3×2,5 mm²: F+N+PE)</option>
+                    <option value="ALIM_TUE">Troncal Especial (3×4 mm²: F+N+PE)</option>
+                    <option value="BAJADA_1P">Bajada Llave 1 Punto (2×1,5 mm²: F + 1 Ret.)</option>
+                    <option value="BAJADA_2P">Bajada Llave 2 Puntos (3×1,5 mm²: F + 2 Ret.)</option>
+                    <option value="BAJADA_3P">Bajada Llave 3 Puntos (4×1,5 mm²: F + 3 Ret.)</option>
+                    <option value="COMBINACION">Puentes Combinación (3×1,5 mm²: 2 Puentes + Ret.)</option>
+                </select>
+            </div>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 12px;">
+                <button type="button" class="corp-btn" style="flex: 1;" onclick="cerrarModalTramo()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarTramoManual()">Conectar</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- MODAL VISTA PREVIA MÓVIL A4 -->
-<div id="modalVistaPrevia" class="modal-overlay oculto gpu-accel" style="padding: 0; flex-direction: column; background: #111827;">
-    <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #18191A; border-bottom: 1px solid var(--ngc-privacy-border); flex-shrink: 0;">
-        <span style="color: #ffffff; font-weight: 700; font-size: 0.9rem;"><i class="fa-solid fa-eye corp-accent-color"></i> Vista Previa A4</span>
-        <div style="display: flex; gap: 8px;">
-            <button type="button" class="corp-btn danger-btn" style="width: auto; padding: 6px 14px;" onclick="generarPDF()">
-                <i class="fa-solid fa-file-pdf"></i> PDF
-            </button>
-            <button type="button" class="corp-btn" style="width: auto; padding: 6px 14px;" onclick="cerrarVistaPreviaMobile()">
-                <i class="fa-solid fa-xmark"></i> Cerrar
-            </button>
+    <!-- MODAL: IMPORTAR AMBIENTE DESDE POTENCIA -->
+    <div id="modalImportarPotencia" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 82vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-bolt" style="color: var(--ngc-warning);"></i> Importar de Potencia</h3>
+                <button type="button" class="corp-btn-icon" onclick="cerrarModalImportarPotencia()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p style="font-size: 0.82rem; margin-bottom: 10px;">Seleccioná un proyecto guardado en Potencia para importar sus ambientes y bocas:</p>
+            <div id="listaBorradoresPotencia" class="modal-list-container"></div>
         </div>
     </div>
-    <div id="contenedorVistaPreviaMobile" style="flex: 1; width: 100%; overflow: auto; padding: 15px; text-align: center;"></div>
-</div>
 
-<!-- MODAL WHATSAPP GLOBAL -->
-<div id="modalWhatsApp" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <i class="fa-brands fa-whatsapp corp-modal-icon" style="color: #25D366;"></i>
-        <h3>Enviar por WhatsApp</h3>
-        <p>Compartí el resumen de medidas y cómputo de materiales del ambiente.</p>
-        <div class="corp-modal-actions">
-            <button type="button" id="btnWspGuardado" class="corp-btn" style="background: #25D366; color: white; display: none;" onclick="enviarWspGuardadoGlobal()">
-                <i class="fa-brands fa-whatsapp"></i> Enviar al Cliente
-            </button>
-            <div style="display: flex; gap: 8px;">
-                <input type="number" id="inputWspManual" class="corp-input" placeholder="Número (Ej: 3512345678)" style="flex: 1; text-align: center;">
-                <button type="button" class="corp-btn" style="background: #25D366; color: white; width: auto; padding: 0 18px;" onclick="enviarWspManualGlobal()">
-                    <i class="fa-solid fa-paper-plane"></i>
+    <!-- ===================================================================== -->
+    <!-- MODALES ESTANDARIZADOS DE LA PWA (AGENDA, BORRADORES, WSP, PDF, ETC.) -->
+    <!-- ===================================================================== -->
+
+    <!-- MODAL: CLIENTE NO AGENDADO -->
+    <div id="modalAgendarCliente" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--ngc-neon);">
+            <i class="fa-solid fa-address-book corp-modal-icon"></i>
+            <h3>Cliente no agendado</h3>
+            <p>Este nombre fue escrito manualmente. ¿Deseas vincularlo con tu agenda para respaldar el croquis en la nube?</p>
+            <div class="corp-modal-actions">
+                <button type="button" class="corp-btn primary-action" onclick="accionAgendarCliente()"><i class="fa-solid fa-user-plus"></i> Agendar Nuevo</button>
+                <button type="button" class="corp-btn" onclick="opcionBuscarAgenda()"><i class="fa-solid fa-magnifying-glass"></i> Buscar de mi Agenda</button>
+                <button type="button" class="corp-btn danger-btn" onclick="opcionContinuarSinAgenda()">Continuar sin Nube</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMAR CONTINUAR SIN AGENDA -->
+    <div id="modalConfirmarSinAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-triangle-exclamation corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3>¿Continuar sin Nube?</h3>
+            <p>Al no estar en tu agenda, este croquis NO se guardará en los borradores de la nube.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarSinAgenda()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarContinuarSinAgenda()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: AGENDA GLOBAL (CONECTADO A global.js) -->
+    <div id="modalAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 82vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-address-book corp-accent-color"></i> Mi Agenda</h3>
+                <button type="button" class="corp-btn-icon" onclick="cerrarModalAgendaGlobal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <input type="text" id="buscadorAgenda" class="corp-input" placeholder="Buscar nombre o dirección..." oninput="filtrarAgendaGlobal()" style="margin-bottom: 10px;">
+            <div id="listaAgenda" class="modal-list-container"></div>
+        </div>
+    </div>
+
+    <!-- MODAL: BORRADORES NUBE -->
+    <div id="modalBorradores" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-height: 82vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0;"><i class="fa-solid fa-cloud-arrow-down corp-accent-color"></i> Borradores de Croquis</h3>
+                <button type="button" class="corp-btn-icon" onclick="cerrarModalBorradores()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="listaBorradores" class="modal-list-container"></div>
+        </div>
+    </div>
+
+    <!-- MODAL: GUARDAR BORRADOR -->
+    <div id="modalGuardarBorrador" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-cloud-arrow-up corp-modal-icon" style="color: var(--ngc-neon);"></i>
+            <h3>Guardar Borrador</h3>
+            <p style="margin-bottom: 12px;">Verifica o edita el nombre del croquis en la nube:</p>
+            <input type="text" id="inputNombreBorrador" class="corp-input" style="margin-bottom: 18px; font-weight: 600;">
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalGuardarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="ejecutarGuardarBorrador()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ELIMINAR BORRADOR -->
+    <div id="modalConfirmarEliminar" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-trash-can corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3>Eliminar Borrador</h3>
+            <p>¿Estás seguro de eliminar este croquis de la nube? Esta acción no se puede deshacer.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalEliminarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarEliminarBorrador()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: CONFIRMAR NUEVO CROQUIS -->
+    <div id="modalConfirmarNuevo" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-rotate-right corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3>Nuevo Croquis</h3>
+            <p>¿Deseas reiniciar el ambiente actual y comenzar uno nuevo?</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarNuevoGlobal()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarNuevoCroquis()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ALERTA CORPORATIVA -->
+    <div id="modalAlertaCorp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-circle-exclamation corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 id="modalAlertaTitulo">Atención</h3>
+            <p id="modalAlertaMensaje">Mensaje informativo.</p>
+            <div class="corp-modal-actions">
+                <button type="button" class="corp-btn primary-action" onclick="cerrarModalAlertaCorp()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: WHATSAPP UNIVERSAL -->
+    <div id="modalWhatsApp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-brands fa-whatsapp corp-modal-icon" style="color: #25D366;"></i>
+            <h3>Enviar por WhatsApp</h3>
+            <p>Seleccioná el destinatario del cómputo y resumen de replanteo:</p>
+            <div class="corp-modal-actions">
+                <button type="button" id="btnWspGuardado" class="corp-btn" style="background: #25D366; color: white; display: none;" onclick="enviarWspGuardadoGlobal()">
+                    <i class="fa-brands fa-whatsapp" style="color: white;"></i> Enviar al Cliente
                 </button>
+                <div style="display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5px;">
+                    <input type="number" id="inputWspManual" class="corp-input" placeholder="Número (Ej: 3512345678)" style="flex: 1; text-align: center; font-size: 0.9rem;">
+                    <button type="button" class="corp-btn" style="background: #25D366; color: white; border: none; padding: 0 20px; width: auto;" onclick="enviarWspManualGlobal()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+                <button type="button" class="corp-btn" style="background: transparent; color: #25D366; border: 1px solid #25D366;" onclick="buscarEnWspGlobal()">
+                    <i class="fa-solid fa-magnifying-glass"></i> Buscar en mis contactos
+                </button>
+                <button type="button" class="corp-btn danger-btn" style="margin-top: 8px; background: transparent; border: 1px solid var(--error-red);" onclick="cerrarModalWspGlobal()">Cancelar</button>
             </div>
-            <button type="button" class="corp-btn" style="background: transparent; color: #25D366; border: 1px solid #25D366;" onclick="buscarEnWspGlobal()">
-                <i class="fa-solid fa-magnifying-glass"></i> Buscar en mis contactos
-            </button>
-            <button type="button" class="corp-btn danger-btn" style="background: transparent; border: 1px solid var(--error-red);" onclick="cerrarModalWspGlobal()">Cancelar</button>
         </div>
     </div>
-</div>
 
-<!-- MODAL CONFIRMAR NUEVO -->
-<div id="modalConfirmarNuevo" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <i class="fa-solid fa-rotate-right corp-modal-icon" style="color: var(--error-red);"></i>
-        <h3>¿Nuevo Croquis?</h3>
-        <p>Se limpiará el plano actual en pantalla. Asegurate de haber guardado tus cambios.</p>
-        <div class="corp-modal-actions">
-            <button type="button" class="corp-btn danger-btn" onclick="ejecutarNuevoCroquis()">Sí, empezar de cero</button>
-            <button type="button" class="corp-btn" onclick="cerrarModalConfirmarNuevoGlobal()">Cancelar</button>
+    <!-- MODAL: NOMBRE DE ARCHIVO PDF -->
+    <div id="modalDescargarPDF" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-file-pdf corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3>Exportar Croquis PDF</h3>
+            <div style="position: relative; margin: 18px 0 22px 0;">
+                <label style="position: absolute; top: -10px; left: 10px; background: var(--bg-body); padding: 0 5px; font-size: 0.75rem; color: var(--ngc-text-faded); z-index: 1;">Nombre del archivo</label>
+                <div style="display: flex; align-items: center; border: 1px solid var(--ngc-privacy-border); border-radius: 8px; overflow: hidden; background: var(--ngc-bg-input);">
+                    <input type="text" id="nombreArchivoPDF" class="corp-input" style="border: none; border-radius: 0; flex: 1; padding: 14px; outline: none; box-shadow: none;">
+                    <span style="padding: 0 14px; color: var(--ngc-text-faded); background: var(--ngc-bg-input);">.pdf</span>
+                </div>
+            </div>
+            <div class="corp-modal-actions" style="flex-direction: row; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="corp-btn" style="width: auto; background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalPDF()">Cancelar</button>
+                <button type="button" id="btnConfirmarDescargaPDF" class="corp-btn danger-btn" style="width: auto; font-weight: bold; padding: 10px 20px; border-radius: 20px;" onclick="ejecutarDescargaPDF()">Descargar</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- MODAL ALERTA CORPORATIVA -->
-<div id="modalAlertaCorp" class="modal-overlay oculto gpu-accel">
-    <div class="corp-modal-card">
-        <i class="fa-solid fa-circle-info corp-modal-icon"></i>
-        <h3 id="modalAlertaTitulo">Aviso</h3>
-        <p id="modalAlertaMensaje"></p>
-        <div class="corp-modal-actions">
-            <button type="button" class="corp-btn primary-action" onclick="cerrarModalAlertaCorp()">Aceptar</button>
+    <!-- MODAL: VISTA PREVIA A4 FULLSCREEN CON ZOOM -->
+    <div id="modalVistaPrevia" class="modal-overlay oculto gpu-accel" style="padding: 0; flex-direction: column; justify-content: flex-start; background: #111315;">
+        <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #18191A; border-bottom: 1px solid #333; z-index: 20;">
+            <span style="color: #fff; font-weight: 700; font-size: 0.9rem;"><i class="fa-solid fa-file-lines" style="color: var(--ngc-neon);"></i> Lámina A4</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button type="button" class="corp-btn-small" onclick="cambiarZoomPreview(-0.15)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                <span id="txtZoomPreview" style="color: #fff; font-size: 0.8rem; font-weight: 700; min-width: 42px; text-align: center;">100%</span>
+                <button type="button" class="corp-btn-small" onclick="cambiarZoomPreview(0.15)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+                <button type="button" class="corp-btn-small danger" onclick="generarPDF()"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+                <button type="button" class="corp-btn-icon" style="width: 34px; height: 34px;" onclick="cerrarVistaPrevia()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <div id="areaScrollVistaPrevia" style="flex: 1; width: 100%; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 16px; touch-action: pan-x pan-y;">
+            <div id="contenedorVistaPreviaMobile" style="transform-origin: top center;"></div>
         </div>
     </div>
-</div>
 
-<!-- MENÚ INFERIOR DE NAVEGACIÓN -->
-<nav class="corp-bottom-nav">
-    <div class="corp-scroll-container" id="corpFooterMenu"></div>
-</nav>
+    <!-- MENÚ INFERIOR ESTANDARIZADO -->
+    <nav class="corp-bottom-nav">
+        <div id="corpFooterMenu" class="corp-scroll-container"></div>
+    </nav>
 
-<script src="../global.js"></script>
-<script src="./script.js"></script>
+    <script src="../global.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
