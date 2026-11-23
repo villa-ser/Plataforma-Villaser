@@ -150,6 +150,7 @@ const rutas = {
     'btnProveedores': './proveedores/index.html',
     'btnUnifilar': './unifilar/index.html',
     'btnTopografico': './topografico/index.html',
+    'btnCroquis': './croquis/index.html',
     'btnCalculadora': './leyescalc/index.html',
     'btnCatalogos': './catalogos/index.html',
     'btnFotos': './fotos/index.html',
