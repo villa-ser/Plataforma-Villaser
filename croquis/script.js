@@ -1,317 +1,217 @@
 // ==========================================================================
-// MÓDULO CROQUIS ELÉCTRICO DE AMBIENTE - VILLASER GESTIÓN
+// MÓDULO CROQUIS ELÉCTRICO DE AMBIENTE 2.5D - VILLASER
 // ==========================================================================
-
-// --- SINCRONIZACIÓN DE TEMA AUTOMÁTICO ---
-window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
-    const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
-    if (temaGuardado === 'system') {
-        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
-        if (prefiereClaro) document.documentElement.setAttribute('data-theme', 'light');
-        else document.documentElement.removeAttribute('data-theme');
-    }
-});
-
-// ==========================================================================
-// 1. LIBRERÍA VECTORIAL 100 % OFFLINE DE SÍMBOLOS NORMALIZADOS
-// ==========================================================================
-const CATALOGO_TIPOS = {
-    boca_centro: {
-        nombre: 'Boca de Techo',
-        corto: 'Boca Techo',
-        zDefault: 2.60,
-        circuitoDefault: 'C1',
-        enPared: false,
-        svg: `
-            <circle cx="0" cy="0" r="11" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-7.5" y1="-7.5" x2="7.5" y2="7.5" stroke="#0f172a" stroke-width="1.8"/>
-            <line x1="7.5" y1="-7.5" x2="-7.5" y2="7.5" stroke="#0f172a" stroke-width="1.8"/>
-        `
-    },
-    aplique_pared: {
-        nombre: 'Aplique de Pared',
-        corto: 'Aplique',
-        zDefault: 2.10,
-        circuitoDefault: 'C1',
-        enPared: true,
-        svg: `
-            <line x1="-10" y1="-12" x2="10" y2="-12" stroke="#0f172a" stroke-width="2.5"/>
-            <line x1="0" y1="-12" x2="0" y2="-4" stroke="#0f172a" stroke-width="2"/>
-            <circle cx="0" cy="4" r="8" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-5" y1="-1" x2="5" y2="9" stroke="#0f172a" stroke-width="1.5"/>
-            <line x1="5" y1="-1" x2="-5" y2="9" stroke="#0f172a" stroke-width="1.5"/>
-        `
-    },
-    toma_simple: {
-        nombre: 'Tomacorriente 10A',
-        corto: 'Toma 10A',
-        zDefault: 0.30,
-        circuitoDefault: 'C2',
-        enPared: true,
-        svg: `
-            <line x1="0" y1="-13" x2="0" y2="-5" stroke="#0f172a" stroke-width="2"/>
-            <path d="M -9 4 A 9 9 0 0 1 9 4" fill="#ffffff" stroke="#0f172a" stroke-width="2.2"/>
-            <line x1="-10" y1="4" x2="10" y2="4" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    toma_doble: {
-        nombre: 'Tomacorriente Doble',
-        corto: 'Toma Doble',
-        zDefault: 0.30,
-        circuitoDefault: 'C2',
-        enPared: true,
-        svg: `
-            <line x1="0" y1="-14" x2="0" y2="-6" stroke="#0f172a" stroke-width="2"/>
-            <path d="M -9 1 A 9 9 0 0 1 9 1" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <path d="M -9 7 A 9 9 0 0 1 9 7" fill="none" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-10" y1="7" x2="10" y2="7" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    toma_especial: {
-        nombre: 'Tomacorriente 20A (TUE)',
-        corto: 'Toma 20A',
-        zDefault: 0.30,
-        circuitoDefault: 'C3',
-        enPared: true,
-        svg: `
-            <line x1="0" y1="-13" x2="0" y2="-5" stroke="#0f172a" stroke-width="2"/>
-            <path d="M -9 4 A 9 9 0 0 1 9 4 Z" fill="#0f172a" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    llave_1p: {
-        nombre: 'Llave de 1 Punto',
-        corto: 'Llave 1P',
-        zDefault: 1.10,
-        circuitoDefault: 'C1',
-        enPared: true,
-        svg: `
-            <circle cx="0" cy="0" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="3.5" y1="-3.5" x2="12" y2="-12" stroke="#0f172a" stroke-width="2"/>
-            <line x1="9" y1="-12" x2="12" y2="-12" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    llave_2p: {
-        nombre: 'Llave de 2 Puntos',
-        corto: 'Llave 2P',
-        zDefault: 1.10,
-        circuitoDefault: 'C1',
-        enPared: true,
-        svg: `
-            <circle cx="0" cy="0" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="3" y1="-4" x2="11" y2="-13" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-3" y1="-4" x2="-11" y2="-13" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    llave_3p: {
-        nombre: 'Llave de 3 Puntos',
-        corto: 'Llave 3P',
-        zDefault: 1.10,
-        circuitoDefault: 'C1',
-        enPared: true,
-        svg: `
-            <circle cx="0" cy="0" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="0" y1="-5" x2="0" y2="-15" stroke="#0f172a" stroke-width="2"/>
-            <line x1="3.5" y1="-3.5" x2="12" y2="-12" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-3.5" y1="-3.5" x2="-12" y2="-12" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    llave_comb: {
-        nombre: 'Llave Combinada',
-        corto: 'Combinada',
-        zDefault: 1.10,
-        circuitoDefault: 'C1',
-        enPared: true,
-        svg: `
-            <circle cx="0" cy="0" r="5" fill="#0f172a" stroke="#0f172a" stroke-width="2"/>
-            <line x1="3.5" y1="-3.5" x2="12" y2="-12" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-3.5" y1="3.5" x2="-12" y2="12" stroke="#0f172a" stroke-width="2"/>
-        `
-    },
-    tablero: {
-        nombre: 'Tablero Seccional',
-        corto: 'Tablero',
-        zDefault: 1.60,
-        circuitoDefault: 'CS',
-        enPared: true,
-        svg: `
-            <rect x="-14" y="-7" width="28" height="14" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <polygon points="-14,-7 14,-7 -14,7" fill="#0f172a"/>
-        `
-    },
-    caja_paso: {
-        nombre: 'Caja de Paso / Derivación',
-        corto: 'Caja Paso',
-        zDefault: 2.30,
-        circuitoDefault: 'C1',
-        enPared: false,
-        svg: `
-            <rect x="-8" y="-8" width="16" height="16" fill="#ffffff" stroke="#0f172a" stroke-width="2"/>
-            <line x1="-8" y1="-8" x2="8" y2="8" stroke="#0f172a" stroke-width="1.6"/>
-        `
-    }
-};
-
-// ==========================================================================
-// 2. ESTADO GLOBAL DEL MÓDULO
-// ==========================================================================
-const STORAGE_KEY = 'croquis_estado_actual';
-
-let estadoCroquis = {
-    cliNombre: '',
-    cliDireccion: '',
-    ambNombre: 'Dormitorio Principal',
-    ambAncho: 4.00,
-    ambLargo: 3.50,
-    ambAlto: 2.60,
-    nodos: [],
-    tramos: [],
-    desperdicio: 0.10,
-    obsGenerales: ''
-};
-
-let herramientaActual = 'seleccionar';
-let nodoOrigenConectar = null;
-let elementoSeleccionado = null; // { tipo: 'nodo' | 'tramo', id: string }
-let pasoFinoMetros = 0.10;
-let mostrarCotas = true;
-let historialUndo = [];
-let ultimoComputo = [];
-
+let db = null;
+let uidSeguro = null;
 let clienteDesdeAgenda = false;
 let permiteGuardarNube = true;
 let nombreBorradorActual = null;
+let borradorPendienteEliminar = null;
 let telefonoClienteActual = '';
-let timerAutoGuardado = null;
-let escalaActualPreview = 1;
+
+const STORAGE_KEY_CROQUIS = 'croquis_estado_actual';
+
+let herramientaActiva = 'SELECT';
+let elementoSeleccionadoId = null;
+let origenConexionId = null;
+
+// Catálogo de cotas y metadatos normativos AEA 90364 por tipo de boca
+const PRESETS_ELEMENTOS = {
+    BOCA_TECHO: { nombre: 'Boca de Centro',      zDefault: 2.60, pared: false, prefijo: 'B',  circ: 'C1' },
+    APLIQUE:    { nombre: 'Aplique de Pared',    zDefault: 2.10, pared: true,  prefijo: 'AP', circ: 'C1' },
+    LLAVE_1P:   { nombre: 'Llave 1 Punto',       zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_2P:   { nombre: 'Llave 2 Puntos',      zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_3P:   { nombre: 'Llave 3 Puntos',      zDefault: 1.10, pared: true,  prefijo: 'LL', circ: 'C1' },
+    LLAVE_COMB: { nombre: 'Llave Combinación',   zDefault: 1.10, pared: true,  prefijo: 'LC', circ: 'C1' },
+    TOMA_10A:   { nombre: 'Toma Simple 10A',     zDefault: 0.30, pared: true,  prefijo: 'T',  circ: 'C2' },
+    TOMA_DOBLE: { nombre: 'Toma Doble 2×10A',    zDefault: 0.30, pared: true,  prefijo: 'T',  circ: 'C2' },
+    TOMA_20A:   { nombre: 'Toma Especial 20A',   zDefault: 1.10, pared: true,  prefijo: 'TE', circ: 'C3' },
+    TABLERO:    { nombre: 'Tablero Seccional',   zDefault: 1.60, pared: true,  prefijo: 'TS', circ: 'TS' },
+    CAJA_PASO:  { nombre: 'Caja de Paso',        zDefault: 2.40, pared: true,  prefijo: 'CP', circ: 'C1' }
+};
+
+function crearPlantillaDormitorio() {
+    return {
+        nombre: 'Dormitorio Principal',
+        ancho: 3.50,
+        largo: 3.20,
+        alto: 2.60,
+        desperdicio: 10,
+        canoDiam: '3/4" (Ø 20mm)',
+        aberturas: [
+            { id: 'ab1', tipo: 'PUERTA',  pared: 'SUR',   offset: 0.25, ancho: 0.80 },
+            { id: 'ab2', tipo: 'VENTANA', pared: 'NORTE', offset: 1.15, ancho: 1.20 }
+        ],
+        elementos: [
+            { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.75, y: 1.60, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: '' },
+            { id: 'el2', tag: 'LL1', tipo: 'LLAVE_1P',   x: 1.20, y: 3.20, z: 1.10, muro: 'SUR',   rot: 180, circ: 'C1', nota: 'Junto a puerta' },
+            { id: 'el3', tag: 'T1',  tipo: 'TOMA_DOBLE', x: 0.00, y: 1.60, z: 0.30, muro: 'OESTE', rot: 270, circ: 'C2', nota: 'Mesita luz' },
+            { id: 'el4', tag: 'T2',  tipo: 'TOMA_DOBLE', x: 3.50, y: 1.60, z: 0.30, muro: 'ESTE',  rot: 90,  circ: 'C2', nota: 'Mesita luz' },
+            { id: 'el5', tag: 'T3',  tipo: 'TOMA_10A',   x: 2.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: '' }
+        ],
+        tramos: [
+            { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'BAJADA_1P' },
+            { id: 'tr2', desde: 'el3', hasta: 'el4', rol: 'ALIM_TUG' },
+            { id: 'tr3', desde: 'el4', hasta: 'el5', rol: 'ALIM_TUG' }
+        ]
+    };
+}
+
+let estadoCroquis = crearPlantillaDormitorio();
 
 // ==========================================================================
-// 3. INICIALIZACIÓN Y GESTIÓN DE MEMORIA GLOBAL
+// INICIALIZACIÓN INMEDIATA DE FIREBASE Y AGENDA GLOBAL
 // ==========================================================================
 function obtenerUid() {
-    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-        return firebase.auth().currentUser.uid;
+    if (uidSeguro) return uidSeguro;
+    if (typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
+        uidSeguro = firebase.auth().currentUser.uid;
+        return uidSeguro;
     }
     return null;
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    asegurarItemCroquisEnFooter();
-    cargarEstadoInicial();
-    actualizarPDFHeaders();
-});
-
-function asegurarItemCroquisEnFooter() {
-    const footer = document.getElementById('corpFooterMenu');
-    if (!footer) return;
-    setTimeout(() => {
-        if (!footer.querySelector('[data-mod="croquis"]')) {
-            const btn = document.createElement('button');
-            btn.className = 'corp-nav-item active';
-            btn.setAttribute('data-mod', 'croquis');
-            btn.innerHTML = '<i class="fa-solid fa-compass-drafting"></i><span>Croquis</span>';
-            footer.appendChild(btn);
-            footer.scrollLeft = footer.scrollWidth;
-        }
-    }, 80);
+function obtenerUidSeguro() {
+    return obtenerUid();
 }
 
-function cargarEstadoInicial() {
+function arrancarModuloCroquis() {
     try {
-        const guardadoRaw = localStorage.getItem(STORAGE_KEY);
-        if (guardadoRaw) {
-            const data = JSON.parse(guardadoRaw);
-            if (data && (data.cliNombre || (data.nodos && data.nodos.length > 0))) {
-                aplicarDatosCargados(data);
-                if (data.cliNombre) {
-                    avanzarPasoTrabajo();
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            db = firebase.firestore();
+            if (typeof firebase.auth === 'function') {
+                firebase.auth().onAuthStateChanged(user => {
+                    if (user) {
+                        uidSeguro = user.uid;
+                        actualizarBadgeNube();
+                    }
+                });
+            }
+        }
+    } catch (e) {
+        console.warn('Aviso Firebase Croquis:', e);
+    }
+
+    generarMenuInferiorLocal();
+    cargarEstadoInicial();
+    actualizarPDFHeaders();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', arrancarModuloCroquis);
+} else {
+    arrancarModuloCroquis();
+}
+
+function generarMenuInferiorLocal() {
+    const footer = document.getElementById('corpFooterMenu');
+    if (!footer || footer.children.length > 0) return;
+
+    const modulos = [
+        { nombre: 'Inicio', icon: 'fa-house', url: '../index.html' },
+        { nombre: 'Presupuestos', icon: 'fa-file-invoice-dollar', url: '../presupuesto/index.html' },
+        { nombre: 'Materiales', icon: 'fa-boxes-stacked', url: '../materiales/index.html' },
+        { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
+        { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
+        { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
+        { nombre: 'Topográfico', icon: 'fa-table-cells', url: '../topografico/index.html' },
+        { nombre: 'Croquis', icon: 'fa-compass-drafting', url: '#', active: true },
+        { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
+        { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
+        { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
+        { nombre: 'Proveedores', icon: 'fa-truck-fast', url: '../proveedores/index.html' },
+        { nombre: 'Catálogos', icon: 'fa-book-open', url: '../catalogos/index.html' }
+    ];
+
+    modulos.forEach(mod => {
+        const btn = document.createElement('button');
+        btn.className = `corp-nav-item ${mod.active ? 'active' : ''}`;
+        btn.innerHTML = `<i class="fa-solid ${mod.icon}"></i><span>${mod.nombre}</span>`;
+        btn.onclick = () => { if (!mod.active) window.location.replace(mod.url); };
+        footer.appendChild(btn);
+    });
+
+    requestAnimationFrame(() => {
+        const btnActivo = footer.querySelector('.corp-nav-item.active');
+        if (btnActivo) {
+            const fRect = footer.getBoundingClientRect();
+            const bRect = btnActivo.getBoundingClientRect();
+            footer.scrollLeft += (bRect.left - fRect.left) - (fRect.width / 2) + (bRect.width / 2);
+        }
+    });
+}
+
+// ==========================================================================
+// FLUJO DE CLIENTE, AGENDA Y PERSISTENCIA LOCAL
+// ==========================================================================
+function cargarEstadoInicial() {
+    const raw = localStorage.getItem(STORAGE_KEY_CROQUIS);
+    if (raw) {
+        try {
+            const data = JSON.parse(raw);
+            if (data && data.estadoCroquis) {
+                document.getElementById('cliNombre').value = data.cliNombre || '';
+                document.getElementById('cliDireccion').value = data.cliDireccion || '';
+                document.getElementById('cliProyecto').value = data.cliProyecto || '';
+                document.getElementById('obsGenerales').value = data.obsGenerales || '';
+                estadoCroquis = normalizarEstadoCroquis(data.estadoCroquis);
+                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
+                permiteGuardarNube = data.permiteGuardarNube !== false;
+                nombreBorradorActual = data.nombreBorrador || null;
+                telefonoClienteActual = data.telefonoClienteActual || '';
+
+                if (data.enTrabajo && data.cliNombre) {
+                    avanzarPasoTrabajo(false);
                     return;
                 }
             }
+        } catch (e) {
+            console.warn('Error leyendo estado croquis:', e);
         }
+    }
 
-        // Si no hay borrador activo, revisar cliente global de la PWA
-        const globalRaw = localStorage.getItem('villaser_cliente_global');
-        if (globalRaw) {
-            const g = JSON.parse(globalRaw);
-            if (g && g.nombre) {
-                document.getElementById('cliNombre').value = g.nombre || '';
-                document.getElementById('cliDireccion').value = g.direccion || g.dir || '';
-                telefonoClienteActual = g.telefono || g.tel || '';
+    const rawGlobal = localStorage.getItem('villaser_cliente_global');
+    if (rawGlobal) {
+        try {
+            const cli = JSON.parse(rawGlobal);
+            if (cli && cli.nombre && !document.getElementById('cliNombre').value) {
+                document.getElementById('cliNombre').value = cli.nombre || '';
+                document.getElementById('cliDireccion').value = cli.direccion || '';
+                document.getElementById('cliProyecto').value = cli.proyecto || '';
+                telefonoClienteActual = cli.telefono || '';
                 clienteDesdeAgenda = true;
                 permiteGuardarNube = true;
+                mostrarToast('Cliente Recuperado', `Datos de ${cli.nombre} listos.`);
             }
-        }
-    } catch (e) {
-        console.warn('No se pudo restaurar estado previo de Croquis:', e);
-    }
-}
-
-function aplicarDatosCargados(data) {
-    estadoCroquis = {
-        cliNombre: data.cliNombre || '',
-        cliDireccion: data.cliDireccion || '',
-        ambNombre: data.ambNombre || 'Ambiente',
-        ambAncho: parseFloat(data.ambAncho) || 4.00,
-        ambLargo: parseFloat(data.ambLargo) || 3.50,
-        ambAlto: parseFloat(data.ambAlto) || 2.60,
-        nodos: Array.isArray(data.nodos) ? data.nodos : [],
-        tramos: Array.isArray(data.tramos) ? data.tramos : [],
-        desperdicio: data.desperdicio !== undefined ? parseFloat(data.desperdicio) : 0.10,
-        obsGenerales: data.obsGenerales || ''
-    };
-
-    document.getElementById('cliNombre').value = estadoCroquis.cliNombre;
-    document.getElementById('cliDireccion').value = estadoCroquis.cliDireccion;
-    document.getElementById('ambNombre').value = estadoCroquis.ambNombre;
-    document.getElementById('ambAncho').value = estadoCroquis.ambAncho.toFixed(2);
-    document.getElementById('ambLargo').value = estadoCroquis.ambLargo.toFixed(2);
-    document.getElementById('ambAlto').value = estadoCroquis.ambAlto.toFixed(2);
-    document.getElementById('selDesperdicio').value = estadoCroquis.desperdicio.toFixed(2);
-    document.getElementById('obsGenerales').value = estadoCroquis.obsGenerales;
-
-    if (data.clienteDesdeAgenda !== undefined) clienteDesdeAgenda = Boolean(data.clienteDesdeAgenda);
-    if (data.permiteGuardarNube !== undefined) permiteGuardarNube = Boolean(data.permiteGuardarNube);
-    if (data.nombreBorrador) nombreBorradorActual = data.nombreBorrador;
-    if (data.telefonoClienteActual) telefonoClienteActual = data.telefonoClienteActual;
-}
-
-function guardarEstadoLocal() {
-    try {
-        const payload = {
-            ...estadoCroquis,
-            clienteDesdeAgenda,
-            permiteGuardarNube,
-            nombreBorrador: nombreBorradorActual,
-            telefonoClienteActual
-        };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (e) {
-        console.warn('Error guardando en localStorage:', e);
+        } catch (e) {}
     }
 }
 
 function guardarClienteGlobal() {
-    try {
-        localStorage.setItem('villaser_cliente_global', JSON.stringify({
-            nombre: estadoCroquis.cliNombre,
-            direccion: estadoCroquis.cliDireccion,
-            proyecto: estadoCroquis.ambNombre,
-            telefono: telefonoClienteActual
-        }));
-    } catch (e) {}
+    const payload = {
+        nombre: document.getElementById('cliNombre').value.trim(),
+        direccion: document.getElementById('cliDireccion').value.trim(),
+        proyecto: document.getElementById('cliProyecto').value.trim(),
+        telefono: telefonoClienteActual || ''
+    };
+    if (payload.nombre) {
+        localStorage.setItem('villaser_cliente_global', JSON.stringify(payload));
+    }
 }
 
-// ==========================================================================
-// 4. FLUJO DE CLIENTE Y AGENDA
-// ==========================================================================
-function seleccionarContacto(nombre, dir, tel = '') {
-    document.getElementById('cliNombre').value = nombre;
-    document.getElementById('cliDireccion').value = dir;
-    telefonoClienteActual = tel;
-    clienteDesdeAgenda = true;
-    permiteGuardarNube = true;
-    if (typeof cerrarModalAgendaGlobal === 'function') cerrarModalAgendaGlobal();
-    mostrarToast('Cliente Seleccionado', 'Vinculado con tu agenda.');
+function guardarEstadoLocal(enTrabajo = true) {
+    const payload = {
+        cliNombre: document.getElementById('cliNombre').value.trim(),
+        cliDireccion: document.getElementById('cliDireccion').value.trim(),
+        cliProyecto: document.getElementById('cliProyecto').value.trim(),
+        obsGenerales: document.getElementById('obsGenerales').value,
+        estadoCroquis,
+        clienteDesdeAgenda,
+        permiteGuardarNube,
+        nombreBorrador: nombreBorradorActual,
+        telefonoClienteActual,
+        enTrabajo
+    };
+    localStorage.setItem(STORAGE_KEY_CROQUIS, JSON.stringify(payload));
 }
 
 function marcarClienteManual() {
@@ -319,64 +219,31 @@ function marcarClienteManual() {
     permiteGuardarNube = false;
 }
 
+// Callback invocado por global.js cuando el usuario toca "Usar" en #modalAgenda
+function seleccionarContacto(nombre, dir, tel = '') {
+    document.getElementById('cliNombre').value = nombre || '';
+    document.getElementById('cliDireccion').value = dir || '';
+    telefonoClienteActual = tel || '';
+    clienteDesdeAgenda = true;
+    permiteGuardarNube = true;
+    if (typeof cerrarModalAgendaGlobal === 'function') cerrarModalAgendaGlobal();
+    guardarClienteGlobal();
+    actualizarCabeceraProyecto();
+    actualizarBadgeNube();
+    mostrarToast('Cliente Seleccionado', `${nombre} vinculado desde Agenda.`);
+}
+
 function iniciarCroquis() {
     const nombre = document.getElementById('cliNombre').value.trim();
-    const ambNombre = document.getElementById('ambNombre').value.trim();
-    const ancho = parseFloat(document.getElementById('ambAncho').value);
-    const largo = parseFloat(document.getElementById('ambLargo').value);
-    const alto = parseFloat(document.getElementById('ambAlto').value) || 2.60;
-
     if (!nombre) {
-        mostrarAlertaCorp('Datos Incompletos', 'Ingresá el Nombre del Cliente para continuar.');
+        mostrarAlertaCorp('Datos Incompletos', 'Ingresá al menos el Nombre del Cliente para iniciar.');
         return;
     }
-    if (!ambNombre || isNaN(ancho) || ancho <= 0 || isNaN(largo) || largo <= 0) {
-        mostrarAlertaCorp('Medidas Inválidas', 'Completá el nombre del ambiente, el ancho y el largo en metros.');
-        return;
-    }
-
-    estadoCroquis.cliNombre = nombre;
-    estadoCroquis.cliDireccion = document.getElementById('cliDireccion').value.trim();
-    estadoCroquis.ambNombre = ambNombre;
-    estadoCroquis.ambAncho = Math.min(30, Math.max(0.8, ancho));
-    estadoCroquis.ambLargo = Math.min(30, Math.max(0.8, largo));
-    estadoCroquis.ambAlto = Math.min(6, Math.max(2.0, alto));
-
-    // Mantener todos los nodos dentro de los límites actuales del ambiente
-    estadoCroquis.nodos.forEach(n => {
-        n.x = Math.min(estadoCroquis.ambAncho, Math.max(0, n.x));
-        n.y = Math.min(estadoCroquis.ambLargo, Math.max(0, n.y));
-        if (n.tipo === 'boca_centro') n.z = estadoCroquis.ambAlto;
-    });
-
     if (!clienteDesdeAgenda) {
         document.getElementById('modalAgendarCliente').classList.remove('oculto');
         return;
     }
-
-    avanzarPasoTrabajo();
-}
-
-function avanzarPasoTrabajo() {
-    document.getElementById('step-cliente').classList.add('oculto');
-    const stepTrabajo = document.getElementById('step-trabajo');
-    stepTrabajo.classList.remove('oculto');
-    stepTrabajo.classList.add('flex-column', 'gap-15');
-
-    document.getElementById('lblResumenAmbiente').innerText =
-        `${estadoCroquis.ambNombre} (${estadoCroquis.ambAncho.toFixed(2)}m × ${estadoCroquis.ambLargo.toFixed(2)}m)`;
-    document.getElementById('lblResumenCliente').innerText =
-        `Cliente: ${estadoCroquis.cliNombre}${estadoCroquis.cliDireccion ? ' • ' + estadoCroquis.cliDireccion : ''}`;
-
-    actualizarBadgeNube(permiteGuardarNube ? 'sincronizado' : 'local');
-    guardarEstadoLocal();
-    guardarClienteGlobal();
-    recalcularYRenderizar();
-}
-
-function volverEditarDatos() {
-    document.getElementById('step-trabajo').classList.add('oculto');
-    document.getElementById('step-cliente').classList.remove('oculto');
+    avanzarPasoTrabajo(true);
 }
 
 function accionAgendarCliente() {
@@ -387,7 +254,11 @@ function accionAgendarCliente() {
 
 function opcionBuscarAgenda() {
     document.getElementById('modalAgendarCliente').classList.add('oculto');
-    if (typeof abrirModalAgendaGlobal === 'function') abrirModalAgendaGlobal();
+    if (typeof abrirModalAgendaGlobal === 'function') {
+        abrirModalAgendaGlobal();
+    } else {
+        mostrarAlertaCorp('Agenda', 'No se encontró la función global de Agenda.');
+    }
 }
 
 function opcionContinuarSinAgenda() {
@@ -402,776 +273,1172 @@ function cerrarModalConfirmarSinAgenda() {
 function ejecutarContinuarSinAgenda() {
     cerrarModalConfirmarSinAgenda();
     permiteGuardarNube = false;
-    avanzarPasoTrabajo();
+    avanzarPasoTrabajo(true);
 }
 
-function ejecutarNuevoCroquis() {
-    if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
+function avanzarPasoTrabajo(guardar = true) {
+    document.getElementById('step-cliente').classList.add('oculto');
+    const stepT = document.getElementById('step-trabajo');
+    stepT.classList.remove('oculto');
+    stepT.classList.add('flex-column', 'gap-15');
 
-    estadoCroquis = {
-        cliNombre: '',
-        cliDireccion: '',
-        ambNombre: 'Dormitorio Principal',
-        ambAncho: 4.00,
-        ambLargo: 3.50,
-        ambAlto: 2.60,
-        nodos: [],
-        tramos: [],
-        desperdicio: 0.10,
-        obsGenerales: ''
-    };
+    actualizarCabeceraProyecto();
+    actualizarBadgeNube();
+    if (guardar) {
+        guardarClienteGlobal();
+        guardarEstadoLocal(true);
+    }
+    try {
+        renderizarTodoCroquis();
+    } catch (e) {
+        console.error('Error renderizando croquis:', e);
+    }
+}
 
-    historialUndo = [];
-    elementoSeleccionado = null;
-    nodoOrigenConectar = null;
-    clienteDesdeAgenda = false;
-    permiteGuardarNube = true;
-    nombreBorradorActual = null;
-    telefonoClienteActual = '';
-
-    document.getElementById('cliNombre').value = '';
-    document.getElementById('cliDireccion').value = '';
-    document.getElementById('ambNombre').value = 'Dormitorio Principal';
-    document.getElementById('ambAncho').value = '4.00';
-    document.getElementById('ambLargo').value = '3.50';
-    document.getElementById('ambAlto').value = '2.60';
-    document.getElementById('obsGenerales').value = '';
-
-    deseleccionarTodo();
-    guardarEstadoLocal();
+function volverAEditarCliente() {
     document.getElementById('step-trabajo').classList.add('oculto');
     document.getElementById('step-cliente').classList.remove('oculto');
+    guardarEstadoLocal(false);
 }
 
-// ==========================================================================
-// 5. MOTOR GEOMÉTRICO Y RENDERIZADO DEL PLANO SVG
-// ==========================================================================
-function obtenerGeometriaPlano() {
-    const viewW = 700;
-    const viewH = 520;
-    const padLeft = 75;
-    const padRight = 55;
-    const padTop = 65;
-    const padBottom = 55;
-
-    const areaW = viewW - padLeft - padRight;
-    const areaH = viewH - padTop - padBottom;
-
-    const escala = Math.min(areaW / estadoCroquis.ambAncho, areaH / estadoCroquis.ambLargo);
-    const roomW = estadoCroquis.ambAncho * escala;
-    const roomH = estadoCroquis.ambLargo * escala;
-
-    const offsetX = padLeft + (areaW - roomW) / 2;
-    const offsetY = padTop + (areaH - roomH) / 2;
-
-    return { viewW, viewH, escala, roomW, roomH, offsetX, offsetY };
+function actualizarCabeceraProyecto() {
+    const nom = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const dir = document.getElementById('cliDireccion').value.trim();
+    const proy = document.getElementById('cliProyecto').value.trim();
+    document.getElementById('ui-proyecto-cliente').innerText = nom;
+    document.getElementById('ui-proyecto-detalle').innerText = [dir, proy].filter(Boolean).join(' • ') || 'Replanteo eléctrico';
 }
 
-function metrosAPx(mx, my, geo) {
-    return {
-        px: geo.offsetX + mx * geo.escala,
-        py: geo.offsetY + my * geo.escala
-    };
-}
-
-function pxAMetros(px, py, geo) {
-    const rawX = (px - geo.offsetX) / geo.escala;
-    const rawY = (py - geo.offsetY) / geo.escala;
-    return {
-        x: Math.round(Math.min(estadoCroquis.ambAncho, Math.max(0, rawX)) * 10) / 10,
-        y: Math.round(Math.min(estadoCroquis.ambLargo, Math.max(0, rawY)) * 10) / 10
-    };
-}
-
-function calcularRotacionPared(nodo) {
-    if (typeof nodo.rotacionManual === 'number') return nodo.rotacionManual;
-    const info = CATALOGO_TIPOS[nodo.tipo];
-    if (!info || !info.enPared) return 0;
-
-    const dNorte = nodo.y;
-    const dSur = estadoCroquis.ambLargo - nodo.y;
-    const dOeste = nodo.x;
-    const dEste = estadoCroquis.ambAncho - nodo.x;
-
-    const min = Math.min(dNorte, dSur, dOeste, dEste);
-    if (min === dNorte) return 0;
-    if (min === dEste) return 90;
-    if (min === dSur) return 180;
-    return 270;
-}
-
-function ajustarAParedCercana(mx, my, tipo) {
-    const info = CATALOGO_TIPOS[tipo];
-    if (!info || !info.enPared) return { x: mx, y: my };
-
-    const umbral = 0.35; // 35 cm de imán a pared
-    let nx = mx;
-    let ny = my;
-
-    if (ny < umbral) ny = 0;
-    else if (estadoCroquis.ambLargo - ny < umbral) ny = estadoCroquis.ambLargo;
-
-    if (nx < umbral) nx = 0;
-    else if (estadoCroquis.ambAncho - nx < umbral) nx = estadoCroquis.ambAncho;
-
-    return {
-        x: Math.round(nx * 100) / 100,
-        y: Math.round(ny * 100) / 100
-    };
-}
-
-function renderizarPlanoSVG(targetSvgId = 'svgCroquis', modoExportacion = false) {
-    const svg = document.getElementById(targetSvgId);
-    if (!svg) return;
-
-    const geo = obtenerGeometriaPlano();
-    let html = '';
-
-    // Fondo blanco limpio
-    html += `<rect x="0" y="0" width="${geo.viewW}" height="${geo.viewH}" fill="#ffffff"/>`;
-
-    // Grilla cada 0.50 m (solo en editor interactivo)
-    if (!modoExportacion) {
-        for (let gx = 0.5; gx < estadoCroquis.ambAncho; gx += 0.5) {
-            const p = metrosAPx(gx, 0, geo);
-            html += `<line x1="${p.px.toFixed(1)}" y1="${geo.offsetY}" x2="${p.px.toFixed(1)}" y2="${geo.offsetY + geo.roomH}" stroke="#e2e8f0" stroke-width="1"/>`;
-        }
-        for (let gy = 0.5; gy < estadoCroquis.ambLargo; gy += 0.5) {
-            const p = metrosAPx(0, gy, geo);
-            html += `<line x1="${geo.offsetX}" y1="${p.py.toFixed(1)}" x2="${geo.offsetX + geo.roomW}" y2="${p.py.toFixed(1)}" stroke="#e2e8f0" stroke-width="1"/>`;
-        }
-    }
-
-    // Muros perimetrales del ambiente
-    html += `<rect x="${geo.offsetX}" y="${geo.offsetY}" width="${geo.roomW}" height="${geo.roomH}" fill="#fafafa" stroke="#0f172a" stroke-width="4"/>`;
-
-    // Cotas exteriores generales (Ancho y Largo)
-    const cotaTopY = geo.offsetY - 24;
-    html += `
-        <line x1="${geo.offsetX}" y1="${cotaTopY}" x2="${geo.offsetX + geo.roomW}" y2="${cotaTopY}" stroke="#475569" stroke-width="1.2"/>
-        <line x1="${geo.offsetX}" y1="${cotaTopY - 5}" x2="${geo.offsetX}" y2="${cotaTopY + 5}" stroke="#475569" stroke-width="1.2"/>
-        <line x1="${geo.offsetX + geo.roomW}" y1="${cotaTopY - 5}" x2="${geo.offsetX + geo.roomW}" y2="${cotaTopY + 5}" stroke="#475569" stroke-width="1.2"/>
-        <rect x="${geo.offsetX + geo.roomW / 2 - 34}" y="${cotaTopY - 9}" width="68" height="17" fill="#ffffff"/>
-        <text x="${geo.offsetX + geo.roomW / 2}" y="${cotaTopY + 3}" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a">${estadoCroquis.ambAncho.toFixed(2)} m</text>
-    `;
-
-    const cotaLeftX = geo.offsetX - 26;
-    const midY = geo.offsetY + geo.roomH / 2;
-    html += `
-        <line x1="${cotaLeftX}" y1="${geo.offsetY}" x2="${cotaLeftX}" y2="${geo.offsetY + geo.roomH}" stroke="#475569" stroke-width="1.2"/>
-        <line x1="${cotaLeftX - 5}" y1="${geo.offsetY}" x2="${cotaLeftX + 5}" y2="${geo.offsetY}" stroke="#475569" stroke-width="1.2"/>
-        <line x1="${cotaLeftX - 5}" y1="${geo.offsetY + geo.roomH}" x2="${cotaLeftX + 5}" y2="${geo.offsetY + geo.roomH}" stroke="#475569" stroke-width="1.2"/>
-        <text x="${cotaLeftX - 6}" y="${midY}" text-anchor="middle" font-size="11" font-weight="700" fill="#0f172a" transform="rotate(-90, ${cotaLeftX - 6}, ${midY})">${estadoCroquis.ambLargo.toFixed(2)} m</text>
-    `;
-
-    // Título interno de superficie
-    const sup = (estadoCroquis.ambAncho * estadoCroquis.ambLargo).toFixed(2);
-    html += `<text x="${geo.offsetX + geo.roomW - 8}" y="${geo.offsetY + geo.roomH - 8}" text-anchor="end" font-size="10" fill="#64748b" font-weight="600">Sup: ${sup} m² • H: ${estadoCroquis.ambAlto.toFixed(2)} m</text>`;
-
-    // Tramos de cañería
-    estadoCroquis.tramos.forEach(tramo => {
-        const nA = estadoCroquis.nodos.find(n => n.id === tramo.desde);
-        const nB = estadoCroquis.nodos.find(n => n.id === tramo.hasta);
-        if (!nA || !nB) return;
-
-        const pA = metrosAPx(nA.x, nA.y, geo);
-        const pB = metrosAPx(nB.x, nB.y, geo);
-        const esSel = !modoExportacion && elementoSeleccionado && elementoSeleccionado.tipo === 'tramo' && elementoSeleccionado.id === tramo.id;
-
-        const strokeCol = esSel ? '#e11d48' : '#0284c7';
-        const strokeW = esSel ? '3.5' : '2.2';
-
-        // Curva suave o tramo recto
-        const midX = (pA.px + pB.px) / 2;
-        const midYTramo = (pA.py + pB.py) / 2;
-        const dx = pB.px - pA.px;
-        const dy = pB.py - pA.py;
-        const ctrlX = midX - dy * 0.10;
-        const ctrlY = midYTramo + dx * 0.10;
-
-        html += `<path d="M ${pA.px.toFixed(1)} ${pA.py.toFixed(1)} Q ${ctrlX.toFixed(1)} ${ctrlY.toFixed(1)} ${pB.px.toFixed(1)} ${pB.py.toFixed(1)}" fill="none" stroke="${strokeCol}" stroke-width="${strokeW}" stroke-dasharray="${tramo.tipo.startsWith('RETORNO') || tramo.tipo === 'COMBINACION' ? '6 3' : 'none'}" data-tramo-id="${tramo.id}" style="cursor:pointer;"/>`;
-
-        // Hitbox invisible más ancho para tocar fácil en móvil
-        if (!modoExportacion) {
-            html += `<path d="M ${pA.px.toFixed(1)} ${pA.py.toFixed(1)} Q ${ctrlX.toFixed(1)} ${ctrlY.toFixed(1)} ${pB.px.toFixed(1)} ${pB.py.toFixed(1)}" fill="none" stroke="transparent" stroke-width="18" data-tramo-id="${tramo.id}" style="cursor:pointer;"/>`;
-        }
-
-        const long25D = calcularLongitudTramo25D(nA, nB);
-        if (mostrarCotas || modoExportacion) {
-            html += `
-                <rect x="${(ctrlX - 22).toFixed(1)}" y="${(ctrlY - 8).toFixed(1)}" width="44" height="14" rx="3" fill="#ffffff" stroke="#cbd5e1" stroke-width="0.8"/>
-                <text x="${ctrlX.toFixed(1)}" y="${(ctrlY + 2.5).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#0369a1">${long25D.toFixed(2)}m</text>
-            `;
-        }
-    });
-
-    // Cotas dinámicas en vivo del nodo seleccionado hacia las paredes
-    if (!modoExportacion && elementoSeleccionado && elementoSeleccionado.tipo === 'nodo') {
-        const nodoSel = estadoCroquis.nodos.find(n => n.id === elementoSeleccionado.id);
-        if (nodoSel) {
-            const pN = metrosAPx(nodoSel.x, nodoSel.y, geo);
-            // Línea horizontal hacia pared izquierda
-            if (nodoSel.x > 0.05) {
-                html += `<line x1="${geo.offsetX}" y1="${pN.py}" x2="${pN.px}" y2="${pN.py}" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3 3"/>`;
-                html += `<text x="${(geo.offsetX + pN.px) / 2}" y="${pN.py - 4}" text-anchor="middle" font-size="9.5" font-weight="800" fill="#15803d">${nodoSel.x.toFixed(2)}m</text>`;
-            }
-            // Línea vertical hacia pared superior
-            if (nodoSel.y > 0.05) {
-                html += `<line x1="${pN.px}" y1="${geo.offsetY}" x2="${pN.px}" y2="${pN.py}" stroke="#16a34a" stroke-width="1.2" stroke-dasharray="3 3"/>`;
-                html += `<text x="${pN.px + 6}" y="${(geo.offsetY + pN.py) / 2}" text-anchor="start" font-size="9.5" font-weight="800" fill="#15803d">${nodoSel.y.toFixed(2)}m</text>`;
-            }
-        }
-    }
-
-    // Nodos / Símbolos Eléctricos
-    estadoCroquis.nodos.forEach(nodo => {
-        const info = CATALOGO_TIPOS[nodo.tipo] || CATALOGO_TIPOS.boca_centro;
-        const pos = metrosAPx(nodo.x, nodo.y, geo);
-        const rot = calcularRotacionPared(nodo);
-        const esSel = !modoExportacion && elementoSeleccionado && elementoSeleccionado.tipo === 'nodo' && elementoSeleccionado.id === nodo.id;
-        const esOrigen = !modoExportacion && nodoOrigenConectar === nodo.id;
-
-        if (esSel || esOrigen) {
-            const ringColor = esOrigen ? '#f59e0b' : '#2563eb';
-            html += `<circle cx="${pos.px.toFixed(1)}" cy="${pos.py.toFixed(1)}" r="19" fill="rgba(37,99,235,0.12)" stroke="${ringColor}" stroke-width="2" stroke-dasharray="4 2"/>`;
-        }
-
-        html += `<g transform="translate(${pos.px.toFixed(1)}, ${pos.py.toFixed(1)}) rotate(${rot})" data-nodo-id="${nodo.id}" style="cursor:pointer;">${info.svg}</g>`;
-
-        // Etiqueta de circuito
-        if (nodo.circuito) {
-            html += `<text x="${(pos.px + 13).toFixed(1)}" y="${(pos.py - 11).toFixed(1)}" font-size="9.5" font-weight="800" fill="#0f172a" data-nodo-id="${nodo.id}">${nodo.circuito}</text>`;
-        }
-
-        // Hitbox táctil invisible para seleccionar fácil en celular
-        if (!modoExportacion) {
-            html += `<circle cx="${pos.px.toFixed(1)}" cy="${pos.py.toFixed(1)}" r="22" fill="transparent" data-nodo-id="${nodo.id}" style="cursor:pointer;"/>`;
-        }
-    });
-
-    svg.innerHTML = html;
-
-    if (!modoExportacion) {
-        svg.onclick = manejarClickEnLienzo;
-    }
-}
-
-// ==========================================================================
-// 6. INTERACCIÓN TÁCTIL Y EDICIÓN DE PRECISIÓN
-// ==========================================================================
-function seleccionarHerramienta(herramienta) {
-    herramientaActual = herramienta;
-    nodoOrigenConectar = null;
-
-    document.querySelectorAll('.tool-simbolo-btn').forEach(btn => btn.classList.remove('activo'));
-    const btnActivo = document.getElementById(`tool-${herramienta}`);
-    if (btnActivo) btnActivo.classList.add('activo');
-
-    const ayuda = document.getElementById('ayudaHerramienta');
-    if (herramienta === 'seleccionar') {
-        ayuda.innerText = 'Tocá un símbolo o caño en el plano para moverlo con precisión o editarlo.';
-    } else if (herramienta === 'conectar') {
-        deseleccionarTodo();
-        ayuda.innerText = 'Paso 1: Tocá el primer símbolo (origen del caño).';
+function actualizarBadgeNube() {
+    const badge = document.getElementById('ui-cloud-badge');
+    if (!badge) return;
+    if (!permiteGuardarNube) {
+        badge.className = 'pres-cloud-pill local';
+        badge.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Modo Local';
+    } else if (nombreBorradorActual) {
+        badge.className = 'pres-cloud-pill saved';
+        badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
     } else {
-        deseleccionarTodo();
-        const info = CATALOGO_TIPOS[herramienta];
-        ayuda.innerText = `Tocá dentro del ambiente para ubicar: ${info ? info.nombre : herramienta}.`;
+        badge.className = 'pres-cloud-pill ready';
+        badge.innerHTML = '<i class="fa-solid fa-cloud"></i> Nube Lista';
     }
-    renderizarPlanoSVG();
 }
 
-function manejarClickEnLienzo(event) {
-    const svg = document.getElementById('svgCroquis');
-    const targetNodoId = event.target.getAttribute('data-nodo-id');
-    const targetTramoId = event.target.getAttribute('data-tramo-id');
+// ==========================================================================
+// PLANTILLAS RÁPIDAS E IMPORTACIÓN DESDE MÓDULO POTENCIA
+// ==========================================================================
+function aplicarPlantillaCroquis(tipo) {
+    elementoSeleccionadoId = null;
+    origenConexionId = null;
 
-    // MODO CONECTAR CAÑO
-    if (herramientaActual === 'conectar') {
-        if (!targetNodoId) {
-            mostrarToast('Seleccioná un Símbolo', 'Tocá sobre un símbolo existente para unir con caño.');
-            return;
-        }
-        if (!nodoOrigenConectar) {
-            nodoOrigenConectar = targetNodoId;
-            document.getElementById('ayudaHerramienta').innerText = 'Paso 2: Ahora tocá el segundo símbolo (destino del caño).';
-            renderizarPlanoSVG();
-            return;
-        }
-        if (nodoOrigenConectar === targetNodoId) {
-            nodoOrigenConectar = null;
-            document.getElementById('ayudaHerramienta').innerText = 'Conexión cancelada. Tocá el símbolo de origen.';
-            renderizarPlanoSVG();
-            return;
-        }
+    if (tipo === 'dormitorio') {
+        estadoCroquis = crearPlantillaDormitorio();
+    } else if (tipo === 'cocina') {
+        estadoCroquis = {
+            nombre: 'Cocina / Comedor',
+            ancho: 4.20,
+            largo: 3.00,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA',  pared: 'OESTE', offset: 0.25, ancho: 0.80 },
+                { id: 'ab2', tipo: 'VENTANA', pared: 'NORTE', offset: 1.50, ancho: 1.40 }
+            ],
+            elementos: [
+                { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.40, y: 1.50, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: 'Centro cocina' },
+                { id: 'el2', tag: 'B2',  tipo: 'BOCA_TECHO', x: 3.10, y: 1.50, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: 'Centro comedor' },
+                { id: 'el3', tag: 'LL1', tipo: 'LLAVE_2P',   x: 0.00, y: 1.25, z: 1.10, muro: 'OESTE', rot: 270, circ: 'C1', nota: '2 efectos' },
+                { id: 'el4', tag: 'TE1', tipo: 'TOMA_20A',   x: 1.80, y: 0.00, z: 1.10, muro: 'NORTE', rot: 0,   circ: 'C3', nota: 'Mesada 20A' },
+                { id: 'el5', tag: 'T1',  tipo: 'TOMA_DOBLE', x: 2.70, y: 0.00, z: 1.10, muro: 'NORTE', rot: 0,   circ: 'C2', nota: 'Mesada TUG' },
+                { id: 'el6', tag: 'T2',  tipo: 'TOMA_10A',   x: 0.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: 'Heladera' }
+            ],
+            tramos: [
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P' },
+                { id: 'tr3', desde: 'el6', hasta: 'el5', rol: 'ALIM_TUG' }
+            ]
+        };
+    } else if (tipo === 'bano') {
+        estadoCroquis = {
+            nombre: 'Baño Completo',
+            ancho: 2.40,
+            largo: 1.80,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA',    pared: 'SUR',   offset: 0.20, ancho: 0.70 },
+                { id: 'ab2', tipo: 'VENTANUCO', pared: 'NORTE', offset: 0.90, ancho: 0.60 }
+            ],
+            elementos: [
+                { id: 'el1', tag: 'B1',  tipo: 'BOCA_TECHO', x: 1.20, y: 0.90, z: 2.60, muro: 'TECHO', rot: 0,   circ: 'C1', nota: '' },
+                { id: 'el2', tag: 'AP1', tipo: 'APLIQUE',    x: 0.00, y: 0.90, z: 1.90, muro: 'OESTE', rot: 270, circ: 'C1', nota: 'Sobre espejo' },
+                { id: 'el3', tag: 'LL1', tipo: 'LLAVE_2P',   x: 1.10, y: 1.80, z: 1.10, muro: 'SUR',   rot: 180, circ: 'C1', nota: 'Centro + espejo' },
+                { id: 'el4', tag: 'T1',  tipo: 'TOMA_10A',   x: 0.00, y: 1.30, z: 1.10, muro: 'OESTE', rot: 270, circ: 'C2', nota: 'Con tapa IP' }
+            ],
+            tramos: [
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P' }
+            ]
+        };
+    } else {
+        estadoCroquis = {
+            nombre: 'Ambiente Nuevo',
+            ancho: 4.00,
+            largo: 3.50,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [
+                { id: 'ab1', tipo: 'PUERTA', pared: 'SUR', offset: 0.30, ancho: 0.80 }
+            ],
+            elementos: [],
+            tramos: []
+        };
+    }
 
-        // Evitar duplicar exactamente el mismo tramo
-        const yaExiste = estadoCroquis.tramos.some(t =>
-            (t.desde === nodoOrigenConectar && t.hasta === targetNodoId) ||
-            (t.desde === targetNodoId && t.hasta === nodoOrigenConectar)
-        );
-        if (!yaExiste) {
-            guardarSnapshotUndo();
-            const nA = estadoCroquis.nodos.find(n => n.id === nodoOrigenConectar);
-            const nB = estadoCroquis.nodos.find(n => n.id === targetNodoId);
-            const tipoSugerido = inferirTipoTramo(nA, nB);
-            estadoCroquis.tramos.push({
-                id: 'T_' + Date.now(),
-                desde: nodoOrigenConectar,
-                hasta: targetNodoId,
-                tipo: tipoSugerido
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Plantilla Aplicada', `Ambiente "${estadoCroquis.nombre}" cargado.`);
+}
+
+async function abrirModalImportarPotencia() {
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Sesión', 'Iniciá sesión en la nube para importar desde Potencia.');
+        return;
+    }
+
+    const modal = document.getElementById('modalImportarPotencia');
+    const lista = document.getElementById('listaBorradoresPotencia');
+    lista.innerHTML = '<div style="text-align:center; color:var(--ngc-neon);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando cálculos en Potencia...</div>';
+    modal.classList.remove('oculto');
+
+    try {
+        const snap = await db.collection('perfiles').doc(uid).collection('borradores_potencia').get();
+        if (snap.empty) {
+            lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No hay borradores guardados en Potencia.</p>';
+            return;
+        }
+        lista.innerHTML = '';
+        snap.forEach(doc => {
+            const d = doc.data();
+            const ambs = Array.isArray(d.listaAmbientes) ? d.listaAmbientes : [];
+            const div = document.createElement('div');
+            div.className = 'modal-list-item';
+            div.style.flexDirection = 'column';
+            div.style.alignItems = 'stretch';
+            div.style.gap = '6px';
+
+            let btnsAmbs = '';
+            if (ambs.length > 0) {
+                btnsAmbs = ambs.map((a, i) => `
+                    <button type="button" class="corp-btn-small success-btn" style="margin: 2px;" onclick="importarAmbientePotencia('${escapeJs(doc.id)}', ${i})">
+                        <i class="fa-solid fa-vector-square"></i> ${escapeHtml(a.nombre || `Ambiente ${i + 1}`)} (${a.ancho || 3}×${a.largo || 3}m)
+                    </button>
+                `).join('');
+            } else {
+                btnsAmbs = `<small style="color:var(--ngc-text-faded);">Sin ambientes detallados</small>`;
+            }
+
+            div.innerHTML = `
+                <div>
+                    <h4>${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                    <small>${escapeHtml(d.cliNombre || 'Cliente')} • ${ambs.length} ambientes</small>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:4px;">${btnsAmbs}</div>
+            `;
+            lista.appendChild(div);
+        });
+    } catch (e) {
+        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al consultar Potencia.</p>';
+    }
+}
+
+function cerrarModalImportarPotencia() {
+    document.getElementById('modalImportarPotencia').classList.add('oculto');
+}
+
+async function importarAmbientePotencia(docId, ambIndex) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    try {
+        const doc = await db.collection('perfiles').doc(uid).collection('borradores_potencia').doc(docId).get();
+        if (!doc.exists) return;
+        const data = doc.data();
+        const amb = (data.listaAmbientes || [])[ambIndex];
+        if (!amb) return;
+
+        const ancho = Math.max(1.5, parseFloat(amb.ancho) || 3.50);
+        const largo = Math.max(1.5, parseFloat(amb.largo) || 3.20);
+        const elementos = [];
+        const tramos = [];
+
+        const cantIUG = parseInt(amb.bIUG, 10) || 1;
+        for (let i = 0; i < Math.min(4, cantIUG); i++) {
+            const fracX = (i + 1) / (Math.min(4, cantIUG) + 1);
+            elementos.push({
+                id: `el_b${i + 1}`,
+                tag: `B${i + 1}`,
+                tipo: 'BOCA_TECHO',
+                x: redondear05(ancho * fracX),
+                y: redondear05(largo / 2),
+                z: 2.60,
+                muro: 'TECHO',
+                rot: 0,
+                circ: amb.circIUG || 'C1',
+                nota: ''
             });
-            mostrarToast('Caño Conectado', `Tramo agregado (${tipoSugerido}).`);
         }
-        nodoOrigenConectar = null;
-        document.getElementById('ayudaHerramienta').innerText = 'Tocá otro símbolo de origen para seguir cableando.';
-        recalcularYRenderizar();
-        programarAutoGuardado();
+
+        // Llave junto a la puerta
+        elementos.push({
+            id: 'el_ll1',
+            tag: 'LL1',
+            tipo: cantIUG > 1 ? 'LLAVE_2P' : 'LLAVE_1P',
+            x: redondear05(Math.min(ancho - 0.25, 1.15)),
+            y: largo,
+            z: 1.10,
+            muro: 'SUR',
+            rot: 180,
+            circ: amb.circIUG || 'C1',
+            nota: ''
+        });
+
+        if (elementos.length >= 2) {
+            tramos.push({
+                id: 'tr_bajada',
+                desde: 'el_b1',
+                hasta: 'el_ll1',
+                rol: cantIUG > 1 ? 'BAJADA_2P' : 'BAJADA_1P'
+            });
+        }
+
+        // Distribuir tomas TUG por los muros
+        const cantTUG = Math.min(6, parseInt(amb.bTUG, 10) || 2);
+        const murosCiclo = [
+            { muro: 'OESTE', x: 0,     y: largo * 0.5, rot: 270 },
+            { muro: 'NORTE', x: ancho * 0.5, y: 0,     rot: 0   },
+            { muro: 'ESTE',  x: ancho, y: largo * 0.5, rot: 90  },
+            { muro: 'SUR',   x: ancho * 0.75, y: largo, rot: 180 }
+        ];
+        for (let t = 0; t < cantTUG; t++) {
+            const m = murosCiclo[t % murosCiclo.length];
+            const idT = `el_t${t + 1}`;
+            elementos.push({
+                id: idT,
+                tag: `T${t + 1}`,
+                tipo: 'TOMA_10A',
+                x: redondear05(m.x),
+                y: redondear05(m.y),
+                z: 0.30,
+                muro: m.muro,
+                rot: m.rot,
+                circ: amb.circTUG || 'C2',
+                nota: ''
+            });
+            if (t > 0) {
+                tramos.push({ id: `tr_t${t}`, desde: `el_t${t}`, hasta: idT, rol: 'ALIM_TUG' });
+            }
+        }
+
+        estadoCroquis = {
+            nombre: amb.nombre || 'Ambiente Importado',
+            ancho,
+            largo,
+            alto: 2.60,
+            desperdicio: 10,
+            canoDiam: '3/4" (Ø 20mm)',
+            aberturas: [{ id: 'ab1', tipo: 'PUERTA', pared: 'SUR', offset: 0.25, ancho: 0.80 }],
+            elementos,
+            tramos
+        };
+
+        elementoSeleccionadoId = null;
+        origenConexionId = null;
+        cerrarModalImportarPotencia();
+        guardarEstadoLocal(true);
+        renderizarTodoCroquis();
+        mostrarToast('Importado de Potencia', `${estadoCroquis.nombre} (${ancho}×${largo} m) replanteado.`);
+    } catch (e) {
+        mostrarAlertaCorp('Error', 'No se pudo importar el ambiente.');
+    }
+}
+
+// ==========================================================================
+// CONFIGURACIÓN DE AMBIENTE, ABERTURAS Y ELEMENTOS
+// ==========================================================================
+function abrirModalAmbiente() {
+    document.getElementById('ambNombre').value = estadoCroquis.nombre || 'Ambiente';
+    document.getElementById('ambAncho').value = estadoCroquis.ancho || 3.50;
+    document.getElementById('ambLargo').value = estadoCroquis.largo || 3.20;
+    document.getElementById('ambAlto').value = estadoCroquis.alto || 2.60;
+    document.getElementById('ambDesperdicio').value = String(estadoCroquis.desperdicio || 10);
+    document.getElementById('ambCanoDiam').value = estadoCroquis.canoDiam || '3/4" (Ø 20mm)';
+    document.getElementById('modalAmbiente').classList.remove('oculto');
+}
+
+function cerrarModalAmbiente() {
+    document.getElementById('modalAmbiente').classList.add('oculto');
+}
+
+function guardarConfigAmbiente() {
+    const nuevoAncho = Math.max(1, Math.min(25, parseFloat(document.getElementById('ambAncho').value) || 3.50));
+    const nuevoLargo = Math.max(1, Math.min(25, parseFloat(document.getElementById('ambLargo').value) || 3.20));
+    const nuevoAlto  = Math.max(2, Math.min(6,  parseFloat(document.getElementById('ambAlto').value)  || 2.60));
+
+    estadoCroquis.nombre = document.getElementById('ambNombre').value.trim() || 'Ambiente';
+    estadoCroquis.ancho = nuevoAncho;
+    estadoCroquis.largo = nuevoLargo;
+    estadoCroquis.alto = nuevoAlto;
+    estadoCroquis.desperdicio = parseInt(document.getElementById('ambDesperdicio').value, 10) || 10;
+    estadoCroquis.canoDiam = document.getElementById('ambCanoDiam').value;
+
+    // Reajustar cajas que hayan quedado fuera de las nuevas cotas
+    estadoCroquis.elementos.forEach(el => {
+        if (el.muro === 'ESTE') el.x = nuevoAncho;
+        else if (el.muro === 'OESTE') el.x = 0;
+        else el.x = Math.min(nuevoAncho, Math.max(0, el.x));
+
+        if (el.muro === 'SUR') el.y = nuevoLargo;
+        else if (el.muro === 'NORTE') el.y = 0;
+        else el.y = Math.min(nuevoLargo, Math.max(0, el.y));
+
+        if (el.tipo === 'BOCA_TECHO') el.z = nuevoAlto;
+    });
+
+    cerrarModalAmbiente();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Medidas Actualizadas', `${estadoCroquis.nombre}: ${nuevoAncho.toFixed(2)} × ${nuevoLargo.toFixed(2)} m`);
+}
+
+function abrirModalAbertura() {
+    renderizarListaAberturasModal();
+    document.getElementById('modalAbertura').classList.remove('oculto');
+}
+
+function cerrarModalAbertura() {
+    document.getElementById('modalAbertura').classList.add('oculto');
+}
+
+function renderizarListaAberturasModal() {
+    const cont = document.getElementById('listaAberturasModal');
+    if (!estadoCroquis.aberturas || estadoCroquis.aberturas.length === 0) {
+        cont.innerHTML = '<small style="color:var(--ngc-text-faded); text-align:center;">Sin aberturas cargadas.</small>';
+        return;
+    }
+    cont.innerHTML = estadoCroquis.aberturas.map((ab, idx) => `
+        <div class="modal-list-item">
+            <div>
+                <h4 style="font-size:0.85rem;">${escapeHtml(ab.tipo)} • Pared ${escapeHtml(ab.pared)}</h4>
+                <small>A ${ab.offset.toFixed(2)} m de esquina • Ancho ${ab.ancho.toFixed(2)} m</small>
+            </div>
+            <button type="button" class="corp-btn-small danger" onclick="eliminarAbertura(${idx})"><i class="fa-solid fa-trash"></i></button>
+        </div>
+    `).join('');
+}
+
+function agregarAbertura() {
+    const tipo = document.getElementById('abTipo').value;
+    const pared = document.getElementById('abPared').value;
+    const offset = Math.max(0, parseFloat(document.getElementById('abOffset').value) || 0.20);
+    const ancho = Math.max(0.40, parseFloat(document.getElementById('abAncho').value) || 0.80);
+
+    estadoCroquis.aberturas.push({
+        id: 'ab_' + Date.now(),
+        tipo,
+        pared,
+        offset,
+        ancho
+    });
+    renderizarListaAberturasModal();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
+
+function eliminarAbertura(idx) {
+    estadoCroquis.aberturas.splice(idx, 1);
+    renderizarListaAberturasModal();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+        }
+
+// ==========================================================================
+// HERRAMIENTAS TÁCTILES, COLOCACIÓN CON IMÁN A MUROS Y D-PAD
+// ==========================================================================
+function seleccionarHerramienta(tool) {
+    herramientaActiva = tool;
+    origenConexionId = null;
+
+    document.querySelectorAll('#paletaHerramientas button').forEach(btn => {
+        const esActiva = btn.getAttribute('data-tool') === tool;
+        btn.classList.toggle('primary-action', esActiva);
+    });
+
+    const hints = {
+        SELECT: 'Tocá cualquier caja en el plano para moverla con precisión o editar sus datos.',
+        BOCA_TECHO: 'Tocá cualquier punto del techo para ubicar una Boca de Centro.',
+        APLIQUE: 'Tocá cerca de una pared para fijar un Aplique (se orienta solo).',
+        LLAVE_1P: 'Tocá cerca de una pared (ej. junto a puerta) para colocar Llave de Luz.',
+        TOMA_10A: 'Tocá cerca de una pared para ubicar un Tomacorriente.',
+        TABLERO: 'Tocá una pared para ubicar el Tablero Seccional (TS).',
+        CAJA_PASO: 'Tocá una pared o esquina para colocar Caja de Paso.',
+        CONECTAR: 'Paso 1: Tocá la caja de ORIGEN del caño.'
+    };
+    document.getElementById('ui-hint-herramienta').innerText = hints[tool] || '';
+}
+
+function centrarBocaTecho() {
+    const cx = redondear05(estadoCroquis.ancho / 2);
+    const cy = redondear05(estadoCroquis.largo / 2);
+    const existente = estadoCroquis.elementos.find(e => e.tipo === 'BOCA_TECHO');
+
+    if (existente) {
+        existente.x = cx;
+        existente.y = cy;
+        existente.z = estadoCroquis.alto;
+        elementoSeleccionadoId = existente.id;
+    } else {
+        const nuevo = {
+            id: 'el_' + Date.now(),
+            tag: generarSiguienteTag('B'),
+            tipo: 'BOCA_TECHO',
+            x: cx,
+            y: cy,
+            z: estadoCroquis.alto,
+            muro: 'TECHO',
+            rot: 0,
+            circ: 'C1',
+            nota: 'Centro geométrico'
+        };
+        estadoCroquis.elementos.push(nuevo);
+        elementoSeleccionadoId = nuevo.id;
+    }
+
+    seleccionarHerramienta('SELECT');
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Boca Centrada', `Ubicada en X=${cx.toFixed(2)}m, Y=${cy.toFixed(2)}m`);
+}
+
+function manejarToqueLienzo(evt) {
+    const svg = evt.currentTarget;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const vb = svg.viewBox.baseVal;
+    const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+    const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+
+    const svgX = ((clientX - rect.left) / rect.width) * vb.width;
+    const svgY = ((clientY - rect.top) / rect.height) * vb.height;
+
+    const geom = calcularGeometriaPlano(vb.width, vb.height);
+    const realX = Math.max(0, Math.min(estadoCroquis.ancho, (svgX - geom.ox) / geom.scale));
+    const realY = Math.max(0, Math.min(estadoCroquis.largo, (svgY - geom.oy) / geom.scale));
+
+    // Buscar si tocó cerca de algún elemento existente (radio 0.32 m)
+    let tocado = null;
+    let minDist = 0.35;
+    estadoCroquis.elementos.forEach(el => {
+        const d = Math.hypot(el.x - realX, el.y - realY);
+        if (d < minDist) {
+            minDist = d;
+            tocado = el;
+        }
+    });
+
+    if (herramientaActiva === 'CONECTAR') {
+        if (!tocado) {
+            mostrarToast('Seleccioná una Caja', 'Tocá directamente sobre un símbolo para unirlo.');
+            return;
+        }
+        if (!origenConexionId) {
+            origenConexionId = tocado.id;
+            elementoSeleccionadoId = tocado.id;
+            document.getElementById('ui-hint-herramienta').innerText = `Origen: [${tocado.tag}]. Ahora tocá la caja de DESTINO.`;
+            renderizarTodoCroquis();
+        } else if (origenConexionId !== tocado.id) {
+            conectarDosCajas(origenConexionId, tocado.id);
+            origenConexionId = null;
+            seleccionarHerramienta('SELECT');
+        }
         return;
     }
 
-    // MODO SELECCIONAR / MOVER
-    if (herramientaActual === 'seleccionar') {
-        if (targetNodoId) {
-            seleccionarNodo(targetNodoId);
-            return;
-        }
-        if (targetTramoId) {
-            seleccionarTramo(targetTramoId);
-            return;
-        }
-        deseleccionarTodo();
+    if (herramientaActiva === 'SELECT') {
+        elementoSeleccionadoId = tocado ? tocado.id : null;
+        renderizarTodoCroquis();
         return;
     }
 
-    // MODO INSERTAR NUEVO SÍMBOLO
-    const info = CATALOGO_TIPOS[herramientaActual];
-    if (!info) return;
+    // Inserción de nuevo elemento con snap automático a pared si corresponde
+    const preset = PRESETS_ELEMENTOS[herramientaActiva] || PRESETS_ELEMENTOS.TOMA_10A;
+    let posX = redondear05(realX);
+    let posY = redondear05(realY);
+    let muro = 'TECHO';
+    let rot = 0;
 
-    const pt = svg.createSVGPoint();
-    pt.x = event.clientX;
-    pt.y = event.clientY;
-    const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+    if (preset.pared) {
+        const snap = ajustarAParedCercana(posX, posY);
+        posX = snap.x;
+        posY = snap.y;
+        muro = snap.muro;
+        rot = snap.rot;
+    }
 
-    const geo = obtenerGeometriaPlano();
-    const coords = pxAMetros(svgPt.x, svgPt.y, geo);
-    const ajustadas = ajustarAParedCercana(coords.x, coords.y, herramientaActual);
-
-    guardarSnapshotUndo();
-    const nuevoNodo = {
-        id: 'N_' + Date.now(),
-        tipo: herramientaActual,
-        x: ajustadas.x,
-        y: ajustadas.y,
-        z: herramientaActual === 'boca_centro' ? estadoCroquis.ambAlto : info.zDefault,
-        circuito: info.circuitoDefault
+    const nuevo = {
+        id: 'el_' + Date.now(),
+        tag: generarSiguienteTag(preset.prefijo),
+        tipo: herramientaActiva,
+        x: posX,
+        y: posY,
+        z: herramientaActiva === 'BOCA_TECHO' ? estadoCroquis.alto : preset.zDefault,
+        muro,
+        rot,
+        circ: preset.circ,
+        nota: ''
     };
 
-    estadoCroquis.nodos.push(nuevoNodo);
-    seleccionarHerramienta('seleccionar');
-    seleccionarNodo(nuevoNodo.id);
-    recalcularYRenderizar();
-    programarAutoGuardado();
+    estadoCroquis.elementos.push(nuevo);
+    elementoSeleccionadoId = nuevo.id;
+    seleccionarHerramienta('SELECT');
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
 }
 
-function seleccionarNodo(nodoId) {
-    const nodo = estadoCroquis.nodos.find(n => n.id === nodoId);
-    if (!nodo) return;
-
-    elementoSeleccionado = { tipo: 'nodo', id: nodoId };
-    document.getElementById('panelEdicionTramo').classList.add('oculto');
-    document.getElementById('panelEdicionNodo').classList.remove('oculto');
-
-    const info = CATALOGO_TIPOS[nodo.tipo] || { nombre: nodo.tipo };
-    document.getElementById('lblNodoSeleccionado').innerText = info.nombre;
-    document.getElementById('inpNodoCircuito').value = nodo.circuito || '';
-    document.getElementById('inpNodoZ').value = (nodo.z !== undefined ? nodo.z : 1.10).toFixed(2);
-    actualizarTextoCotasNodo(nodo);
-    renderizarPlanoSVG();
+function ajustarAParedCercana(x, y) {
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+    const dists = [
+        { muro: 'NORTE', d: y,     x: redondear05(x), y: 0, rot: 0   },
+        { muro: 'SUR',   d: L - y, x: redondear05(x), y: L, rot: 180 },
+        { muro: 'OESTE', d: x,     x: 0,              y: redondear05(y), rot: 270 },
+        { muro: 'ESTE',  d: W - x, x: W,              y: redondear05(y), rot: 90  }
+    ];
+    dists.sort((a, b) => a.d - b.d);
+    return dists[0];
 }
 
-function seleccionarTramo(tramoId) {
-    const tramo = estadoCroquis.tramos.find(t => t.id === tramoId);
-    if (!tramo) return;
+function moverElementoSeleccionado(dx, dy) {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
 
-    elementoSeleccionado = { tipo: 'tramo', id: tramoId };
-    document.getElementById('panelEdicionNodo').classList.add('oculto');
-    document.getElementById('panelEdicionTramo').classList.remove('oculto');
+    const paso = parseFloat(document.getElementById('selPasoFino').value) || 0.10;
+    let nx = redondear05(el.x + dx * paso);
+    let ny = redondear05(el.y + dy * paso);
 
-    const nA = estadoCroquis.nodos.find(n => n.id === tramo.desde);
-    const nB = estadoCroquis.nodos.find(n => n.id === tramo.hasta);
-    const long = (nA && nB) ? calcularLongitudTramo25D(nA, nB).toFixed(2) : '0.00';
+    nx = Math.max(0, Math.min(estadoCroquis.ancho, nx));
+    ny = Math.max(0, Math.min(estadoCroquis.largo, ny));
 
-    document.getElementById('lblTramoSeleccionado').innerText = `Tramo de Caño (${long} m en 2.5D)`;
-    document.getElementById('selTramoTipo').value = tramo.tipo || 'IUG';
-    renderizarPlanoSVG();
+    el.x = nx;
+    el.y = ny;
+
+    if (el.muro !== 'TECHO') {
+        const snap = ajustarAParedCercana(nx, ny);
+        el.x = snap.x;
+        el.y = snap.y;
+        el.muro = snap.muro;
+        el.rot = snap.rot;
+    }
+
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
 }
 
-function deseleccionarTodo() {
-    elementoSeleccionado = null;
-    document.getElementById('panelEdicionNodo').classList.add('oculto');
-    document.getElementById('panelEdicionTramo').classList.add('oculto');
-    renderizarPlanoSVG();
-}
-
-function setPasoFino(paso) {
-    pasoFinoMetros = paso;
-    const b10 = document.getElementById('btnPaso10');
-    const b25 = document.getElementById('btnPaso25');
-    b10.style.borderColor = paso === 0.10 ? 'var(--ngc-neon)' : '';
-    b10.style.color = paso === 0.10 ? 'var(--ngc-neon)' : '';
-    b25.style.borderColor = paso === 0.25 ? 'var(--ngc-neon)' : '';
-    b25.style.color = paso === 0.25 ? 'var(--ngc-neon)' : '';
-}
-
-function moverNodoPaso(dirX, dirY) {
-    if (!elementoSeleccionado || elementoSeleccionado.tipo !== 'nodo') return;
-    const nodo = estadoCroquis.nodos.find(n => n.id === elementoSeleccionado.id);
-    if (!nodo) return;
-
-    guardarSnapshotUndo();
-    nodo.x = Math.round(Math.min(estadoCroquis.ambAncho, Math.max(0, nodo.x + dirX * pasoFinoMetros)) * 100) / 100;
-    nodo.y = Math.round(Math.min(estadoCroquis.ambLargo, Math.max(0, nodo.y + dirY * pasoFinoMetros)) * 100) / 100;
-    delete nodo.rotacionManual;
-
-    actualizarTextoCotasNodo(nodo);
-    recalcularYRenderizar();
-    programarAutoGuardado();
-}
-
-function rotarNodoSeleccionado() {
-    if (!elementoSeleccionado || elementoSeleccionado.tipo !== 'nodo') return;
-    const nodo = estadoCroquis.nodos.find(n => n.id === elementoSeleccionado.id);
-    if (!nodo) return;
-
-    guardarSnapshotUndo();
-    const actual = calcularRotacionPared(nodo);
-    nodo.rotacionManual = (actual + 90) % 360;
-    recalcularYRenderizar();
-    programarAutoGuardado();
-}
-
-function actualizarPropiedadesNodo() {
-    if (!elementoSeleccionado || elementoSeleccionado.tipo !== 'nodo') return;
-    const nodo = estadoCroquis.nodos.find(n => n.id === elementoSeleccionado.id);
-    if (!nodo) return;
-
-    nodo.circuito = document.getElementById('inpNodoCircuito').value.trim().toUpperCase();
-    const zVal = parseFloat(document.getElementById('inpNodoZ').value);
-    if (!isNaN(zVal) && zVal >= 0) nodo.z = zVal;
-
-    recalcularYRenderizar();
-    programarAutoGuardado();
-}
-
-function actualizarTipoTramo() {
-    if (!elementoSeleccionado || elementoSeleccionado.tipo !== 'tramo') return;
-    const tramo = estadoCroquis.tramos.find(t => t.id === elementoSeleccionado.id);
-    if (!tramo) return;
-
-    guardarSnapshotUndo();
-    tramo.tipo = document.getElementById('selTramoTipo').value;
-    recalcularYRenderizar();
-    programarAutoGuardado();
-}
-
-function actualizarTextoCotasNodo(nodo) {
-    const distIzq = nodo.x.toFixed(2);
-    const distDer = (estadoCroquis.ambAncho - nodo.x).toFixed(2);
-    const distSup = nodo.y.toFixed(2);
-    const distInf = (estadoCroquis.ambLargo - nodo.y).toFixed(2);
-    document.getElementById('lblCotasParedes').innerText =
-        `Izq: ${distIzq}m | Der: ${distDer}m | Sup: ${distSup}m | Inf: ${distInf}m`;
+function iniciarConexionDesdeSeleccionado() {
+    if (!elementoSeleccionadoId) return;
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    seleccionarHerramienta('CONECTAR');
+    origenConexionId = elementoSeleccionadoId;
+    if (el) {
+        document.getElementById('ui-hint-herramienta').innerText = `Origen: [${el.tag}]. Tocá ahora la caja de DESTINO en el plano.`;
+    }
+    renderizarTodoCroquis();
 }
 
 function eliminarElementoSeleccionado() {
-    if (!elementoSeleccionado) return;
-    guardarSnapshotUndo();
+    if (!elementoSeleccionadoId) return;
+    const idBorrar = elementoSeleccionadoId;
+    estadoCroquis.elementos = estadoCroquis.elementos.filter(e => e.id !== idBorrar);
+    estadoCroquis.tramos = estadoCroquis.tramos.filter(t => t.desde !== idBorrar && t.hasta !== idBorrar);
+    elementoSeleccionadoId = null;
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
 
-    if (elementoSeleccionado.tipo === 'nodo') {
-        const id = elementoSeleccionado.id;
-        estadoCroquis.nodos = estadoCroquis.nodos.filter(n => n.id !== id);
-        estadoCroquis.tramos = estadoCroquis.tramos.filter(t => t.desde !== id && t.hasta !== id);
-    } else if (elementoSeleccionado.tipo === 'tramo') {
-        const id = elementoSeleccionado.id;
-        estadoCroquis.tramos = estadoCroquis.tramos.filter(t => t.id !== id);
+function abrirModalEditarElemento() {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    document.getElementById('elTag').value = el.tag || '';
+    document.getElementById('elTipo').value = el.tipo || 'TOMA_10A';
+    document.getElementById('elCircuito').value = el.circ || 'C2';
+    document.getElementById('elZ').value = el.z ?? 0.30;
+    document.getElementById('elX').value = el.x ?? 0;
+    document.getElementById('elY').value = el.y ?? 0;
+    document.getElementById('elNota').value = el.nota || '';
+    document.getElementById('modalElemento').classList.remove('oculto');
+}
+
+function cerrarModalElemento() {
+    document.getElementById('modalElemento').classList.add('oculto');
+}
+
+function actualizarAlturaPorTipo() {
+    const tipo = document.getElementById('elTipo').value;
+    const p = PRESETS_ELEMENTOS[tipo];
+    if (p) {
+        document.getElementById('elZ').value = tipo === 'BOCA_TECHO' ? estadoCroquis.alto : p.zDefault;
+        document.getElementById('elCircuito').value = p.circ;
+    }
+}
+
+function guardarEdicionElemento() {
+    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (!el) return;
+
+    const nuevoTipo = document.getElementById('elTipo').value;
+    const preset = PRESETS_ELEMENTOS[nuevoTipo] || PRESETS_ELEMENTOS.TOMA_10A;
+
+    el.tag = document.getElementById('elTag').value.trim() || el.tag;
+    el.tipo = nuevoTipo;
+    el.circ = document.getElementById('elCircuito').value;
+    el.z = Math.max(0, parseFloat(document.getElementById('elZ').value) || 0);
+    el.x = Math.max(0, Math.min(estadoCroquis.ancho, parseFloat(document.getElementById('elX').value) || 0));
+    el.y = Math.max(0, Math.min(estadoCroquis.largo, parseFloat(document.getElementById('elY').value) || 0));
+    el.nota = document.getElementById('elNota').value.trim();
+
+    if (preset.pared) {
+        const snap = ajustarAParedCercana(el.x, el.y);
+        el.x = snap.x;
+        el.y = snap.y;
+        el.muro = snap.muro;
+        el.rot = snap.rot;
+    } else {
+        el.muro = 'TECHO';
+        el.rot = 0;
     }
 
-    deseleccionarTodo();
-    recalcularYRenderizar();
-    programarAutoGuardado();
+    cerrarModalElemento();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+        }
+
+// ==========================================================================
+// CONEXIÓN DE TRAMOS Y CÁLCULO 2.5D REAL
+// ==========================================================================
+function conectarDosCajas(idA, idB) {
+    const a = estadoCroquis.elementos.find(e => e.id === idA);
+    const b = estadoCroquis.elementos.find(e => e.id === idB);
+    if (!a || !b) return;
+
+    let rol = 'ALIM_TUG';
+    const tipos = [a.tipo, b.tipo];
+    if (tipos.includes('LLAVE_1P')) rol = 'BAJADA_1P';
+    else if (tipos.includes('LLAVE_2P')) rol = 'BAJADA_2P';
+    else if (tipos.includes('LLAVE_3P')) rol = 'BAJADA_3P';
+    else if (tipos.includes('LLAVE_COMB')) rol = 'COMBINACION';
+    else if (tipos.includes('TOMA_20A') || a.circ === 'C3' || b.circ === 'C3') rol = 'ALIM_TUE';
+    else if (a.circ === 'C1' && b.circ === 'C1') rol = 'ALIM_IUG';
+
+    estadoCroquis.tramos.push({
+        id: 'tr_' + Date.now(),
+        desde: idA,
+        hasta: idB,
+        rol
+    });
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+    mostrarToast('Tramo Conectado', `${a.tag} → ${b.tag}`);
 }
 
-function alternarCotas() {
-    mostrarCotas = !mostrarCotas;
-    renderizarPlanoSVG();
-}
-
-function guardarSnapshotUndo() {
-    historialUndo.push(JSON.stringify({
-        nodos: estadoCroquis.nodos,
-        tramos: estadoCroquis.tramos
-    }));
-    if (historialUndo.length > 25) historialUndo.shift();
-}
-
-function deshacerUltimaAccion() {
-    if (historialUndo.length === 0) {
-        mostrarToast('Sin Cambios', 'No hay acciones recientes para deshacer.');
+function abrirModalTramoManual() {
+    if (estadoCroquis.elementos.length < 2) {
+        mostrarAlertaCorp('Faltan Cajas', 'Necesitás al menos 2 cajas ubicadas en el plano para conectar un caño.');
         return;
     }
-    const previo = JSON.parse(historialUndo.pop());
-    estadoCroquis.nodos = previo.nodos || [];
-    estadoCroquis.tramos = previo.tramos || [];
-    deseleccionarTodo();
-    recalcularYRenderizar();
-    programarAutoGuardado();
+    const opts = estadoCroquis.elementos.map(e => `<option value="${e.id}">[${escapeHtml(e.tag)}] ${escapeHtml(PRESETS_ELEMENTOS[e.tipo]?.nombre || e.tipo)}</option>`).join('');
+    document.getElementById('tramoDesde').innerHTML = opts;
+    document.getElementById('tramoHasta').innerHTML = opts;
+    if (estadoCroquis.elementos.length >= 2) {
+        document.getElementById('tramoHasta').selectedIndex = 1;
+    }
+    document.getElementById('modalTramo').classList.remove('oculto');
 }
 
-function confirmarLimpiarPlano() {
-    if (estadoCroquis.nodos.length === 0) return;
-    guardarSnapshotUndo();
-    estadoCroquis.nodos = [];
-    estadoCroquis.tramos = [];
-    deseleccionarTodo();
-    recalcularYRenderizar();
-    programarAutoGuardado();
-    mostrarToast('Plano Vaciado', 'Podés recuperar con Deshacer si fue accidental.');
-            }
-
-// ==========================================================================
-// 7. MOTOR DE CÁLCULO 2.5D Y DEDUCCIÓN DE CONDUCTORES / MATERIALES
-// ==========================================================================
-function calcularLongitudTramo25D(nodoA, nodoB) {
-    // Recorrido ortogonal en planta (por cielorraso o muros) + diferencia real de alturas Z
-    const dx = Math.abs(nodoA.x - nodoB.x);
-    const dy = Math.abs(nodoA.y - nodoB.y);
-    const zA = nodoA.z !== undefined ? nodoA.z : 1.10;
-    const zB = nodoB.z !== undefined ? nodoB.z : 1.10;
-    const dz = Math.abs(zA - zB);
-
-    // Si ambos están en pared a baja altura (ej. dos tomas a 0.30m), el caño sube/baja al menos 0.30m hacia losa/contrapiso
-    const saltoMinimo = (zA < 1.5 && zB < 1.5 && (dx + dy) > 0.2) ? 0.60 : 0;
-    return Math.round((dx + dy + dz + saltoMinimo) * 100) / 100;
+function cerrarModalTramo() {
+    document.getElementById('modalTramo').classList.add('oculto');
 }
 
-function inferirTipoTramo(nA, nB) {
-    if (!nA || !nB) return 'IUG';
-    const tipos = [nA.tipo, nB.tipo];
-
-    if (tipos.includes('toma_especial')) return 'TUE';
-    if (tipos.includes('toma_simple') || tipos.includes('toma_doble')) return 'TUG';
-    if (tipos.includes('llave_comb')) return 'COMBINACION';
-    if (tipos.includes('llave_3p')) return 'RETORNO_3';
-    if (tipos.includes('llave_2p')) return 'RETORNO_2';
-    if (tipos.includes('llave_1p')) return 'RETORNO_1';
-    return 'IUG';
+function guardarTramoManual() {
+    const desde = document.getElementById('tramoDesde').value;
+    const hasta = document.getElementById('tramoHasta').value;
+    const rol = document.getElementById('tramoRol').value;
+    if (desde === hasta) {
+        mostrarAlertaCorp('Misma Caja', 'Seleccioná dos cajas diferentes.');
+        return;
+    }
+    estadoCroquis.tramos.push({ id: 'tr_' + Date.now(), desde, hasta, rol });
+    cerrarModalTramo();
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
 }
 
-function calcularComputoMateriales() {
-    estadoCroquis.desperdicio = parseFloat(document.getElementById('selDesperdicio').value) || 0.10;
-    const factor = 1 + estadoCroquis.desperdicio;
+function eliminarTramo(idx) {
+    estadoCroquis.tramos.splice(idx, 1);
+    guardarEstadoLocal(true);
+    renderizarTodoCroquis();
+}
 
-    let metrosCanoTotal = 0;
+function calcularLongitudTramo25D(tramo) {
+    const a = estadoCroquis.elementos.find(e => e.id === tramo.desde);
+    const b = estadoCroquis.elementos.find(e => e.id === tramo.hasta);
+    if (!a || !b) return 0;
+
+    const dx = Math.abs(b.x - a.x);
+    const dy = Math.abs(b.y - a.y);
+    const dz = Math.abs((b.z ?? 0) - (a.z ?? 0));
+    const techo = estadoCroquis.alto || 2.60;
+
+    // Si alguno está en techo o en el mismo muro a baja diferencia de cota, trazado ortogonal directo
+    if (a.muro === 'TECHO' || b.muro === 'TECHO' || (a.muro === b.muro && dz <= 0.30)) {
+        return dx + dy + dz;
+    }
+    // Si une dos muros distintos, sube a losa, cruza ortogonalmente y baja a la caja destino
+    return Math.abs(techo - a.z) + dx + dy + Math.abs(techo - b.z);
+}
+
+function calcularComputo25D() {
+    const factorDesp = 1 + ((estadoCroquis.desperdicio || 10) / 100);
+    let canoNeto = 0;
+
+    // Acumuladores de conductores (en metros netos)
     const cables = {
-        fase_15: 0,
-        neutro_15: 0,
-        pe_15: 0,
-        retorno_15: 0,
-        fase_25: 0,
-        neutro_25: 0,
-        pe_25: 0,
-        fase_40: 0,
-        neutro_40: 0,
-        pe_40: 0
+        f15: 0, n15: 0, pe15: 0, ret15: 0,
+        f25: 0, n25: 0, pe25: 0,
+        f40: 0, n40: 0, pe40: 0
     };
 
-    estadoCroquis.tramos.forEach(tramo => {
-        const nA = estadoCroquis.nodos.find(n => n.id === tramo.desde);
-        const nB = estadoCroquis.nodos.find(n => n.id === tramo.hasta);
-        if (!nA || !nB) return;
+    estadoCroquis.tramos.forEach(tr => {
+        const L = calcularLongitudTramo25D(tr);
+        if (L <= 0) return;
+        canoNeto += L;
+        const Lhilo = L + 0.40; // 20 cm chicote por cada caja
 
-        const m = calcularLongitudTramo25D(nA, nB);
-        metrosCanoTotal += m;
-
-        switch (tramo.tipo) {
-            case 'TUG':
-                cables.fase_25 += m;
-                cables.neutro_25 += m;
-                cables.pe_25 += m;
-                break;
-            case 'TUE':
-                cables.fase_40 += m;
-                cables.neutro_40 += m;
-                cables.pe_40 += m;
-                break;
-            case 'RETORNO_1':
-                cables.fase_15 += m;
-                cables.retorno_15 += m;
-                break;
-            case 'RETORNO_2':
-                cables.fase_15 += m;
-                cables.retorno_15 += m * 2;
-                break;
-            case 'RETORNO_3':
-                cables.fase_15 += m;
-                cables.retorno_15 += m * 3;
-                break;
-            case 'COMBINACION':
-                cables.fase_15 += m;
-                cables.retorno_15 += m * 2;
-                break;
-            case 'IUG':
-            default:
-                cables.fase_15 += m;
-                cables.neutro_15 += m;
-                cables.pe_15 += m;
-                break;
+        if (tr.rol === 'ALIM_IUG') {
+            cables.f15 += Lhilo; cables.n15 += Lhilo; cables.pe15 += Lhilo;
+        } else if (tr.rol === 'ALIM_TUG') {
+            cables.f25 += Lhilo; cables.n25 += Lhilo; cables.pe25 += Lhilo;
+        } else if (tr.rol === 'ALIM_TUE') {
+            cables.f40 += Lhilo; cables.n40 += Lhilo; cables.pe40 += Lhilo;
+        } else if (tr.rol === 'BAJADA_1P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo;
+        } else if (tr.rol === 'BAJADA_2P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo * 2;
+        } else if (tr.rol === 'BAJADA_3P') {
+            cables.f15 += Lhilo; cables.ret15 += Lhilo * 3;
+        } else if (tr.rol === 'COMBINACION') {
+            cables.ret15 += Lhilo * 3;
         }
     });
 
-    // Conteo de cajas y mecanismos por símbolo
-    let cajasRect = 0;
-    let cajasOcto = 0;
-    let cajasPaso = 0;
-    let gabinetes = 0;
-    let modToma10 = 0;
-    let modToma20 = 0;
-    let modPunto = 0;
-    let modComb = 0;
-    let bastidores = 0;
+    // Conteo de cajas y mecanismos
+    let octoGrandes = 0, octoChicas = 0, rect10x5 = 0, cajasPaso = 0, gabinetes = 0;
+    let modPunto = 0, modComb = 0, modToma10 = 0, modToma20 = 0;
 
-    estadoCroquis.nodos.forEach(n => {
-        switch (n.tipo) {
-            case 'boca_centro':
-            case 'aplique_pared':
-                cajasOcto++;
-                break;
-            case 'toma_simple':
-                cajasRect++;
-                bastidores++;
-                modToma10 += 1;
-                break;
-            case 'toma_doble':
-                cajasRect++;
-                bastidores++;
-                modToma10 += 2;
-                break;
-            case 'toma_especial':
-                cajasRect++;
-                bastidores++;
-                modToma20 += 1;
-                break;
-            case 'llave_1p':
-                cajasRect++;
-                bastidores++;
-                modPunto += 1;
-                break;
-            case 'llave_2p':
-                cajasRect++;
-                bastidores++;
-                modPunto += 2;
-                break;
-            case 'llave_3p':
-                cajasRect++;
-                bastidores++;
-                modPunto += 3;
-                break;
-            case 'llave_comb':
-                cajasRect++;
-                bastidores++;
-                modComb += 1;
-                break;
-            case 'caja_paso':
-                cajasPaso++;
-                break;
-            case 'tablero':
-                gabinetes++;
-                break;
+    estadoCroquis.elementos.forEach(el => {
+        if (el.tipo === 'BOCA_TECHO') octoGrandes++;
+        else if (el.tipo === 'APLIQUE') octoChicas++;
+        else if (el.tipo === 'CAJA_PASO') cajasPaso++;
+        else if (el.tipo === 'TABLERO') gabinetes++;
+        else {
+            rect10x5++;
+            if (el.tipo === 'LLAVE_1P') modPunto += 1;
+            else if (el.tipo === 'LLAVE_2P') modPunto += 2;
+            else if (el.tipo === 'LLAVE_3P') modPunto += 3;
+            else if (el.tipo === 'LLAVE_COMB') modComb += 1;
+            else if (el.tipo === 'TOMA_10A') modToma10 += 1;
+            else if (el.tipo === 'TOMA_DOBLE') modToma10 += 2;
+            else if (el.tipo === 'TOMA_20A') modToma20 += 1;
         }
     });
 
     const items = [];
-
-    if (metrosCanoTotal > 0) {
-        const canoConDesp = metrosCanoTotal * factor;
-        const rollosCano = Math.ceil(canoConDesp / 25);
-        items.push({
-            rubro: 'Canalización',
-            descripcion: 'Caño corrugado Ø 3/4" (20 mm) ignífugo',
-            neto: `${canoConDesp.toFixed(1)} m`,
-            comercial: `${rollosCano} rollo${rollosCano > 1 ? 's' : ''} × 25m`,
-            cantMateriales: Math.ceil(canoConDesp),
-            unidadMateriales: 'm'
-        });
+    const canoTotal = Math.ceil(canoNeto * factorDesp);
+    if (canoTotal > 0) {
+        const rollos = Math.ceil(canoTotal / 25);
+        items.push({ rubro: 'Canalización', desc: `Caño Corrugado Ignífugo ${estadoCroquis.canoDiam} (~${rollos} rollo/s × 25m)`, cant: canoTotal, unid: 'MTS' });
     }
+    if (octoGrandes > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Grande (Losa / Centro)', cant: octoGrandes, unid: 'UNID' });
+    if (octoChicas > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Chica / Mignon (Aplique)', cant: octoChicas, unid: 'UNID' });
+    if (rect10x5 > 0) {
+        items.push({ rubro: 'Cajas', desc: 'Caja Rectangular Embutir 10×5 cm', cant: rect10x5, unid: 'UNID' });
+        items.push({ rubro: 'Mecanismos', desc: 'Conjunto Bastidor + Tapa 10×5 cm', cant: rect10x5, unid: 'UNID' });
+    }
+    if (cajasPaso > 0) items.push({ rubro: 'Cajas', desc: 'Caja de Paso / Derivación con Tapa', cant: cajasPaso, unid: 'UNID' });
+    if (gabinetes > 0) items.push({ rubro: 'Tableros', desc: 'Gabinete Seccional DIN Embutir/Sup.', cant: gabinetes, unid: 'UNID' });
 
-    const agregarCable = (metrosBase, desc) => {
-        if (metrosBase <= 0) return;
-        const mFinal = Math.ceil(metrosBase * factor);
-        const rollos = Math.ceil(mFinal / 100);
-        items.push({
-            rubro: 'Conductores',
-            descripcion: desc,
-            neto: `${mFinal} m`,
-            comercial: mFinal >= 65 ? `${rollos} rollo × 100m` : `${mFinal} m fracc.`,
-            cantMateriales: mFinal,
-            unidadMateriales: 'm'
-        });
+    if (modPunto > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Interruptor Unipolar 1 Punto 10A', cant: modPunto, unid: 'UNID' });
+    if (modComb > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Interruptor Combinación 10A', cant: modComb, unid: 'UNID' });
+    if (modToma10 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 10A IRAM 2071', cant: modToma10, unid: 'UNID' });
+    if (modToma20 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 20A Reforzado', cant: modToma20, unid: 'UNID' });
+
+    // Conductores discriminados por sección y color IRAM
+    const addCable = (metros, desc) => {
+        if (metros > 0) items.push({ rubro: 'Conductores', desc, cant: Math.ceil(metros * factorDesp), unid: 'MTS' });
     };
+    addCable(cables.f15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.ret15, 'Cable Unipolar 1,5 mm² IRAM 247-3 (Negro/Blanco - Retorno)');
+    addCable(cables.pe15,  'Cable Unipolar 1,5 mm² IRAM 247-3 (Verde/Amarillo - PE)');
 
-    agregarCable(cables.fase_15, 'Cable unipolar 1,5 mm² Marrón (Fase IUG)');
-    agregarCable(cables.neutro_15, 'Cable unipolar 1,5 mm² Celeste (Neutro IUG)');
-    agregarCable(cables.pe_15, 'Cable unipolar 1,5 mm² Verde/Amarillo (PE)');
-    agregarCable(cables.retorno_15, 'Cable unipolar 1,5 mm² Blanco/Negro (Retornos)');
-    agregarCable(cables.fase_25, 'Cable unipolar 2,5 mm² Marrón (Fase TUG)');
-    agregarCable(cables.neutro_25, 'Cable unipolar 2,5 mm² Celeste (Neutro TUG)');
-    agregarCable(cables.pe_25, 'Cable unipolar 2,5 mm² Verde/Amarillo (PE TUG)');
-    agregarCable(cables.fase_40, 'Cable unipolar 4 mm² Marrón (Fase TUE)');
-    agregarCable(cables.neutro_40, 'Cable unipolar 4 mm² Celeste (Neutro TUE)');
-    agregarCable(cables.pe_40, 'Cable unipolar 4 mm² Verde/Amarillo (PE TUE)');
+    addCable(cables.f25,   'Cable Unipolar 2,5 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n25,   'Cable Unipolar 2,5 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.pe25,  'Cable Unipolar 2,5 mm² IRAM 247-3 (Verde/Amarillo - PE)');
 
-    if (cajasOcto > 0) items.push({ rubro: 'Cajas', descripcion: 'Caja octogonal chica / grande', neto: `${cajasOcto} u`, comercial: `${cajasOcto} unid.`, cantMateriales: cajasOcto, unidadMateriales: 'unid.' });
-    if (cajasRect > 0) items.push({ rubro: 'Cajas', descripcion: 'Caja rectangular 10×5 cm', neto: `${cajasRect} u`, comercial: `${cajasRect} unid.`, cantMateriales: cajasRect, unidadMateriales: 'unid.' });
-    if (cajasPaso > 0) items.push({ rubro: 'Cajas', descripcion: 'Caja de paso / derivación 10×10 cm', neto: `${cajasPaso} u`, comercial: `${cajasPaso} unid.`, cantMateriales: cajasPaso, unidadMateriales: 'unid.' });
-    if (gabinetes > 0) items.push({ rubro: 'Tableros', descripcion: 'Gabinete DIN para tablero seccional', neto: `${gabinetes} u`, comercial: `${gabinetes} unid.`, cantMateriales: gabinetes, unidadMateriales: 'unid.' });
+    addCable(cables.f40,   'Cable Unipolar 4,0 mm² IRAM 247-3 (Marrón - Fase)');
+    addCable(cables.n40,   'Cable Unipolar 4,0 mm² IRAM 247-3 (Celeste - Neutro)');
+    addCable(cables.pe40,  'Cable Unipolar 4,0 mm² IRAM 247-3 (Verde/Amarillo - PE)');
 
-    if (bastidores > 0) items.push({ rubro: 'Mecanismos', descripcion: 'Bastidor + tapa exterior 10×5', neto: `${bastidores} jgo`, comercial: `${bastidores} juegos`, cantMateriales: bastidores, unidadMateriales: 'jgo' });
-    if (modToma10 > 0) items.push({ rubro: 'Mecanismos', descripcion: 'Módulo tomacorriente 2P+T 10A', neto: `${modToma10} u`, comercial: `${modToma10} unid.`, cantMateriales: modToma10, unidadMateriales: 'unid.' });
-    if (modToma20 > 0) items.push({ rubro: 'Mecanismos', descripcion: 'Módulo tomacorriente 2P+T 20A', neto: `${modToma20} u`, comercial: `${modToma20} unid.`, cantMateriales: modToma20, unidadMateriales: 'unid.' });
-    if (modPunto > 0) items.push({ rubro: 'Mecanismos', descripcion: 'Módulo interruptor 1 punto', neto: `${modPunto} u`, comercial: `${modPunto} unid.`, cantMateriales: modPunto, unidadMateriales: 'unid.' });
-    if (modComb > 0) items.push({ rubro: 'Mecanismos', descripcion: 'Módulo interruptor combinación', neto: `${modComb} u`, comercial: `${modComb} unid.`, cantMateriales: modComb, unidadMateriales: 'unid.' });
-
-    ultimoComputo = items;
-    return items;
+    return { canoNeto, canoTotal, items };
 }
 
-function recalcularYRenderizar() {
-    renderizarPlanoSVG('svgCroquis', false);
-    const items = calcularComputoMateriales();
+// ==========================================================================
+// RENDERIZADO GENERAL DE INTERFAZ Y MOTOR VECTORIAL SVG
+// ==========================================================================
+function renderizarTodoCroquis() {
+    const sup = (estadoCroquis.ancho * estadoCroquis.largo).toFixed(2).replace('.', ',');
+    const comp = calcularComputo25D();
 
-    const tbodyUI = document.getElementById('tbodyComputoUI');
-    if (tbodyUI) {
-        if (items.length === 0) {
-            tbodyUI.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--ngc-text-faded); padding: 14px;">Ubicá símbolos y conectá caños para calcular materiales.</td></tr>';
+    document.getElementById('ui-titulo-ambiente').innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)} × ${estadoCroquis.largo.toFixed(2)} m)`;
+    document.getElementById('ui-stat-superficie').innerText = `${sup} m² • Z ${estadoCroquis.alto.toFixed(2)}m`;
+    document.getElementById('ui-stat-bocas').innerText = `${estadoCroquis.elementos.length} cajas`;
+    document.getElementById('ui-stat-caneria').innerText = `${comp.canoTotal} m (+${estadoCroquis.desperdicio}%)`;
+
+    // Auditoría rápida AEA
+    const banner = document.getElementById('ui-aea-croquis-status');
+    const cantTomas = estadoCroquis.elementos.filter(e => e.tipo.startsWith('TOMA_')).length;
+    const cantLuces = estadoCroquis.elementos.filter(e => e.tipo === 'BOCA_TECHO' || e.tipo === 'APLIQUE').length;
+    if (estadoCroquis.elementos.length === 0) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = '<i class="fa-solid fa-info-circle"></i> <strong>Ambiente Vacío:</strong> Usá las herramientas táctiles para ubicar bocas, llaves y tomas.';
+    } else if (cantLuces === 0 || cantTomas === 0) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Verificar AEA 770:</strong> ${cantLuces} boca(s) de iluminación y ${cantTomas} boca(s) de tomacorriente en ${sup} m².`;
+    } else {
+        banner.className = 'pot-aea-banner ok';
+        banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Replanteo Completo:</strong> ${cantLuces} bocas ilum. + ${cantTomas} tomas • ${comp.canoTotal} m de cañería calculados.`;
+    }
+
+    // Panel de selección D-Pad
+    const panelSel = document.getElementById('panelControlSeleccion');
+    const selEl = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+    if (selEl) {
+        panelSel.classList.remove('oculto');
+        const pNom = PRESETS_ELEMENTOS[selEl.tipo]?.nombre || selEl.tipo;
+        document.getElementById('selElemTitulo').innerText = `[${selEl.tag}] ${pNom} (${selEl.circ})`;
+        document.getElementById('selElemCoords').innerText = `X: ${selEl.x.toFixed(2)} m • Y: ${selEl.y.toFixed(2)} m • Z: ${(selEl.z ?? 0).toFixed(2)} m (${selEl.muro})`;
+    } else {
+        panelSel.classList.add('oculto');
+    }
+
+    // Lista de tramos
+    document.getElementById('ui-cant-tramos').innerText = estadoCroquis.tramos.length;
+    const contTramos = document.getElementById('ui-lista-tramos');
+    if (estadoCroquis.tramos.length === 0) {
+        contTramos.innerHTML = '<div style="text-align:center; padding:10px; font-size:0.78rem; color:var(--ngc-text-faded);">Sin tramos conectados. Usá la herramienta <b>Caño</b> para unir dos cajas.</div>';
+    } else {
+        contTramos.innerHTML = estadoCroquis.tramos.map((tr, idx) => {
+            const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
+            const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
+            const dist = calcularLongitudTramo25D(tr);
+            return `
+                <div class="uni-circ-item">
+                    <div class="uni-circ-top">
+                        <span class="uni-circ-tag"><i class="fa-solid fa-route"></i> ${escapeHtml(a?.tag || '?')} → ${escapeHtml(b?.tag || '?')}</span>
+                        <span class="uni-circ-pill">${dist.toFixed(2)} m netos</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="uni-circ-details">Rol: <strong>${escapeHtml(tr.rol)}</strong></span>
+                        <button type="button" class="corp-btn-small danger" onclick="eliminarTramo(${idx})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Lista de cómputo de materiales
+    const contComp = document.getElementById('ui-lista-computo');
+    if (comp.items.length === 0) {
+        contComp.innerHTML = '<div style="text-align:center; padding:10px; font-size:0.78rem; color:var(--ngc-text-faded);">Agregá elementos y tramos para ver el cómputo de materiales.</div>';
+    } else {
+        contComp.innerHTML = comp.items.map(it => `
+            <div class="uni-circ-item" style="padding: 8px 10px;">
+                <div class="uni-circ-top">
+                    <span style="font-size:0.8rem; font-weight:700; color:var(--ngc-text-main);">${escapeHtml(it.desc)}</span>
+                    <span class="uni-circ-pill">${it.cant} ${it.unid}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Dibujar SVG en pantalla y en plantilla A4
+    const svgHTML = generarSVGCroquis(true);
+    const stage = document.getElementById('contenedorSvgPantalla');
+    stage.innerHTML = svgHTML;
+    const svgNode = stage.querySelector('svg');
+    if (svgNode) {
+        svgNode.style.cursor = 'pointer';
+        svgNode.onclick = manejarToqueLienzo;
+    }
+
+    actualizarVistaPreviaPDF();
+}
+
+function calcularGeometriaPlano(vbW, vbH) {
+    const padL = 56, padR = 46, padT = 48, padB = 48;
+    const dispW = vbW - padL - padR;
+    const dispH = vbH - padT - padB;
+    const scale = Math.min(dispW / estadoCroquis.ancho, dispH / estadoCroquis.largo);
+    const roomW = estadoCroquis.ancho * scale;
+    const roomH = estadoCroquis.largo * scale;
+    const ox = padL + (dispW - roomW) / 2;
+    const oy = padT + (dispH - roomH) / 2;
+    return { ox, oy, roomW, roomH, scale };
+}
+
+function generarSVGCroquis(mostrarSeleccion = true) {
+    const vbW = 500;
+    const vbH = 480;
+    const { ox, oy, roomW, roomH, scale } = calcularGeometriaPlano(vbW, vbH);
+    const W = estadoCroquis.ancho;
+    const L = estadoCroquis.largo;
+
+    let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="${vbW}" height="${vbH}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
+    s += `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="#ffffff"/>`;
+
+    // Grilla auxiliar cada 0.50 m
+    for (let gx = 0.5; gx < W; gx += 0.5) {
+        const px = ox + gx * scale;
+        s += `<line x1="${px}" y1="${oy}" x2="${px}" y2="${oy + roomH}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }
+    for (let gy = 0.5; gy < L; gy += 0.5) {
+        const py = oy + gy * scale;
+        s += `<line x1="${ox}" y1="${py}" x2="${ox + roomW}" y2="${py}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }
+
+    // Muros perimetrales del ambiente
+    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="#fafafa" stroke="#0f172a" stroke-width="5"/>`;
+
+    // Cotas exteriores (Ancho arriba, Largo izquierda)
+    s += `<line x1="${ox}" y1="${oy - 22}" x2="${ox + roomW}" y2="${oy - 22}" stroke="#475569" stroke-width="1"/>`;
+    s += `<line x1="${ox}" y1="${oy - 27}" x2="${ox}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<line x1="${ox + roomW}" y1="${oy - 27}" x2="${ox + roomW}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<rect x="${ox + roomW / 2 - 28}" y="${oy - 30}" width="56" height="15" fill="#ffffff"/>`;
+    s += `<text x="${ox + roomW / 2}" y="${oy - 19}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle">${W.toFixed(2)} m</text>`;
+
+    s += `<line x1="${ox - 22}" y1="${oy}" x2="${ox - 22}" y2="${oy + roomH}" stroke="#475569" stroke-width="1"/>`;
+    s += `<line x1="${ox - 27}" y1="${oy}" x2="${ox - 17}" y2="${oy}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<line x1="${ox - 27}" y1="${oy + roomH}" x2="${ox - 17}" y2="${oy + roomH}" stroke="#475569" stroke-width="1.2"/>`;
+    s += `<text x="${ox - 28}" y="${oy + roomH / 2}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle" transform="rotate(-90 ${ox - 28} ${oy + roomH / 2})">${L.toFixed(2)} m</text>`;
+
+    // Aberturas (Puertas y Ventanas)
+    (estadoCroquis.aberturas || []).forEach(ab => {
+        const abW = Math.min(ab.ancho, (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L) * scale;
+        const off = ab.offset * scale;
+        let ax = ox, ay = oy, aw = abW, ah = 7;
+
+        if (ab.pared === 'NORTE') { ax = ox + off; ay = oy - 3.5; }
+        else if (ab.pared === 'SUR') { ax = ox + off; ay = oy + roomH - 3.5; }
+        else if (ab.pared === 'OESTE') { ax = ox - 3.5; ay = oy + off; aw = 7; ah = abW; }
+        else if (ab.pared === 'ESTE') { ax = ox + roomW - 3.5; ay = oy + off; aw = 7; ah = abW; }
+
+        s += `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="#ffffff" stroke="#0f172a" stroke-width="1"/>`;
+        if (ab.tipo.startsWith('VENTAN')) {
+            if (ab.pared === 'NORTE' || ab.pared === 'SUR') {
+                s += `<line x1="${ax}" y1="${ay + ah / 2}" x2="${ax + aw}" y2="${ay + ah / 2}" stroke="#0284c7" stroke-width="1.5"/>`;
+            } else {
+                s += `<line x1="${ax + aw / 2}" y1="${ay}" x2="${ax + aw / 2}" y2="${ay + ah}" stroke="#0284c7" stroke-width="1.5"/>`;
+            }
         } else {
-            tbodyUI.innerHTML = items.map(it => `
-                <tr>
-                    <td><strong style="color:var(--ngc-text-main);">${it.descripcion}</strong><br><small style="color:var(--ngc-text-faded);">${it.rubro}</small></td>
-                    <td style="text-align:right; white-space:nowrap;">${it.neto}</td>
-                    <td style="text-align:right; white-space:nowrap; color:var(--ngc-neon); font-weight:700;">${it.comercial}</td>
-                </tr>
-            `).join('');
+            // Arco de barrido de puerta
+            if (ab.pared === 'SUR') {
+                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 - abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax} ${ay + 3.5 - abW} A ${abW} ${abW} 0 0 1 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'NORTE') {
+                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 + abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax} ${ay + 3.5 + abW} A ${abW} ${abW} 0 0 0 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'OESTE') {
+                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 + abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax + 3.5 + abW} ${ay} A ${abW} ${abW} 0 0 1 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'ESTE') {
+                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 - abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax + 3.5 - abW} ${ay} A ${abW} ${abW} 0 0 0 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            }
+        }
+    });
+
+ // Tramos de cañería (curva suave o trazo técnico)
+    (estadoCroquis.tramos || []).forEach(tr => {
+        const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
+        const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
+        if (!a || !b) return;
+
+        const x1 = ox + a.x * scale;
+        const y1 = oy + a.y * scale;
+        const x2 = ox + b.x * scale;
+        const y2 = oy + b.y * scale;
+        const esBajada = tr.rol.startsWith('BAJADA') || tr.rol === 'COMBINACION';
+        const colorLinea = esBajada ? '#ea580c' : '#2563eb';
+        const dash = esBajada ? 'stroke-dasharray="4,2"' : '';
+
+        // Curva leve hacia el centro del ambiente para visibilidad limpia
+        const cx = (x1 + x2) / 2 + (ox + roomW / 2 - (x1 + x2) / 2) * 0.18;
+        const cy = (y1 + y2) / 2 + (oy + roomH / 2 - (y1 + y2) / 2) * 0.18;
+        s += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
+    });
+
+    // Cotas dinámicas del elemento seleccionado
+    if (mostrarSeleccion && elementoSeleccionadoId) {
+        const sel = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
+        if (sel) {
+            const sx = ox + sel.x * scale;
+            const sy = oy + sel.y * scale;
+            s += `<circle cx="${sx}" cy="${sy}" r="18" fill="rgba(35,116,225,0.16)" stroke="#2374E1" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+            if (sel.x > 0.05) {
+                s += `<line x1="${ox}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(ox + sx) / 2}" y="${sy - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${sel.x.toFixed(2)}m</text>`;
+            }
+            if (sel.y > 0.05) {
+                s += `<line x1="${sx}" y1="${oy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${sx + 5}" y="${(oy + sy) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">${sel.y.toFixed(2)}m</text>`;
+            }
         }
     }
 
-    guardarEstadoLocal();
-    sincronizarVistaPreviaPDF();
+    // Dibujo de símbolos normalizados
+    estadoCroquis.elementos.forEach(el => {
+        const px = ox + el.x * scale;
+        const py = oy + el.y * scale;
+        s += dibujarSimboloCroquis(el, px, py);
+    });
+
+    // Leyenda inferior dentro del plano
+    s += `<text x="${ox}" y="${oy + roomH + 22}" fill="#334155" font-size="9.5" font-weight="bold">${escapeXml(estadoCroquis.nombre.toUpperCase())} • SUP: ${(W * L).toFixed(2)} m² • H: ${estadoCroquis.alto.toFixed(2)} m</text>`;
+    s += `<text x="${ox + roomW}" y="${oy + roomH + 22}" fill="#64748b" font-size="9" text-anchor="end">Escala Gráfica AEA 90364</text>`;
+
+    s += `</svg>`;
+    return s;
+}
+
+function dibujarSimboloCroquis(el, x, y) {
+    const rot = el.rot || 0;
+    let g = `<g transform="translate(${x}, ${y})">`;
+    g += `<g transform="rotate(${rot})">`;
+
+    switch (el.tipo) {
+        case 'BOCA_TECHO':
+            g += `<circle cx="0" cy="0" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<line x1="-7" y1="-7" x2="7" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
+            g += `<line x1="7" y1="-7" x2="-7" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
+            break;
+        case 'APLIQUE':
+            g += `<line x1="0" y1="0" x2="0" y2="8" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<circle cx="0" cy="14" r="6.5" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            g += `<line x1="-4.5" y1="9.5" x2="4.5" y2="18.5" stroke="#0f172a" stroke-width="1.2"/>`;
+            g += `<line x1="4.5" y1="9.5" x2="-4.5" y2="18.5" stroke="#0f172a" stroke-width="1.2"/>`;
+            break;
+        case 'LLAVE_1P':
+        case 'LLAVE_2P':
+        case 'LLAVE_3P':
+        case 'LLAVE_COMB': {
+            const cant = el.tipo === 'LLAVE_3P' ? 3 : (el.tipo === 'LLAVE_2P' ? 2 : 1);
+            g += `<circle cx="0" cy="8" r="5" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            g += `<line x1="0" y1="3" x2="8" y2="-4" stroke="#0f172a" stroke-width="1.6"/>`;
+            if (el.tipo === 'LLAVE_COMB') {
+                g += `<line x1="0" y1="13" x2="-8" y2="20" stroke="#0f172a" stroke-width="1.6"/>`;
+            } else if (cant > 1) {
+                g += `<text x="10" y="11" fill="#0f172a" font-size="8" font-weight="bold">×${cant}</text>`;
+            }
+            break;
+        }
+        case 'TOMA_10A':
+        case 'TOMA_DOBLE':
+        case 'TOMA_20A': {
+            g += `<line x1="0" y1="0" x2="0" y2="7" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<path d="M -7 14 A 7 7 0 0 1 7 14" fill="none" stroke="#0f172a" stroke-width="1.8"/>`;
+            g += `<line x1="-8" y1="14" x2="8" y2="14" stroke="#0f172a" stroke-width="1.6"/>`;
+            if (el.tipo === 'TOMA_DOBLE') {
+                g += `<text x="10" y="16" fill="#0f172a" font-size="8" font-weight="bold">×2</text>`;
+            } else if (el.tipo === 'TOMA_20A') {
+                g += `<text x="10" y="16" fill="#dc2626" font-size="7.5" font-weight="bold">20A</text>`;
+            }
+            break;
+        }
+        case 'TABLERO':
+            g += `<rect x="-12" y="2" width="24" height="10" fill="#0f172a" stroke="#0f172a" stroke-width="1.4"/>`;
+            g += `<line x1="-12" y1="2" x2="12" y2="12" stroke="#ffffff" stroke-width="1.2"/>`;
+            break;
+        default: // CAJA_PASO
+            g += `<rect x="-6" y="3" width="12" height="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
+            break;
+    }
+
+    g += `</g>`;
+
+    // Etiqueta del tag desplazada hacia el interior para máxima legibilidad
+    let lx = 0, ly = -13;
+    if (rot === 0) ly = 26;
+    else if (rot === 180) ly = -16;
+    else if (rot === 270) { lx = 22; ly = 4; }
+    else if (rot === 90) { lx = -22; ly = 4; }
+
+    g += `<rect x="${lx - 13}" y="${ly - 8}" width="26" height="11" rx="2" fill="rgba(255,255,255,0.9)"/>`;
+    g += `<text x="${lx}" y="${ly}" fill="#0f172a" font-size="8.5" font-weight="bold" text-anchor="middle">${escapeXml(el.tag)}</text>`;
+    g += `</g>`;
+    return g;
 }
 
 // ==========================================================================
-// 8. VISTA PREVIA A4 Y EXPORTACIÓN PDF SIN HOJAS EN BLANCO
+// SINCRONIZACIÓN A4, EXPORTACIÓN PDF Y ENVÍO A MATERIALES
 // ==========================================================================
+function actualizarVistaPreviaPDF() {
+    const hoy = new Date().toLocaleDateString('es-AR');
+    const comp = calcularComputo25D();
+
+    document.getElementById('pdf-fecha').innerText = hoy;
+    document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value.trim() || '-';
+    document.getElementById('pdf-dir').innerText = document.getElementById('cliDireccion').value.trim() || '-';
+    document.getElementById('pdf-proyecto').innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)}m)`;
+    document.getElementById('pdf-sub-ambiente').innerText = `${estadoCroquis.nombre} • Desperdicio +${estadoCroquis.desperdicio}%`;
+
+    const svgCont = document.getElementById('pdf-svg-container');
+    if (svgCont) svgCont.innerHTML = generarSVGCroquis(false);
+
+    const tbody = document.getElementById('pdf-tbody-computo');
+    if (comp.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:8px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Sin elementos o canalizaciones cargadas en el croquis.</td></tr>';
+    } else {
+        tbody.innerHTML = comp.items.slice(0, 14).map((it, idx) => `
+            <tr style="background: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; font-weight: 700;">${escapeHtml(it.rubro)}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1;">${escapeHtml(it.desc)}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800;">${it.cant}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center;">${it.unid}</td>
+            </tr>
+        `).join('');
+    }
+
+    const notas = document.getElementById('obsGenerales').value.trim();
+    document.getElementById('pdf-notas-texto').innerText = notas || 'Cotas expresadas en metros desde ejes interiores. Alturas estándar: llaves 1,10 m, tomas 0,30 m, apliques 2,10 m NPT.';
+
+    actualizarPDFHeaders();
+}
+
 function actualizarPDFHeaders() {
     const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
     const profTel = localStorage.getItem('villaser_conf_telefono') || '';
@@ -1181,9 +1448,28 @@ function actualizarPDFHeaders() {
     const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
 
     let profEmail = localStorage.getItem('villaser_conf_email') || '';
-    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && typeof firebase.auth === 'function' && firebase.auth().currentUser) {
         profEmail = firebase.auth().currentUser.email || '';
     }
+
+    const lineaContacto = [
+        profTel ? `Tel.: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join('<br>');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) elHeaderContacto.innerHTML = lineaContacto;
+
+    const elFirmaSub = document.getElementById('pdf-firma-sub');
+    if (elFirmaSub) {
+        elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
+    }
+
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) elTelFooter.innerText = profCuit ? `CUIT: ${profCuit}` : '';
 
     const imgPdf = document.getElementById('pdf-img-logo');
     const txtPdf = document.getElementById('pdf-text-logo');
@@ -1199,97 +1485,6 @@ function actualizarPDFHeaders() {
             txtPdf.style.display = 'block';
         }
     }
-
-    const elProfNombre = document.getElementById('pdf-prof-nombre');
-    if (elProfNombre) elProfNombre.innerText = profLogo && profLogo.startsWith('data:image') ? profNombre : '';
-
-    const elSlogan = document.getElementById('pdf-slogan');
-    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
-
-    const lineaRegistro = [
-        profMatricula ? `Mat.: ${profMatricula}` : '',
-        profCuit ? `CUIT: ${profCuit}` : ''
-    ].filter(Boolean).join(' | ');
-
-    const lineaContacto = [
-        profTel ? `Tel: ${profTel}` : '',
-        profEmail ? `Email: ${profEmail}` : ''
-    ].filter(Boolean).join(' • ');
-
-    const elContacto = document.getElementById('pdf-header-contacto');
-    if (elContacto) elContacto.innerHTML = [lineaRegistro, lineaContacto].filter(Boolean).join('<br>');
-
-    const elBrand = document.getElementById('pdf-footer-brand');
-    if (elBrand) elBrand.innerText = profNombre;
-}
-
-function sincronizarVistaPreviaPDF() {
-    actualizarPDFHeaders();
-
-    document.getElementById('pdf-fecha').innerText = new Date().toLocaleDateString('es-AR');
-    document.getElementById('pdf-cliente').innerText = estadoCroquis.cliNombre || 'Sin nombre';
-
-    const rowDir = document.getElementById('pdf-row-direccion');
-    if (estadoCroquis.cliDireccion) {
-        rowDir.style.display = 'block';
-        document.getElementById('pdf-direccion').innerText = estadoCroquis.cliDireccion;
-    } else {
-        rowDir.style.display = 'none';
-    }
-
-    const sup = (estadoCroquis.ambAncho * estadoCroquis.ambLargo).toFixed(2);
-    document.getElementById('pdf-ambiente').innerText =
-        `${estadoCroquis.ambNombre} (${estadoCroquis.ambAncho.toFixed(2)} m × ${estadoCroquis.ambLargo.toFixed(2)} m = ${sup} m²)`;
-
-    // Renderizar SVG limpio dentro del contenedor PDF
-    const contSvgPdf = document.getElementById('pdf-svg-container');
-    contSvgPdf.innerHTML = '<svg id="svgPdfExport" viewBox="0 0 700 520" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-height: 365px; height: auto; display: block; margin: 0 auto;"></svg>';
-    renderizarPlanoSVG('svgPdfExport', true);
-
-    // Leyenda simbólica dinámica (solo los símbolos presentes en el croquis)
-    const leyendaEl = document.getElementById('pdf-leyenda-simbolos');
-    const tiposPresentes = [...new Set(estadoCroquis.nodos.map(n => n.tipo))];
-    if (tiposPresentes.length === 0) {
-        leyendaEl.innerHTML = '<span><b>Referencias:</b> Plano sin símbolos ubicados aún.</span>';
-    } else {
-        leyendaEl.innerHTML = tiposPresentes.map(tipo => {
-            const info = CATALOGO_TIPOS[tipo];
-            if (!info) return '';
-            const cant = estadoCroquis.nodos.filter(n => n.tipo === tipo).length;
-            return `
-                <span style="display: inline-flex; align-items: center; gap: 5px;">
-                    <svg width="18" height="18" viewBox="-16 -16 32 32" xmlns="http://www.w3.org/2000/svg">${info.svg}</svg>
-                    <span><b>${info.corto}</b> (${cant})</span>
-                </span>
-            `;
-        }).join('');
-    }
-
-    // Tabla de materiales en PDF (máximo 14 filas para garantizar 1 sola hoja A4)
-    const tbodyPdf = document.getElementById('pdf-tbody-materiales');
-    const items = ultimoComputo.slice(0, 14);
-    if (items.length === 0) {
-        tbodyPdf.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#64748b;">Sin tramos ni materiales calculados.</td></tr>';
-    } else {
-        tbodyPdf.innerHTML = items.map(it => `
-            <tr>
-                <td><b>${it.rubro}</b></td>
-                <td>${it.descripcion}</td>
-                <td style="text-align: right;">${it.neto}</td>
-                <td style="text-align: right; font-weight: 700;">${it.comercial}</td>
-            </tr>
-        `).join('');
-    }
-
-    const obs = document.getElementById('obsGenerales').value.trim();
-    estadoCroquis.obsGenerales = obs;
-    const boxNotas = document.getElementById('pdf-notas-box');
-    if (obs) {
-        boxNotas.style.display = 'block';
-        document.getElementById('pdf-notas').innerText = obs;
-    } else {
-        boxNotas.style.display = 'none';
-    }
 }
 
 async function convertirSvgCroquisAImagen() {
@@ -1300,108 +1495,61 @@ async function convertirSvgCroquisAImagen() {
     const svgEl = contenedor.querySelector('svg');
     if (!svgEl) return () => {};
 
-    const ancho = 700;
-    const alto = 520;
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    const ancho = (vb && vb.width) ? vb.width : 500;
+    const alto = (vb && vb.height) ? vb.height : 480;
+
     const svgClon = svgEl.cloneNode(true);
     svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svgClon.setAttribute('width', ancho);
     svgClon.setAttribute('height', alto);
 
     const xml = new XMLSerializer().serializeToString(svgClon);
-    const blob = new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${xml}`], {
-        type: 'image/svg+xml;charset=utf-8'
-    });
-    const url = URL.createObjectURL(blob);
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
 
     try {
-        const dataUrl = await new Promise((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-                const escala = 3;
-                const canvas = document.createElement('canvas');
-                canvas.width = ancho * escala;
-                canvas.height = alto * escala;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.scale(escala, escala);
-                ctx.drawImage(img, 0, 0, ancho, alto);
-                URL.revokeObjectURL(url);
-                resolve(canvas.toDataURL('image/png'));
+        const pngDataUrl = await new Promise((resolve, reject) => {
+            const imgLoader = new Image();
+            imgLoader.onload = () => {
+                try {
+                    const escala = 2;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = ancho * escala;
+                    canvas.height = alto * escala;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.scale(escala, escala);
+                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (err) {
+                    reject(err);
+                }
             };
-            img.onerror = err => {
-                URL.revokeObjectURL(url);
-                reject(err);
-            };
-            img.src = url;
+            imgLoader.onerror = reject;
+            imgLoader.src = dataUri;
         });
 
-        contenedor.innerHTML = `<img src="${dataUrl}" alt="Croquis Eléctrico" style="width: 100%; max-height: 365px; height: auto; object-fit: contain; display: block; margin: 0 auto;">`;
-        return () => {
-            contenedor.innerHTML = svgOriginalHTML;
-        };
+        const imgFinal = document.createElement('img');
+        imgFinal.src = pngDataUrl;
+        imgFinal.alt = 'Croquis Eléctrico';
+        imgFinal.style.cssText = 'width: 100%; max-height: 410px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
+        contenedor.innerHTML = '';
+        contenedor.appendChild(imgFinal);
+
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
     } catch (e) {
-        console.warn('Error rasterizando SVG para PDF:', e);
-        return () => {
-            contenedor.innerHTML = svgOriginalHTML;
-        };
+        console.warn('Error rasterizando SVG croquis:', e);
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
     }
-}
-
-function toggleAccionesMenu() {
-    document.getElementById('contenedorAcciones').classList.toggle('oculto');
-}
-
-function abrirVistaPreviaMobile() {
-    sincronizarVistaPreviaPDF();
-    const modal = document.getElementById('modalVistaPrevia');
-    const contenedor = document.getElementById('contenedorVistaPreviaMobile');
-    const plantilla = document.getElementById('plantilla-pdf');
-    const pdfContainer = plantilla.querySelector('.pdf-container');
-
-    modal.classList.remove('oculto');
-    document.body.style.overflow = 'hidden';
-
-    plantilla.style.display = 'inline-block';
-    plantilla.style.textAlign = 'left';
-    contenedor.appendChild(plantilla);
-
-    const anchoDisponible = Math.max(280, contenedor.clientWidth - 24);
-    escalaActualPreview = Math.min(1, anchoDisponible / 794);
-    if (pdfContainer) {
-        pdfContainer.style.transformOrigin = 'top left';
-        pdfContainer.style.transform = `scale(${escalaActualPreview})`;
-    }
-    plantilla.style.width = `${794 * escalaActualPreview}px`;
-    plantilla.style.height = `${1115 * escalaActualPreview}px`;
-}
-
-function cerrarVistaPreviaMobile() {
-    const modal = document.getElementById('modalVistaPrevia');
-    const previewAside = document.querySelector('.preview-panel');
-    const plantilla = document.getElementById('plantilla-pdf');
-    const pdfContainer = plantilla.querySelector('.pdf-container');
-
-    modal.classList.add('oculto');
-    document.body.style.overflow = '';
-
-    if (pdfContainer) pdfContainer.style.transform = '';
-    plantilla.style.width = '';
-    plantilla.style.height = '';
-    if (window.innerWidth < 992) plantilla.style.display = 'none';
-    if (previewAside) previewAside.appendChild(plantilla);
 }
 
 function generarPDF() {
-    if (estadoCroquis.nodos.length === 0) {
-        mostrarAlertaCorp('Plano Vacío', 'Ubicá al menos un símbolo eléctrico antes de exportar el PDF.');
-        return;
-    }
-    sincronizarVistaPreviaPDF();
-
-    const ambSlug = estadoCroquis.ambNombre.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'Ambiente';
-    const cliSlug = estadoCroquis.cliNombre.trim().replace(/[^a-zA-Z0-9]/g, '_') || 'Cliente';
-    document.getElementById('nombreArchivoPDF').value = `Croquis_${ambSlug}_${cliSlug}`;
+    actualizarVistaPreviaPDF();
+    const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Croquis_${amb}_${cli}_${sufijo}`;
     document.getElementById('modalDescargarPDF').classList.remove('oculto');
 }
 
@@ -1416,24 +1564,30 @@ function cerrarModalPDF() {
 
 async function ejecutarDescargaPDF() {
     const btn = document.getElementById('btnConfirmarDescargaPDF');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    }
 
     const element = document.getElementById('plantilla-pdf');
     const pdfContainer = element ? element.querySelector('.pdf-container') : null;
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
+    const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
 
     if (!modalAbierto && element) {
+        element.classList.remove('oculto');
         element.style.display = 'block';
         window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
     }
 
-    element.style.width = '794px';
-    element.style.height = '1115px';
-    element.style.overflow = 'hidden';
+    if (element) {
+        element.style.width = '794px';
+        element.style.height = '1115px';
+        element.style.overflow = 'hidden';
+    }
 
     const marcaAgua = document.getElementById('marcaAguaPDF');
     if (marcaAgua) marcaAgua.style.display = 'none';
@@ -1441,7 +1595,8 @@ async function ejecutarDescargaPDF() {
     let restaurarSvg = () => {};
     try {
         restaurarSvg = await convertirSvgCroquisAImagen();
-        const nombreFinal = document.getElementById('nombreArchivoPDF').value.trim() || 'Croquis_Electrico';
+        const inputNombre = document.getElementById('nombreArchivoPDF');
+        const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Croquis_Electrico';
 
         const opt = {
             margin: 0,
@@ -1456,9 +1611,7 @@ async function ejecutarDescargaPDF() {
                 scrollY: 0,
                 width: 794,
                 height: 1115,
-                ignoreElements: el =>
-                    el.id === 'marcaAguaPDF' ||
-                    (el.tagName === 'IMG' && !(el.getAttribute('src') || '').startsWith('data:image'))
+                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !(el.getAttribute('src') || '').startsWith('data:image'))
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
         };
@@ -1477,391 +1630,364 @@ async function ejecutarDescargaPDF() {
             .save();
 
         cerrarModalPDF();
-        mostrarToast('PDF Descargado', 'Croquis generado en 1 hoja A4.');
+        mostrarToast('Éxito', 'Croquis Eléctrico PDF generado.');
 
         if (permiteGuardarNube) {
-            guardarBorradorFirebase(false, true);
+            try {
+                guardarBorradorFirebase(false, true);
+            } catch (errNube) {
+                console.warn('Aviso respaldo automático:', errNube);
+            }
         }
     } catch (error) {
-        console.error('Error exportando PDF de Croquis:', error);
+        console.error('Error generando PDF Croquis:', error);
         mostrarAlertaCorp('Error al Exportar', `No se pudo generar el PDF (${error.message || 'error interno'}).`);
     } finally {
         restaurarSvg();
-        btn.disabled = false;
-        btn.innerHTML = 'Descargar';
-
-        element.style.width = '';
-        element.style.height = '';
-        element.style.overflow = '';
-
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Descargar';
+        }
+        if (element) {
+            element.style.width = '';
+            element.style.height = '';
+            element.style.overflow = '';
+            if (teniaClaseOculto) element.classList.add('oculto');
+        }
         if (marcaAgua) marcaAgua.style.display = 'flex';
-
         if (modalAbierto) {
-            if (pdfContainer) pdfContainer.style.transform = `scale(${escalaActualPreview})`;
-            element.style.width = `${794 * escalaActualPreview}px`;
-            element.style.height = `${1115 * escalaActualPreview}px`;
-        } else if (window.innerWidth < 992) {
+            aplicarEscalaVistaPrevia(escalaActualPreview);
+        } else if (element && window.innerWidth < 992) {
             element.style.display = 'none';
         }
     }
 }
 
-async function descargarPNG() {
-    sincronizarVistaPreviaPDF();
-    const element = document.getElementById('plantilla-pdf');
-    const prevDisplay = element.style.display;
-    element.style.display = 'block';
-    const marcaAgua = document.getElementById('marcaAguaPDF');
-    if (marcaAgua) marcaAgua.style.display = 'none';
-
-    const restaurarSvg = await convertirSvgCroquisAImagen();
-    try {
-        const canvas = await html2canvas(element, {
-            scale: 2,
-            useCORS: false,
-            backgroundColor: '#ffffff',
-            width: 794,
-            height: 1115
-        });
-        const a = document.createElement('a');
-        a.download = `Croquis_${estadoCroquis.ambNombre.replace(/ /g, '_')}.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-        mostrarToast('Imagen Guardada', 'PNG descargado en tu dispositivo.');
-    } finally {
-        restaurarSvg();
-        if (marcaAgua) marcaAgua.style.display = 'flex';
-        element.style.display = prevDisplay;
-    }
-}
-
-// ==========================================================================
-// 9. CONEXIÓN CON OTROS MÓDULOS (POTENCIA, MATERIALES, WHATSAPP)
-// ==========================================================================
-function enviarComputoAMateriales() {
-    if (ultimoComputo.length === 0) {
-        mostrarAlertaCorp('Sin Materiales', 'Ubicá símbolos y conectá caños para generar el listado.');
+function exportarComputoAMateriales() {
+    const comp = calcularComputo25D();
+    if (comp.items.length === 0) {
+        mostrarAlertaCorp('Sin Materiales', 'Cargá primero bocas y tramos de cañería en el croquis.');
         return;
     }
 
-    const listaItems = ultimoComputo.map((it, idx) => ({
-        id: Date.now() + idx,
-        material: it.descripcion,
-        nota: `${it.rubro} (${it.comercial})`,
-        cantidad: it.cantMateriales,
-        unidad: it.unidadMateriales
-    }));
-
-    const payloadMateriales = {
-        cliNombre: estadoCroquis.cliNombre,
-        cliDireccion: estadoCroquis.cliDireccion,
-        cliProyecto: `Croquis ${estadoCroquis.ambNombre}`,
-        obsGenerales: estadoCroquis.obsGenerales || `Cómputo importado desde Croquis (${estadoCroquis.ambAncho}m × ${estadoCroquis.ambLargo}m).`,
-        listaItems,
-        clienteDesdeAgenda,
-        permiteGuardarNube,
-        telefonoClienteActual
+    const paquete = {
+        origen: 'croquis',
+        cliente: document.getElementById('cliNombre').value.trim(),
+        direccion: document.getElementById('cliDireccion').value.trim(),
+        proyecto: `${estadoCroquis.nombre} (${estadoCroquis.ancho}×${estadoCroquis.largo}m)`,
+        fecha: Date.now(),
+        items: comp.items
     };
 
-    localStorage.setItem('materiales_estado_actual', JSON.stringify(payloadMateriales));
-    window.location.href = '../materiales/index.html';
+    localStorage.setItem('villaser_computo_croquis_export', JSON.stringify(paquete));
+    guardarClienteGlobal();
+    mostrarToast('Cómputo Listo', `${comp.items.length} ítems guardados. Abriendo Materiales...`);
+    setTimeout(() => {
+        window.location.replace('../materiales/index.html?from=croquis');
+    }, 900);
+            }
+
+// ==========================================================================
+// VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
+// ==========================================================================
+let escalaActualPreview = 1;
+
+function abrirVistaPrevia() {
+    actualizarVistaPreviaPDF();
+    const modal = document.getElementById('modalVistaPrevia');
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    const plantilla = document.getElementById('plantilla-pdf');
+
+    modal.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+
+    plantilla.style.display = 'inline-block';
+    cont.appendChild(plantilla);
+
+    const anchoDisp = Math.max(280, document.getElementById('areaScrollVistaPrevia').clientWidth - 28);
+    escalaActualPreview = Math.min(1, anchoDisp / 794);
+    aplicarEscalaVistaPrevia(escalaActualPreview);
+}
+
+function aplicarEscalaVistaPrevia(escala) {
+    escalaActualPreview = Math.min(1.6, Math.max(0.35, escala));
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    if (cont) {
+        cont.style.transform = `scale(${escalaActualPreview})`;
+        cont.style.width = `${794 * escalaActualPreview}px`;
+        cont.style.height = `${1115 * escalaActualPreview}px`;
+    }
+    const txt = document.getElementById('txtZoomPreview');
+    if (txt) txt.innerText = `${Math.round(escalaActualPreview * 100)}%`;
+}
+
+function cambiarZoomPreview(delta) {
+    aplicarEscalaVistaPrevia(escalaActualPreview + delta);
+}
+
+function cerrarVistaPrevia() {
+    const modal = document.getElementById('modalVistaPrevia');
+    const plantilla = document.getElementById('plantilla-pdf');
+    const aside = document.querySelector('.preview-panel');
+
+    modal.classList.add('oculto');
+    document.body.style.overflow = '';
+
+    if (aside && plantilla) {
+        plantilla.style.display = '';
+        aside.appendChild(plantilla);
+    }
+}
+
+function toggleAccionesMenu() {
+    document.getElementById('accionesMenu').classList.toggle('oculto');
 }
 
 function prepararEnvioWhatsApp() {
-    if (estadoCroquis.nodos.length === 0) {
-        mostrarAlertaCorp('Sin Datos', 'Agregá al menos un elemento al plano.');
-        return;
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'VILLASER GESTIÓN';
+    const cli = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const comp = calcularComputo25D();
+
+    let msg = `*${profNombre.toUpperCase()} - CROQUIS Y CÓMPUTO 2.5D*\n`;
+    msg += `*Cliente:* ${cli}\n`;
+    msg += `*Ambiente:* ${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)} m)\n\n`;
+
+    if (comp.items.length > 0) {
+        msg += `*Materiales Calculados (+${estadoCroquis.desperdicio}% desp.):*\n`;
+        comp.items.forEach(it => {
+            msg += `• ${it.cant} ${it.unid} — ${it.desc}\n`;
+        });
     }
-    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL';
-    let msg = `*${profNombre.toUpperCase()} - CROQUIS Y CÓMPUTO*\n`;
-    msg += `*Cliente:* ${estadoCroquis.cliNombre}\n`;
-    msg += `*Ambiente:* ${estadoCroquis.ambNombre} (${estadoCroquis.ambAncho.toFixed(2)}m × ${estadoCroquis.ambLargo.toFixed(2)}m)\n\n`;
-    msg += `*Materiales Estimados:*\n`;
-    ultimoComputo.forEach(it => {
-        msg += `• ${it.descripcion}: *${it.neto}* (${it.comercial})\n`;
-    });
-    if (estadoCroquis.obsGenerales) msg += `\n*Notas:* ${estadoCroquis.obsGenerales}`;
 
     if (typeof abrirModalWspGlobal === 'function') {
         abrirModalWspGlobal(telefonoClienteActual, msg);
     }
 }
 
-async function abrirModalImportarPotencia() {
-    const uid = obtenerUid();
-    const lista = document.getElementById('listaProyectosPotencia');
-    document.getElementById('modalImportarPotencia').classList.remove('oculto');
-    lista.innerHTML = '<div style="text-align:center; color:var(--ngc-neon);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando en Potencia...</div>';
-
-    if (!uid || typeof db === 'undefined') {
-        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Sin conexión a la nube.</p>';
-        return;
-    }
-
-    try {
-        const snap = await db.collection('perfiles').doc(uid).collection('borradores_potencia').get();
-        const docs = [];
-        snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
-
-        if (docs.length === 0) {
-            lista.innerHTML = '<p style="color:var(--ngc-text-faded); text-align:center;">No tenés proyectos guardados en Potencia.</p>';
-            return;
-        }
-
-        lista.innerHTML = '';
-        docs.forEach(item => {
-            const p = item.data;
-            const ambs = Array.isArray(p.listaAmbientes) ? p.listaAmbientes : [];
-            const div = document.createElement('div');
-            div.className = 'modal-list-item';
-            div.style.flexDirection = 'column';
-            div.style.alignItems = 'stretch';
-            div.style.gap = '6px';
-
-            let btnsAmb = ambs.map((a, idx) => `
-                <button type="button" class="corp-btn-small" style="justify-content: space-between; width: 100%;" onclick="importarAmbientePotencia('${item.id}', ${idx})">
-                    <span>${a.tipo} (${a.ancho || 3}m × ${a.largo || 3}m)</span>
-                    <i class="fa-solid fa-file-import"></i>
-                </button>
-            `).join('');
-
-            if (!btnsAmb) btnsAmb = '<small style="color:var(--ngc-text-faded);">Sin ambientes cargados</small>';
-
-            div.innerHTML = `
-                <div><strong>${p.cliNombre || item.id}</strong> <small style="color:var(--ngc-text-faded);">${p.cliDireccion || ''}</small></div>
-                <div style="display:flex; flex-direction:column; gap:4px;">${btnsAmb}</div>
-            `;
-            lista.appendChild(div);
-        });
-    } catch (e) {
-        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al consultar Potencia.</p>';
-    }
-}
-
-function cerrarModalImportarPotencia() {
-    document.getElementById('modalImportarPotencia').classList.add('oculto');
-}
-
-async function importarAmbientePotencia(docId, indexAmb) {
-    const uid = obtenerUid();
-    if (!uid || typeof db === 'undefined') return;
-
-    try {
-        const doc = await db.collection('perfiles').doc(uid).collection('borradores_potencia').doc(docId).get();
-        if (!doc.exists) return;
-        const p = doc.data();
-        const amb = (p.listaAmbientes || [])[indexAmb];
-        if (!amb) return;
-
-        document.getElementById('cliNombre').value = p.cliNombre || '';
-        document.getElementById('cliDireccion').value = p.cliDireccion || '';
-        document.getElementById('ambNombre').value = amb.tipo || 'Ambiente';
-        document.getElementById('ambAncho').value = (parseFloat(amb.ancho) || 4.0).toFixed(2);
-        document.getElementById('ambLargo').value = (parseFloat(amb.largo) || 3.5).toFixed(2);
-
-        clienteDesdeAgenda = true;
-        permiteGuardarNube = true;
-        cerrarModalImportarPotencia();
-        mostrarToast('Ambiente Importado', `${amb.tipo} cargado desde Potencia.`);
-    } catch (e) {
-        mostrarAlertaCorp('Error', 'No se pudo importar el ambiente.');
-    }
-            }
-
 // ==========================================================================
-// 10. PERSISTENCIA EN LA NUBE (FIREBASE) Y RESPALDO LOCAL JSON
+// BORRADORES EN FIREBASE (perfiles/{uid}/borradores_croquis)
 // ==========================================================================
-function actualizarBadgeNube(estado) {
-    const badge = document.getElementById('ui-cloud-badge');
-    if (!badge) return;
-    badge.classList.remove('guardando', 'error', 'local');
-
-    if (estado === 'guardando') {
-        badge.classList.add('guardando');
-        badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
-    } else if (estado === 'error') {
-        badge.classList.add('error');
-        badge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sin red';
-    } else if (estado === 'local') {
-        badge.classList.add('local');
-        badge.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Solo Local';
-    } else {
-        badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
-    }
-}
-
-function programarAutoGuardado() {
-    guardarEstadoLocal();
-    if (!permiteGuardarNube) return;
-    clearTimeout(timerAutoGuardado);
-    timerAutoGuardado = setTimeout(() => {
-        guardarBorradorFirebase(false, true);
-    }, 2000);
-}
-
-async function guardarBorradorFirebase(mostrarAlerta = false, silencioso = false) {
+function guardarBorradorFirebase(pedirNombre = true, silencioso = false) {
     const uid = obtenerUid();
-    if (!uid || typeof db === 'undefined') {
-        if (mostrarAlerta) mostrarAlertaCorp('Sin Sesión', 'No se detectó sesión activa.');
+    if (!uid || !db) {
+        if (!silencioso) mostrarAlertaCorp('Sin Sesión', 'No se detectó sesión activa para guardar en la nube.');
         return;
     }
     if (!permiteGuardarNube) {
-        if (mostrarAlerta) mostrarAlertaCorp('Modo Local', 'Agendá el cliente para habilitar el respaldo en la nube.');
+        if (!silencioso) mostrarAlertaCorp('Cliente no Agendado', 'Vinculá el cliente desde Agenda para respaldar en la nube.');
         return;
     }
-    if (!estadoCroquis.cliNombre) return;
 
-    actualizarBadgeNube('guardando');
+    if (pedirNombre) {
+        const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+        const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
+        const fecha = new Date().toISOString().slice(0, 10);
+        document.getElementById('inputNombreBorrador').value = nombreBorradorActual || `Croquis_${amb}_${cli}_${fecha}`;
+        document.getElementById('modalGuardarBorrador').classList.remove('oculto');
+        return;
+    }
 
-    const baseId = nombreBorradorActual || `${estadoCroquis.cliNombre}_${estadoCroquis.ambNombre}`;
-    const docId = baseId.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
-    nombreBorradorActual = docId;
+    const nombreFinal = nombreBorradorActual || `Croquis_${Date.now()}`;
+    ejecutarGuardadoEnNube(nombreFinal, silencioso);
+}
 
-    const payload = {
-        ...estadoCroquis,
-        nombreBorrador: `${estadoCroquis.cliNombre} - ${estadoCroquis.ambNombre}`,
-        telefonoClienteActual,
+function cerrarModalGuardarBorrador() {
+    document.getElementById('modalGuardarBorrador').classList.add('oculto');
+}
+
+function ejecutarGuardarBorrador() {
+    const nombre = document.getElementById('inputNombreBorrador').value.trim();
+    if (!nombre) {
+        mostrarAlertaCorp('Faltan Datos', 'Ingresá un nombre para identificar el borrador.');
+        return;
+    }
+    nombreBorradorActual = nombre;
+    cerrarModalGuardarBorrador();
+    ejecutarGuardadoEnNube(nombre, false);
+}
+
+function normalizarEstadoCroquis(raw) {
+    const base = Object.assign(crearPlantillaDormitorio(), raw || {});
+    if (!Array.isArray(base.aberturas)) base.aberturas = [];
+    if (!Array.isArray(base.elementos)) base.elementos = [];
+    if (!Array.isArray(base.tramos)) base.tramos = [];
+    return base;
+}
+
+function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    const badge = document.getElementById('ui-cloud-badge');
+    if (badge) {
+        badge.className = 'pres-cloud-pill saving';
+        badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
+    }
+
+    const docId = nombreDoc.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    const payload = JSON.parse(JSON.stringify({
+        cliNombre: document.getElementById('cliNombre').value.trim(),
+        cliDireccion: document.getElementById('cliDireccion').value.trim(),
+        cliProyecto: document.getElementById('cliProyecto').value.trim(),
+        obsGenerales: document.getElementById('obsGenerales').value,
+        estadoCroquis: normalizarEstadoCroquis(estadoCroquis),
+        nombreBorrador: nombreDoc,
+        telefonoClienteActual: telefonoClienteActual || '',
         fechaGuardado: Date.now()
-    };
+    }));
 
-    try {
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 8000)
-        );
-        await Promise.race([
-            db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).set(payload),
-            timeoutPromise
-        ]);
+    const escritura = db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).set(payload);
+    const timeoutNube = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado')), 8000));
 
-        actualizarBadgeNube('sincronizado');
-        if (mostrarAlerta) mostrarToast('Guardado en Nube', 'Croquis sincronizado correctamente.');
-    } catch (err) {
-        console.warn('Error guardando croquis en Firestore:', err);
-        actualizarBadgeNube('error');
-        if (!silencioso || mostrarAlerta) {
-            mostrarAlertaCorp('Error de Nube', `No se pudo guardar en Firebase (${err.code || err.message}). Tu copia local está a salvo.`);
-        }
-    }
+    Promise.race([escritura, timeoutNube])
+        .then(() => {
+            if (badge) {
+                badge.className = 'pres-cloud-pill saved';
+                badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
+            }
+            if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
+        })
+        .catch(err => {
+            console.error('Error guardando croquis:', err);
+            if (badge) actualizarBadgeNube();
+            if (!silencioso) mostrarAlertaCorp('Error de Nube', 'No se pudo sincronizar con Firebase.');
+        });
 }
 
-async function abrirModalBorradores() {
+function abrirModalBorradores() {
     const uid = obtenerUid();
-    const lista = document.getElementById('listaBorradores');
-    document.getElementById('modalBorradores').classList.remove('oculto');
-    lista.innerHTML = '<div style="text-align:center; color:var(--ngc-neon);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando croquis...</div>';
-
-    if (!uid || typeof db === 'undefined') {
-        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Sin conexión a la nube.</p>';
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Sesión', 'Iniciá sesión para acceder a tus borradores en la nube.');
         return;
     }
 
-    try {
-        const snap = await db.collection('perfiles').doc(uid).collection('borradores_croquis').get();
-        const docs = [];
-        snap.forEach(d => docs.push({ id: d.id, data: d.data() }));
-        docs.sort((a, b) => (b.data.fechaGuardado || 0) - (a.data.fechaGuardado || 0));
+    const modal = document.getElementById('modalBorradores');
+    const lista = document.getElementById('listaBorradores');
+    lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando...</p>';
+    modal.classList.remove('oculto');
 
-        if (docs.length === 0) {
-            lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No hay croquis guardados en la nube.</p>';
-            return;
-        }
-
-        lista.innerHTML = '';
-        docs.forEach(item => {
-            const p = item.data;
-            const fecha = p.fechaGuardado ? new Date(p.fechaGuardado).toLocaleDateString('es-AR') : '';
-            const div = document.createElement('div');
-            div.className = 'modal-list-item';
-            div.style.borderLeft = '3px solid var(--ngc-neon)';
-            div.innerHTML = `
-                <div style="flex:1; min-width:0; padding-right:8px;">
-                    <h4 style="margin-bottom:4px; word-break:break-word;">${p.nombreBorrador || item.id}</h4>
-                    <small style="color:var(--ngc-text-faded);">${p.ambAncho || 0}m × ${p.ambLargo || 0}m • ${fecha}</small>
-                </div>
-                <div style="display:flex; gap:6px; flex-shrink:0;">
-                    <button type="button" class="corp-btn-small" onclick="cargarBorradorNube('${item.id}')">Abrir</button>
-                    <button type="button" class="corp-btn-small danger" onclick="eliminarBorradorNube('${item.id}', this)"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            `;
-            lista.appendChild(div);
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').orderBy('fechaGuardado', 'desc').get()
+        .then(snap => {
+            if (snap.empty) {
+                lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No tenés croquis guardados aún.</p>';
+                return;
+            }
+            lista.innerHTML = '';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const div = document.createElement('div');
+                div.className = 'modal-list-item';
+                div.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <h4 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                        <small>${escapeHtml(d.cliNombre || 'Sin cliente')} • ${escapeHtml(d.estadoCroquis?.nombre || 'Ambiente')}</small>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="corp-btn-small primary-action" onclick="cargarBorradorCroquis('${escapeJs(doc.id)}')">Abrir</button>
+                        <button type="button" class="corp-btn-small danger" onclick="confirmarEliminarBorrador('${escapeJs(doc.id)}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        })
+        .catch(() => {
+            lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al cargar borradores.</p>';
         });
-    } catch (e) {
-        lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al cargar borradores.</p>';
-    }
 }
 
-async function cargarBorradorNube(docId) {
-    const uid = obtenerUid();
-    if (!uid || typeof db === 'undefined') return;
+function cerrarModalBorradores() {
+    document.getElementById('modalBorradores').classList.add('oculto');
+}
 
-    try {
-        const doc = await db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).get();
+function cargarBorradorCroquis(docId) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).get().then(doc => {
         if (!doc.exists) return;
-        const data = doc.data();
-        data.clienteDesdeAgenda = true;
-        data.permiteGuardarNube = true;
-        data.nombreBorrador = docId;
-
-        aplicarDatosCargados(data);
-        if (typeof cerrarModalBorradoresGlobal === 'function') cerrarModalBorradoresGlobal();
-        avanzarPasoTrabajo();
-        mostrarToast('Croquis Cargado', 'Listo para editar.');
-    } catch (e) {
-        mostrarAlertaCorp('Error', 'No se pudo abrir el croquis.');
-    }
-}
-
-async function eliminarBorradorNube(docId, btnEl) {
-    const uid = obtenerUid();
-    if (!uid || typeof db === 'undefined') return;
-    try {
-        await db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(docId).delete();
-        if (btnEl && btnEl.closest('.modal-list-item')) btnEl.closest('.modal-list-item').remove();
-        mostrarToast('Eliminado', 'Croquis borrado de la nube.');
-    } catch (e) {
-        mostrarAlertaCorp('Error', 'No se pudo eliminar el borrador.');
-    }
-}
-
-function guardarComoJSON() {
-    const payload = {
-        ...estadoCroquis,
-        telefonoClienteActual,
-        exportadoEn: new Date().toISOString()
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `Villaser_Croquis_${(estadoCroquis.cliNombre || 'Proyecto').replace(/ /g, '_')}.json`;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-}
-
-function cargarDesdeJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = e => {
-        try {
-            const data = JSON.parse(e.target.result);
-            if (!data || !Array.isArray(data.nodos)) throw new Error('Archivo inválido');
-            aplicarDatosCargados(data);
-            avanzarPasoTrabajo();
-            mostrarToast('Respaldo Cargado', 'Croquis importado desde JSON.');
-        } catch (err) {
-            mostrarAlertaCorp('Archivo Inválido', 'El archivo JSON no corresponde a un croquis válido de Villaser.');
+        const d = doc.data();
+        document.getElementById('cliNombre').value = d.cliNombre || '';
+        document.getElementById('cliDireccion').value = d.cliDireccion || '';
+        document.getElementById('cliProyecto').value = d.cliProyecto || '';
+        document.getElementById('obsGenerales').value = d.obsGenerales || '';
+        if (d.estadoCroquis) {
+            estadoCroquis = normalizarEstadoCroquis(d.estadoCroquis);
         }
-    };
-    reader.readAsText(file);
-    event.target.value = '';
+
+        clienteDesdeAgenda = true;
+        permiteGuardarNube = true;
+        nombreBorradorActual = d.nombreBorrador || docId;
+        telefonoClienteActual = d.telefonoClienteActual || '';
+
+        cerrarModalBorradores();
+        avanzarPasoTrabajo(true);
+        mostrarToast('Borrador Cargado', `Croquis "${nombreBorradorActual}" listo.`);
+    });
+}
+
+function confirmarEliminarBorrador(docId) {
+    borradorPendienteEliminar = docId;
+    document.getElementById('modalConfirmarEliminar').classList.remove('oculto');
+}
+
+function cerrarModalEliminarBorrador() {
+    borradorPendienteEliminar = null;
+    document.getElementById('modalConfirmarEliminar').classList.add('oculto');
+}
+
+function ejecutarEliminarBorrador() {
+    const uid = obtenerUid();
+    if (!uid || !db || !borradorPendienteEliminar) return;
+    const idBorrar = borradorPendienteEliminar;
+    cerrarModalEliminarBorrador();
+
+    db.collection('perfiles').doc(uid).collection('borradores_croquis').doc(idBorrar).delete()
+        .then(() => {
+            mostrarToast('Eliminado', 'Borrador borrado de la nube.');
+            abrirModalBorradores();
+        });
 }
 
 // ==========================================================================
-// 11. HELPERS DE UI COMPARTIDOS
+// REINICIO DE MÓDULO Y UTILIDADES
 // ==========================================================================
+function ejecutarNuevoCroquis() {
+    if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
+
+    document.getElementById('cliNombre').value = '';
+    document.getElementById('cliDireccion').value = '';
+    document.getElementById('cliProyecto').value = '';
+    document.getElementById('obsGenerales').value = '';
+
+    clienteDesdeAgenda = false;
+    permiteGuardarNube = true;
+    nombreBorradorActual = null;
+    telefonoClienteActual = '';
+    elementoSeleccionadoId = null;
+    origenConexionId = null;
+
+    estadoCroquis = crearPlantillaDormitorio();
+    localStorage.removeItem(STORAGE_KEY_CROQUIS);
+
+    const acc = document.getElementById('accionesMenu');
+    if (acc) acc.classList.add('oculto');
+
+    document.getElementById('step-trabajo').classList.add('oculto');
+    document.getElementById('step-cliente').classList.remove('oculto');
+}
+
+function generarSiguienteTag(prefijo) {
+    let n = 1;
+    while (estadoCroquis.elementos.some(e => e.tag.toUpperCase() === `${prefijo}${n}`)) {
+        n++;
+    }
+    return `${prefijo}${n}`;
+}
+
+function redondear05(val) {
+    return Math.round(val * 20) / 20;
+}
+
 function mostrarAlertaCorp(titulo, mensaje) {
     document.getElementById('modalAlertaTitulo').innerText = titulo;
     document.getElementById('modalAlertaMensaje').innerText = mensaje;
@@ -1878,9 +2004,21 @@ function mostrarToast(titulo, mensaje) {
     document.getElementById('toastTitle').innerText = titulo;
     document.getElementById('toastMessage').innerText = mensaje;
     toast.classList.remove('oculto');
-    setTimeout(() => toast.classList.add('mostrar'), 20);
+    setTimeout(() => toast.classList.add('mostrar'), 80);
     setTimeout(() => {
         toast.classList.remove('mostrar');
         setTimeout(() => toast.classList.add('oculto'), 350);
     }, 3500);
 }
+
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+
+function escapeXml(str) {
+    return String(str || '').replace(/[<>&'"]/g, m => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[m]));
+}
+
+function escapeJs(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    }
