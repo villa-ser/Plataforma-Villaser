@@ -3186,3 +3186,40 @@ html.modo-modal-embebido main.container {
     font-weight: 900;
     font-size: 0.8rem;
 }
+
+/* ============================================================== */
+/* COMPLEMENTO OPCIONAL UNIFILAR (MULTI-TS, FASES Y COLAPSABLE)   */
+/* ============================================================== */
+.uni-level-header.clickable {
+    cursor: pointer;
+    user-select: none;
+}
+.uni-collapsed-hint {
+    background: var(--ngc-bg-input);
+    border: 1px dashed var(--ngc-privacy-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.76rem;
+    color: var(--ngc-text-faded);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+}
+.uni-ts-card {
+    background: var(--ngc-bg-input);
+    border: 1px solid var(--ngc-privacy-border);
+    border-radius: 9px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.uni-fase-badge {
+    font-size: 0.66rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(35, 116, 225, 0.14);
+    color: var(--ngc-neon);
+}
