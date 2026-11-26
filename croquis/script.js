@@ -1186,9 +1186,27 @@ function calcularLongitudTramo25D(tramo) {
 }
 
 function calcularComputo25D() {
+    // Si existen materiales editados/reemplazados desde el módulo Materiales, priorizarlos
+    if (
+        typeof materialesEditadosDesdeCatalogo !== 'undefined' &&
+        Array.isArray(materialesEditadosDesdeCatalogo) &&
+        materialesEditadosDesdeCatalogo.length > 0
+    ) {
+        const itemsAdaptados = materialesEditadosDesdeCatalogo.map(it => ({
+            rubro: (it.nota || 'Catálogo').split('•')[0].trim() || 'Catálogo',
+            desc: it.material || '',
+            cant: Number(it.cantidad || 1),
+            unid: it.unidad || 'UNID'
+        }));
+        const canoItem = itemsAdaptados.find(i => i.desc.toLowerCase().includes('caño'));
+        const canoTotal = canoItem ? canoItem.cant : 0;
+        return { canoNeto: canoTotal, canoTotal, items: itemsAdaptados };
+    }
+
     const factorDesp = 1 + ((estadoCroquis.desperdicio || 10) / 100);
     let canoNeto = 0;
 
+    // Acumuladores de conductores (en metros netos)
     const cables = {
         f15: 0, n15: 0, pe15: 0, ret15: 0,
         f25: 0, n25: 0, pe25: 0,
@@ -1218,6 +1236,7 @@ function calcularComputo25D() {
         }
     });
 
+    // Conteo de cajas y mecanismos
     let octoGrandes = 0, octoChicas = 0, rect10x5 = 0, cajasPaso = 0, gabinetes = 0;
     let modPunto = 0, modComb = 0, modToma10 = 0, modToma20 = 0;
 
@@ -1242,7 +1261,12 @@ function calcularComputo25D() {
     const canoTotal = Math.ceil(canoNeto * factorDesp);
     if (canoTotal > 0) {
         const rollos = Math.ceil(canoTotal / 25);
-        items.push({ rubro: 'Canalización', desc: `Caño Corrugado Ignífugo ${estadoCroquis.canoDiam} (~${rollos} rollo/s × 25m)`, cant: canoTotal, unid: 'MTS' });
+        items.push({
+            rubro: 'Canalización',
+            desc: `Caño Corrugado Ignífugo ${estadoCroquis.canoDiam} (~${rollos} rollo/s × 25m)`,
+            cant: canoTotal,
+            unid: 'MTS'
+        });
     }
     if (octoGrandes > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Grande (Losa / Centro)', cant: octoGrandes, unid: 'UNID' });
     if (octoChicas > 0) items.push({ rubro: 'Cajas', desc: 'Caja Octogonal Chica / Mignon (Aplique)', cant: octoChicas, unid: 'UNID' });
@@ -1258,8 +1282,11 @@ function calcularComputo25D() {
     if (modToma10 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 10A IRAM 2071', cant: modToma10, unid: 'UNID' });
     if (modToma20 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 20A Reforzado', cant: modToma20, unid: 'UNID' });
 
+    // Conductores discriminados por sección y color IRAM
     const addCable = (metros, desc) => {
-        if (metros > 0) items.push({ rubro: 'Conductores', desc, cant: Math.ceil(metros * factorDesp), unid: 'MTS' });
+        if (metros > 0) {
+            items.push({ rubro: 'Conductores', desc, cant: Math.ceil(metros * factorDesp), unid: 'MTS' });
+        }
     };
     addCable(cables.f15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Marrón - Fase)');
     addCable(cables.n15,   'Cable Unipolar 1,5 mm² IRAM 247-3 (Celeste - Neutro)');
@@ -1275,7 +1302,8 @@ function calcularComputo25D() {
     addCable(cables.pe40,  'Cable Unipolar 4,0 mm² IRAM 247-3 (Verde/Amarillo - PE)');
 
     return { canoNeto, canoTotal, items };
-}
+                   }
+            
 
 // ==========================================================================
 // RENDERIZADO GENERAL DE INTERFAZ Y LISTADO DE MATERIALES
