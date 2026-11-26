@@ -1600,7 +1600,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const btn = document.createElement('button');
         btn.className = `corp-nav-item ${mod.active ? 'active' : ''}`;
         btn.innerHTML = `<i class="fa-solid ${mod.icon}"></i><span>${mod.nombre}</span>`;
-        btn.onclick = () => { if (!mod.active) window.location.replace(mod.url); };
+        btn.onclick = () => {
+            if (mod.active) return;
+            if (modoOrigenCroquis && mod.nombre === 'Croquis') {
+                guardarYVolverACroquis();
+                return;
+            }
+            window.location.replace(mod.url);
+        };
+        
         footer.appendChild(btn);
     });
 
