@@ -3425,3 +3425,11 @@ html.modo-modal-embebido main.container {
 #modalVistaPrevia {
     z-index: 10010 !important;
 }
+
+/* Alinear a la izquierda Material y Detalle/Nota en el PDF */
+#plantilla-pdf .pdf-table th:nth-child(1),
+#plantilla-pdf .pdf-table th:nth-child(2),
+#plantilla-pdf .pdf-table td:nth-child(1),
+#plantilla-pdf .pdf-table td:nth-child(2) {
+    text-align: left !important;
+}
