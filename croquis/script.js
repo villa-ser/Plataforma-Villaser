@@ -2376,6 +2376,7 @@ function cerrarModalBorradores() {
 }
 
 function cargarBorradorCroquis(docId) {
+    materialesEditadosDesdeCatalogo = null;
     const uid = obtenerUid();
     if (!uid || !db) return;
 
