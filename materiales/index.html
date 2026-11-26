@@ -82,6 +82,15 @@
         </div>
 
         <div id="drawerListaBody" class="ap-sheet-body" style="display: flex; flex-direction: column; gap: 12px;">
+            <!-- Banner contextual cuando se ingresa desde Croquis 3D -->
+            <div id="bannerCroquisDrawer" class="oculto" style="background: rgba(35, 116, 225, 0.14); border: 1px solid rgba(35, 116, 225, 0.4); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-cube" style="color: var(--ngc-neon); font-size: 1.15rem; flex-shrink: 0;"></i>
+                <div style="font-size: 0.78rem; color: var(--ngc-text-main); line-height: 1.35;">
+                    <strong style="color: var(--ngc-neon); display: block; margin-bottom: 2px;">Cómputo importado desde Croquis 3D</strong>
+                    Editá cantidades, reemplazá ítems usando todo el catálogo o agregá nuevos materiales.
+                </div>
+            </div>
+
             <!-- Buscador rápido interno cuando hay varios ítems -->
             <div id="wrapFiltroLista" class="oculto">
                 <div class="ap-search-box">
@@ -108,6 +117,11 @@
 
         <div class="ap-sheet-footer">
             <div class="mat-drawer-footer-grid">
+                <div id="rowVolverCroquisDrawer" class="oculto" style="width: 100%;">
+                    <button type="button" class="corp-btn success-btn" onclick="guardarYVolverACroquis()" style="width: 100%; font-weight: 800; padding: 12px;">
+                        <i class="fa-solid fa-circle-check"></i> Guardar y Volver al Croquis
+                    </button>
+                </div>
                 <div class="mat-drawer-actions-row primary-exports">
                     <button type="button" id="btnVistaPreviaMobile" class="corp-btn" onclick="abrirVistaPreviaMobile()">
                         <i class="fa-solid fa-eye"></i> Vista Previa
@@ -407,6 +421,21 @@
                     </div>
                 </div>
 
+                <!-- BANNER MODO REEMPLAZO DE ÍTEM -->
+                <div id="bannerModoReemplazo" class="corp-card oculto gpu-accel" style="padding: 10px 12px; border-left: 4px solid var(--ngc-warning); background: rgba(245, 195, 59, 0.12);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <div style="flex: 1; min-width: 0;">
+                            <div style="font-size: 0.72rem; font-weight: 800; color: var(--ngc-warning); text-transform: uppercase;">
+                                <i class="fa-solid fa-arrows-rotate"></i> Reemplazando ítem del listado
+                            </div>
+                            <div id="txtItemReemplazo" style="font-size: 0.82rem; font-weight: 600; color: var(--ngc-text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;"></div>
+                        </div>
+                        <button type="button" class="corp-btn-small danger" onclick="cancelarReemplazoItem()">
+                            <i class="fa-solid fa-xmark"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+
                 <!-- TARJETA CARGA DE MATERIALES -->
                 <div class="corp-card gpu-accel">
                     <div class="pres-card-header-row">
@@ -578,6 +607,11 @@
 <!-- BARRA FLOTANTE INFERIOR (CARRITO / ACCESO RÁPIDO A LISTA) -->
 <div id="dockListaFlotante" class="mat-floating-dock oculto gpu-accel">
     <div class="mat-dock-inner">
+        <div id="dockVolverCroquisWrap" class="oculto" style="width: 100%;">
+            <button type="button" class="corp-btn success-btn" onclick="guardarYVolverACroquis()" style="width: 100%; padding: 9px 12px; font-size: 0.82rem; font-weight: 800;">
+                <i class="fa-solid fa-arrow-left"></i> Guardar y Volver al Croquis
+            </button>
+        </div>
         <div id="dockUltimoItemWrap" class="mat-dock-last-strip oculto">
             <div id="dockUltimoItemTexto" class="mat-dock-last-text"></div>
             <div class="mat-dock-quick-qty">
