@@ -1490,25 +1490,56 @@ function proyectarPunto3D(x, y, z, geom) {
 function generarSVGCroquis(mostrarSeleccion = true) {
     const vbW = 500;
     const vbH = 490;
-    const { ox, oy, roomW, roomH, scale } = calcularGeometriaPlano(vbW, vbH);
+    const geom = calcularGeometriaPlano(vbW, vbH);
+    const { ox, oy, roomW, roomH, scale } = geom;
     const W = estadoCroquis.ancho;
     const L = estadoCroquis.largo;
+    const H = estadoCroquis.alto || 2.60;
 
     let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="${vbW}" height="${vbH}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
     s += `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="#ffffff"/>`;
 
-    // Grilla auxiliar cada 0.50 m
-    for (let gx = 0.5; gx < W; gx += 0.5) {
-        const px = ox + gx * scale;
-        s += `<line x1="${px}" y1="${oy}" x2="${px}" y2="${oy + roomH}" stroke="#f1f5f9" stroke-width="1"/>`;
-    }
-    for (let gy = 0.5; gy < L; gy += 0.5) {
-        const py = oy + gy * scale;
-        s += `<line x1="${ox}" y1="${py}" x2="${ox + roomW}" y2="${py}" stroke="#f1f5f9" stroke-width="1"/>`;
-    }
+    // Fondo exterior (plano de techo en 3D o planta general en 2D)
+    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="${modoVista3D ? '#f8fafc' : '#fafafa'}" stroke="#0f172a" stroke-width="5"/>`;
 
-    // Muros perimetrales del ambiente
-    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="#fafafa" stroke="#0f172a" stroke-width="5"/>`;
+    // Estructura de profundidad en perspectiva cenital (Cubo 3D)
+    if (modoVista3D) {
+        const p00 = proyectarPunto3D(0, 0, 0, geom);
+        const pW0 = proyectarPunto3D(W, 0, 0, geom);
+        const pWL = proyectarPunto3D(W, L, 0, geom);
+        const p0L = proyectarPunto3D(0, L, 0, geom);
+
+        // Superficie del piso (Z = 0)
+        s += `<polygon points="${p00.px},${p00.py} ${pW0.px},${pW0.py} ${pWL.px},${pWL.py} ${p0L.px},${p0L.py}" fill="#f1f5f9" stroke="#64748b" stroke-width="1.6"/>`;
+
+        // Grilla cada 0.50 m proyectada sobre el piso
+        for (let gx = 0.5; gx < W; gx += 0.5) {
+            const g1 = proyectarPunto3D(gx, 0, 0, geom);
+            const g2 = proyectarPunto3D(gx, L, 0, geom);
+            s += `<line x1="${g1.px}" y1="${g1.py}" x2="${g2.px}" y2="${g2.py}" stroke="#e2e8f0" stroke-width="1"/>`;
+        }
+        for (let gy = 0.5; gy < L; gy += 0.5) {
+            const g1 = proyectarPunto3D(0, gy, 0, geom);
+            const g2 = proyectarPunto3D(W, gy, 0, geom);
+            s += `<line x1="${g1.px}" y1="${g1.py}" x2="${g2.px}" y2="${g2.py}" stroke="#e2e8f0" stroke-width="1"/>`;
+        }
+
+        // Aristas verticales de las 4 esquinas (de techo a piso)
+        s += `<line x1="${ox}" y1="${oy}" x2="${p00.px}" y2="${p00.py}" stroke="#64748b" stroke-width="1.3" stroke-dasharray="4,3"/>`;
+        s += `<line x1="${ox + roomW}" y1="${oy}" x2="${pW0.px}" y2="${pW0.py}" stroke="#64748b" stroke-width="1.3" stroke-dasharray="4,3"/>`;
+        s += `<line x1="${ox + roomW}" y1="${oy + roomH}" x2="${pWL.px}" y2="${pWL.py}" stroke="#64748b" stroke-width="1.3" stroke-dasharray="4,3"/>`;
+        s += `<line x1="${ox}" y1="${oy + roomH}" x2="${p0L.px}" y2="${p0L.py}" stroke="#64748b" stroke-width="1.3" stroke-dasharray="4,3"/>`;
+    } else {
+        // Grilla auxiliar 2D cada 0.50 m
+        for (let gx = 0.5; gx < W; gx += 0.5) {
+            const px = ox + gx * scale;
+            s += `<line x1="${px}" y1="${oy}" x2="${px}" y2="${oy + roomH}" stroke="#f1f5f9" stroke-width="1"/>`;
+        }
+        for (let gy = 0.5; gy < L; gy += 0.5) {
+            const py = oy + gy * scale;
+            s += `<line x1="${ox}" y1="${py}" x2="${ox + roomW}" y2="${py}" stroke="#f1f5f9" stroke-width="1"/>`;
+        }
+    }
 
     // Cotas exteriores (Ancho arriba, Largo izquierda)
     s += `<line x1="${ox}" y1="${oy - 22}" x2="${ox + roomW}" y2="${oy - 22}" stroke="#475569" stroke-width="1"/>`;
@@ -1522,102 +1553,164 @@ function generarSVGCroquis(mostrarSeleccion = true) {
     s += `<line x1="${ox - 27}" y1="${oy + roomH}" x2="${ox - 17}" y2="${oy + roomH}" stroke="#475569" stroke-width="1.2"/>`;
     s += `<text x="${ox - 28}" y="${oy + roomH / 2}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle" transform="rotate(-90 ${ox - 28} ${oy + roomH / 2})">${L.toFixed(2)} m</text>`;
 
-    // Aberturas (Puertas y Ventanas)
+    // Aberturas (Puertas y Ventanas en 3D sobre muro o en Planta 2D)
     (estadoCroquis.aberturas || []).forEach(ab => {
-        const abW = Math.min(ab.ancho, (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L) * scale;
-        const off = ab.offset * scale;
-        let ax = ox, ay = oy, aw = abW, ah = 7;
+        const maxMuro = (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L;
+        const lenM = Math.min(ab.ancho, maxMuro);
+        const offM = Math.min(ab.offset, Math.max(0, maxMuro - lenM));
+        const abW = lenM * scale;
+        const off = offM * scale;
 
-        if (ab.pared === 'NORTE') { ax = ox + off; ay = oy - 3.5; }
-        else if (ab.pared === 'SUR') { ax = ox + off; ay = oy + roomH - 3.5; }
-        else if (ab.pared === 'OESTE') { ax = ox - 3.5; ay = oy + off; aw = 7; ah = abW; }
-        else if (ab.pared === 'ESTE') { ax = ox + roomW - 3.5; ay = oy + off; aw = 7; ah = abW; }
+        if (modoVista3D) {
+            let x1 = 0, y1 = 0, x2 = 0, y2 = 0;
+            if (ab.pared === 'NORTE') { x1 = offM; y1 = 0; x2 = offM + lenM; y2 = 0; }
+            else if (ab.pared === 'SUR') { x1 = offM; y1 = L; x2 = offM + lenM; y2 = L; }
+            else if (ab.pared === 'OESTE') { x1 = 0; y1 = offM; x2 = 0; y2 = offM + lenM; }
+            else if (ab.pared === 'ESTE') { x1 = W; y1 = offM; x2 = W; y2 = offM + lenM; }
 
-        s += `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="#ffffff" stroke="#0f172a" stroke-width="1"/>`;
-        if (ab.tipo.startsWith('VENTAN')) {
-            if (ab.pared === 'NORTE' || ab.pared === 'SUR') {
-                s += `<line x1="${ax}" y1="${ay + ah / 2}" x2="${ax + aw}" y2="${ay + ah / 2}" stroke="#0284c7" stroke-width="1.5"/>`;
+            if (ab.tipo.startsWith('VENTAN')) {
+                const zInf = ab.tipo === 'VENTANUCO' ? Math.min(1.60, H * 0.6) : Math.min(0.90, H * 0.35);
+                const zSup = Math.min(2.10, H - 0.15);
+                const zMid = (zInf + zSup) / 2;
+
+                const v1 = proyectarPunto3D(x1, y1, zInf, geom);
+                const v2 = proyectarPunto3D(x2, y2, zInf, geom);
+                const v3 = proyectarPunto3D(x2, y2, zSup, geom);
+                const v4 = proyectarPunto3D(x1, y1, zSup, geom);
+                const m1 = proyectarPunto3D(x1, y1, zMid, geom);
+                const m2 = proyectarPunto3D(x2, y2, zMid, geom);
+
+                s += `<polygon points="${v1.px},${v1.py} ${v2.px},${v2.py} ${v3.px},${v3.py} ${v4.px},${v4.py}" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.3"/>`;
+                s += `<line x1="${m1.px}" y1="${m1.py}" x2="${m2.px}" y2="${m2.py}" stroke="#0284c7" stroke-width="1.2"/>`;
             } else {
-                s += `<line x1="${ax + aw / 2}" y1="${ay}" x2="${ax + aw / 2}" y2="${ay + ah}" stroke="#0284c7" stroke-width="1.5"/>`;
+                const zPuerta = Math.min(2.05, H - 0.10);
+                const d1 = proyectarPunto3D(x1, y1, 0, geom);
+                const d2 = proyectarPunto3D(x2, y2, 0, geom);
+                const d3 = proyectarPunto3D(x2, y2, zPuerta, geom);
+                const d4 = proyectarPunto3D(x1, y1, zPuerta, geom);
+                const rArc = abW * factorEscalaPerspectiva3D(0);
+
+                s += `<polygon points="${d1.px},${d1.py} ${d2.px},${d2.py} ${d3.px},${d3.py} ${d4.px},${d4.py}" fill="#ffffff" stroke="#0f172a" stroke-width="1.3"/>`;
+                if (ab.pared === 'SUR') {
+                    const hEnd = proyectarPunto3D(offM, L - lenM, 0, geom);
+                    s += `<line x1="${d1.px}" y1="${d1.py}" x2="${hEnd.px}" y2="${hEnd.py}" stroke="#0f172a" stroke-width="1.4"/>`;
+                    s += `<path d="M ${hEnd.px} ${hEnd.py} A ${rArc} ${rArc} 0 0 1 ${d2.px} ${d2.py}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'NORTE') {
+                    const hEnd = proyectarPunto3D(offM, lenM, 0, geom);
+                    s += `<line x1="${d1.px}" y1="${d1.py}" x2="${hEnd.px}" y2="${hEnd.py}" stroke="#0f172a" stroke-width="1.4"/>`;
+                    s += `<path d="M ${hEnd.px} ${hEnd.py} A ${rArc} ${rArc} 0 0 0 ${d2.px} ${d2.py}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'OESTE') {
+                    const hEnd = proyectarPunto3D(lenM, offM, 0, geom);
+                    s += `<line x1="${d1.px}" y1="${d1.py}" x2="${hEnd.px}" y2="${hEnd.py}" stroke="#0f172a" stroke-width="1.4"/>`;
+                    s += `<path d="M ${hEnd.px} ${hEnd.py} A ${rArc} ${rArc} 0 0 1 ${d2.px} ${d2.py}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'ESTE') {
+                    const hEnd = proyectarPunto3D(W - lenM, offM, 0, geom);
+                    s += `<line x1="${d1.px}" y1="${d1.py}" x2="${hEnd.px}" y2="${hEnd.py}" stroke="#0f172a" stroke-width="1.4"/>`;
+                    s += `<path d="M ${hEnd.px} ${hEnd.py} A ${rArc} ${rArc} 0 0 0 ${d2.px} ${d2.py}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                }
             }
         } else {
-            // Arco de barrido de puerta
-            if (ab.pared === 'SUR') {
-                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 - abW}" stroke="#0f172a" stroke-width="1.5"/>`;
-                s += `<path d="M ${ax} ${ay + 3.5 - abW} A ${abW} ${abW} 0 0 1 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-            } else if (ab.pared === 'NORTE') {
-                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 + abW}" stroke="#0f172a" stroke-width="1.5"/>`;
-                s += `<path d="M ${ax} ${ay + 3.5 + abW} A ${abW} ${abW} 0 0 0 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-            } else if (ab.pared === 'OESTE') {
-                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 + abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
-                s += `<path d="M ${ax + 3.5 + abW} ${ay} A ${abW} ${abW} 0 0 1 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-            } else if (ab.pared === 'ESTE') {
-                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 - abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
-                s += `<path d="M ${ax + 3.5 - abW} ${ay} A ${abW} ${abW} 0 0 0 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            let ax = ox, ay = oy, aw = abW, ah = 7;
+            if (ab.pared === 'NORTE') { ax = ox + off; ay = oy - 3.5; }
+            else if (ab.pared === 'SUR') { ax = ox + off; ay = oy + roomH - 3.5; }
+            else if (ab.pared === 'OESTE') { ax = ox - 3.5; ay = oy + off; aw = 7; ah = abW; }
+            else if (ab.pared === 'ESTE') { ax = ox + roomW - 3.5; ay = oy + off; aw = 7; ah = abW; }
+
+            s += `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="#ffffff" stroke="#0f172a" stroke-width="1"/>`;
+            if (ab.tipo.startsWith('VENTAN')) {
+                if (ab.pared === 'NORTE' || ab.pared === 'SUR') {
+                    s += `<line x1="${ax}" y1="${ay + ah / 2}" x2="${ax + aw}" y2="${ay + ah / 2}" stroke="#0284c7" stroke-width="1.5"/>`;
+                } else {
+                    s += `<line x1="${ax + aw / 2}" y1="${ay}" x2="${ax + aw / 2}" y2="${ay + ah}" stroke="#0284c7" stroke-width="1.5"/>`;
+                }
+            } else {
+                if (ab.pared === 'SUR') {
+                    s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 - abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                    s += `<path d="M ${ax} ${ay + 3.5 - abW} A ${abW} ${abW} 0 0 1 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'NORTE') {
+                    s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 + abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                    s += `<path d="M ${ax} ${ay + 3.5 + abW} A ${abW} ${abW} 0 0 0 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'OESTE') {
+                    s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 + abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                    s += `<path d="M ${ax + 3.5 + abW} ${ay} A ${abW} ${abW} 0 0 1 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                } else if (ab.pared === 'ESTE') {
+                    s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 - abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                    s += `<path d="M ${ax + 3.5 - abW} ${ay} A ${abW} ${abW} 0 0 0 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+                }
             }
         }
     });
 
-    // Tramos de cañería (curva suave o trazo técnico)
+    // Tramos de cañería proyectados en 3D o 2D
     (estadoCroquis.tramos || []).forEach(tr => {
         const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
         const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
         if (!a || !b) return;
 
-        const x1 = ox + a.x * scale;
-        const y1 = oy + a.y * scale;
-        const x2 = ox + b.x * scale;
-        const y2 = oy + b.y * scale;
+        const ptA = proyectarPunto3D(a.x, a.y, a.z ?? 0, geom);
+        const ptB = proyectarPunto3D(b.x, b.y, b.z ?? 0, geom);
+        const via = tr.via || inferirViaTramo(a, b);
         const esBajada = tr.rol.startsWith('BAJADA') || tr.rol === 'COMBINACION';
-        const colorLinea = esBajada ? '#ea580c' : '#2563eb';
-        const dash = esBajada ? 'stroke-dasharray="4,2"' : '';
+        const colorLinea = via === 'CONTRAPISO' ? '#059669' : (esBajada ? '#ea580c' : '#2563eb');
+        const dash = (esBajada || via === 'CONTRAPISO') ? 'stroke-dasharray="4,2"' : '';
 
-        // Curva leve hacia el centro del ambiente para visibilidad limpia
-        const cx = (x1 + x2) / 2 + (ox + roomW / 2 - (x1 + x2) / 2) * 0.18;
-        const cy = (y1 + y2) / 2 + (oy + roomH / 2 - (y1 + y2) / 2) * 0.18;
-        s += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
+        const zMedio = via === 'CONTRAPISO' ? 0 : (via === 'TECHO' ? H : ((a.z ?? 0) + (b.z ?? 0)) / 2);
+        const ptMid = proyectarPunto3D((a.x + b.x) / 2, (a.y + b.y) / 2, zMedio, geom);
+        const cx = ptMid.px + (ox + roomW / 2 - ptMid.px) * 0.14;
+        const cy = ptMid.py + (oy + roomH / 2 - ptMid.py) * 0.14;
+
+        s += `<path d="M ${ptA.px} ${ptA.py} Q ${cx} ${cy} ${ptB.px} ${ptB.py}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
     });
 
-    // Cotas dinámicas del elemento seleccionado
+    // Cotas dinámicas del elemento seleccionado (X, Y y caída vertical Z en 3D)
     if (mostrarSeleccion && elementoSeleccionadoId) {
         const sel = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
         if (sel) {
-            const sx = ox + sel.x * scale;
-            const sy = oy + sel.y * scale;
-            s += `<circle cx="${sx}" cy="${sy}" r="18" fill="rgba(35,116,225,0.16)" stroke="#2374E1" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+            const zSel = sel.z ?? 0;
+            const ptSel = proyectarPunto3D(sel.x, sel.y, zSel, geom);
+            const ptRefX = proyectarPunto3D(0, sel.y, zSel, geom);
+            const ptRefY = proyectarPunto3D(sel.x, 0, zSel, geom);
+
+            s += `<circle cx="${ptSel.px}" cy="${ptSel.py}" r="18" fill="rgba(35,116,225,0.16)" stroke="#2374E1" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+
             if (sel.x > 0.05) {
-                s += `<line x1="${ox}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
-                s += `<text x="${(ox + sx) / 2}" y="${sy - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${sel.x.toFixed(2)}m</text>`;
+                s += `<line x1="${ptRefX.px}" y1="${ptRefX.py}" x2="${ptSel.px}" y2="${ptSel.py}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(ptRefX.px + ptSel.px) / 2}" y="${(ptRefX.py + ptSel.py) / 2 - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${sel.x.toFixed(2)}m</text>`;
             }
             if (sel.y > 0.05) {
-                s += `<line x1="${sx}" y1="${oy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
-                s += `<text x="${sx + 5}" y="${(oy + sy) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">${sel.y.toFixed(2)}m</text>`;
+                s += `<line x1="${ptRefY.px}" y1="${ptRefY.py}" x2="${ptSel.px}" y2="${ptSel.py}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(ptRefY.px + ptSel.px) / 2 + 5}" y="${(ptRefY.py + ptSel.py) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">${sel.y.toFixed(2)}m</text>`;
+            }
+            if (modoVista3D && zSel > 0.05) {
+                const ptPiso = proyectarPunto3D(sel.x, sel.y, 0, geom);
+                s += `<line x1="${ptPiso.px}" y1="${ptPiso.py}" x2="${ptSel.px}" y2="${ptSel.py}" stroke="#0ea5e9" stroke-width="1.2" stroke-dasharray="2,2"/>`;
+                s += `<circle cx="${ptPiso.px}" cy="${ptPiso.py}" r="2.5" fill="#0ea5e9"/>`;
+                s += `<text x="${(ptPiso.px + ptSel.px) / 2 + 6}" y="${(ptPiso.py + ptSel.py) / 2 + 3}" fill="#0369a1" font-size="8" font-weight="bold">Z:${zSel.toFixed(2)}m</text>`;
             }
         }
     }
 
-    // Dibujo de símbolos normalizados
+    // Dibujo de símbolos normalizados proyectados
     estadoCroquis.elementos.forEach(el => {
-        const px = ox + el.x * scale;
-        const py = oy + el.y * scale;
-        s += dibujarSimboloCroquis(el, px, py);
+        const pt = proyectarPunto3D(el.x, el.y, el.z ?? 0, geom);
+        s += dibujarSimboloCroquis(el, pt.px, pt.py);
     });
 
-    // Leyenda inferior en dos renglones centrados (sin superposición en ambientes angostos)
+    // Leyenda inferior en dos renglones centrados
     const centroPlanoX = ox + (roomW / 2);
     const yLinea1 = oy + roomH + 22;
     const yLinea2 = oy + roomH + 38;
     const supM2 = (W * L).toFixed(2);
     const desperdicioPct = estadoCroquis.desperdicio ?? 10;
+    const modoTexto = modoVista3D ? 'Vista 3D Cubo' : 'Planta 2D';
 
     s += `<text x="${centroPlanoX.toFixed(1)}" y="${yLinea1.toFixed(1)}" fill="#0f172a" font-size="10" font-weight="bold" text-anchor="middle">${escapeXml(estadoCroquis.nombre.toUpperCase())} • ${W.toFixed(2)} m × ${L.toFixed(2)} m (${supM2} m²)</text>`;
-    s += `<text x="${centroPlanoX.toFixed(1)}" y="${yLinea2.toFixed(1)}" fill="#64748b" font-size="8.8" font-weight="bold" text-anchor="middle">Altura: ${estadoCroquis.alto.toFixed(2)} m • Desperdicio: +${desperdicioPct}% • Escala Gráfica AEA 90364</text>`;
+    s += `<text x="${centroPlanoX.toFixed(1)}" y="${yLinea2.toFixed(1)}" fill="#64748b" font-size="8.8" font-weight="bold" text-anchor="middle">Altura: ${H.toFixed(2)} m • Desperdicio: +${desperdicioPct}% • ${modoTexto} • AEA 90364</text>`;
 
     s += `</svg>`;
     return s;
-        }
-                                         
-
+                }
+                                            
 
 function dibujarSimboloCroquis(el, x, y) {
     const rot = el.rot || 0;
