@@ -595,6 +595,7 @@ function cerrarModalImportarPotencia() {
 }
 
 async function importarAmbientePotencia(docId, ambIndex) {
+    materialesEditadosDesdeCatalogo = null;
     const uid = obtenerUid();
     if (!uid || !db) return;
 
