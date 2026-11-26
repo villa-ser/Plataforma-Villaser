@@ -11,6 +11,12 @@ let clienteDesdeAgenda = false;
 let permiteGuardarNube = true;
 let timerAutoSave = null;
 
+// Estado de flujo bidireccional con Croquis 3D
+let modoOrigenCroquis = false;
+let itemReemplazoId = null;
+let croquisMetaOrigen = null;
+let interfazInicializada = false;
+
 // ==========================================
 // UTILIDADES GENERALES
 // ==========================================
@@ -47,6 +53,7 @@ function abrirDrawerLista(enfocarExportacion = false) {
     const modal = document.getElementById('modalListaMateriales');
     if (!modal) return;
 
+    actualizarInterfazModoCroquis();
     renderTabla();
     modal.classList.remove('oculto');
     document.body.style.overflow = 'hidden';
@@ -74,6 +81,150 @@ function cerrarDrawerLista() {
 }
 
 // ==========================================
+// INTEGRACIÓN BIDIRECCIONAL CON CROQUIS 3D
+// ==========================================
+function verificarEntradaDesdeCroquis() {
+    const params = new URLSearchParams(window.location.search);
+    const desdeUrl = params.get('from') === 'croquis';
+    const rawExport = localStorage.getItem('villaser_computo_croquis_export');
+
+    if (desdeUrl && rawExport) {
+        try {
+            const paquete = JSON.parse(rawExport);
+            if (paquete && Array.isArray(paquete.items)) {
+                modoOrigenCroquis = true;
+                croquisMetaOrigen = {
+                    ambienteNombre: paquete.ambienteNombre || '',
+                    desperdicio: paquete.desperdicio || 10
+                };
+
+                document.getElementById('cliNombre').value = paquete.cliente || '';
+                document.getElementById('cliDireccion').value = paquete.direccion || '';
+                document.getElementById('cliProyecto').value = paquete.proyecto || '';
+                document.getElementById('obsGenerales').value = '';
+
+                clienteDesdeAgenda = !!paquete.clienteDesdeAgenda;
+                permiteGuardarNube = !!paquete.permiteGuardarNube;
+
+                listaItems = paquete.items.map((it, idx) => ({
+                    id: Date.now() + idx + Math.floor(Math.random() * 1000),
+                    rubro: it.rubro || 'Croquis 2.5D',
+                    material: it.desc || it.material || '',
+                    cantidad: Math.max(1, parseInt(it.cant ?? it.cantidad, 10) || 1),
+                    unidad: it.unid || it.unidad || 'UNID',
+                    nota: it.nota || ''
+                }));
+
+                localStorage.removeItem('villaser_computo_croquis_export');
+                guardarEstadoLocal();
+
+                if (window.history && typeof window.history.replaceState === 'function') {
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+                return true;
+            }
+        } catch (e) {
+            console.warn('Error leyendo paquete de Croquis:', e);
+        }
+    }
+    return false;
+}
+
+function actualizarInterfazModoCroquis() {
+    const bannerDrawer = document.getElementById('bannerCroquisDrawer');
+    const rowVolver = document.getElementById('rowVolverCroquisDrawer');
+    const dockVolver = document.getElementById('dockVolverCroquisWrap');
+
+    if (bannerDrawer) bannerDrawer.classList.toggle('oculto', !modoOrigenCroquis);
+    if (rowVolver) rowVolver.classList.toggle('oculto', !modoOrigenCroquis);
+    if (dockVolver) dockVolver.classList.toggle('oculto', !modoOrigenCroquis);
+}
+
+function iniciarReemplazoItem(id) {
+    const item = listaItems.find(i => i.id === id);
+    if (!item) return;
+
+    itemReemplazoId = id;
+    const banner = document.getElementById('bannerModoReemplazo');
+    const txt = document.getElementById('txtItemReemplazo');
+    const btnAdd = document.getElementById('btnAddItem');
+
+    if (txt) {
+        txt.innerText = `${item.cantidad} ${item.unidad} · ${item.material}`;
+    }
+    if (banner) banner.classList.remove('oculto');
+    if (btnAdd) {
+        btnAdd.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Reemplazar`;
+    }
+
+    // Pre-cargar cantidad, unidad y nota del ítem a reemplazar para agilizar
+    const inpCant = document.getElementById('cantidad');
+    if (inpCant) inpCant.value = Math.max(1, parseInt(item.cantidad, 10) || 1);
+
+    const inpNota = document.getElementById('obsManual');
+    if (inpNota) inpNota.value = item.nota || '';
+
+    const radios = document.querySelectorAll('input[name="tipoUnidad"]');
+    let marco = false;
+    radios.forEach(r => {
+        if (r.value === item.unidad) {
+            r.checked = true;
+            marco = true;
+        }
+    });
+    if (!marco && document.getElementById('unitUnid')) {
+        document.getElementById('unitUnid').checked = true;
+    }
+
+    cerrarDrawerLista();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    mostrarToast("Modo Reemplazo", "Elegí el nuevo material del catálogo o cargalo + Manual.");
+}
+
+function cancelarReemplazoItem() {
+    itemReemplazoId = null;
+    const banner = document.getElementById('bannerModoReemplazo');
+    const btnAdd = document.getElementById('btnAddItem');
+    if (banner) banner.classList.add('oculto');
+    if (btnAdd) {
+        btnAdd.innerHTML = `<i class="fa-solid fa-plus"></i> Agregar`;
+    }
+}
+
+function guardarYVolverACroquis() {
+    if (listaItems.length === 0) {
+        mostrarAlertaCorp("Lista Vacía", "Agregá al menos un material antes de volver al Croquis.");
+        return;
+    }
+
+    const retorno = {
+        origen: 'materiales',
+        fecha: Date.now(),
+        notasGlobales: document.getElementById('obsGenerales')?.value.trim() || '',
+        items: listaItems.map(i => ({
+            rubro: i.rubro || 'Materiales',
+            desc: i.material,
+            cant: Math.max(1, parseInt(i.cantidad, 10) || 1),
+            unid: i.unidad || 'UNID',
+            nota: i.nota || ''
+        }))
+    };
+
+    localStorage.setItem('villaser_computo_croquis_return', JSON.stringify(retorno));
+
+    // Limpiar el modo puente en materiales para futuros ingresos independientes
+    modoOrigenCroquis = false;
+    croquisMetaOrigen = null;
+    itemReemplazoId = null;
+    guardarEstadoLocal();
+
+    mostrarToast("Cómputo Guardado", "Volviendo al Croquis 3D...");
+    setTimeout(() => {
+        window.location.replace('../croquis/index.html?from=materiales');
+    }, 550);
+}
+
+// ==========================================
 // INICIALIZACIÓN
 // ==========================================
 function arrancarModulo() {
@@ -94,10 +245,14 @@ function arrancarModulo() {
         console.warn("Modo local activo.", e);
     }
 
-    try {
-        cargarEstadoGuardado();
-    } catch (e) {
-        localStorage.removeItem('materiales_estado_actual');
+    const importadoDesdeCroquis = verificarEntradaDesdeCroquis();
+
+    if (!importadoDesdeCroquis) {
+        try {
+            cargarEstadoGuardado();
+        } catch (e) {
+            localStorage.removeItem('materiales_estado_actual');
+        }
     }
 
     fetchData();
@@ -125,8 +280,20 @@ function obtenerUid() {
 function mostrarInterfazLista() {
     document.getElementById('loading').classList.add('oculto');
     document.getElementById('app').classList.remove('oculto');
-    if (listaItems.length > 0) {
-        avanzarPasoTrabajo();
+
+    if (!interfazInicializada) {
+        interfazInicializada = true;
+        if (modoOrigenCroquis) {
+            avanzarPasoTrabajo();
+            abrirDrawerLista(false);
+            mostrarToast("Desde Croquis 3D", `${listaItems.length} ítems listos para editar o reemplazar.`);
+            return;
+        }
+        if (listaItems.length > 0) {
+            avanzarPasoTrabajo();
+        }
+    } else {
+        actualizarInterfazModoCroquis();
     }
 }
 
@@ -405,6 +572,7 @@ function avanzarPasoTrabajo() {
     const dock = document.getElementById('dockListaFlotante');
     if (dock) dock.classList.remove('oculto');
 
+    actualizarInterfazModoCroquis();
     actualizarCabeceraClienteActivo();
     guardarClienteGlobal();
     renderTabla();
@@ -634,7 +802,7 @@ function eliminarBorradorNube(docId, btnElement) {
             mostrarToast("Eliminado", "Borrador quitado de la nube.");
         });
     }
-}
+            }
 
 // ==========================================
 // MEMORIA LOCAL Y GESTIÓN DE ÍTEMS
@@ -656,7 +824,9 @@ function guardarEstadoLocal() {
         obsGenerales: document.getElementById('obsGenerales').value,
         items: listaItems,
         clienteDesdeAgenda,
-        permiteGuardarNube
+        permiteGuardarNube,
+        modoOrigenCroquis,
+        croquisMetaOrigen
     }));
 }
 
@@ -671,6 +841,8 @@ function cargarEstadoGuardado() {
         listaItems = Array.isArray(estado.items) ? estado.items : [];
         if (estado.clienteDesdeAgenda !== undefined) clienteDesdeAgenda = estado.clienteDesdeAgenda;
         if (estado.permiteGuardarNube !== undefined) permiteGuardarNube = estado.permiteGuardarNube;
+        if (estado.modoOrigenCroquis !== undefined) modoOrigenCroquis = !!estado.modoOrigenCroquis;
+        if (estado.croquisMetaOrigen !== undefined) croquisMetaOrigen = estado.croquisMetaOrigen;
     }
 }
 
@@ -684,6 +856,11 @@ function ejecutarNuevaLista() {
     if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
 
     cerrarDrawerLista();
+    cancelarReemplazoItem();
+    modoOrigenCroquis = false;
+    croquisMetaOrigen = null;
+    actualizarInterfazModoCroquis();
+
     const dock = document.getElementById('dockListaFlotante');
     if (dock) dock.classList.add('oculto');
 
@@ -739,13 +916,30 @@ function agregarTrabajo() {
     const radioUnidad = document.querySelector('input[name="tipoUnidad"]:checked');
     const unidad = radioUnidad ? radioUnidad.value : 'UNID';
 
-    listaItems.push({
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        material: nombreCompleto,
-        cantidad: qty,
-        unidad: unidad,
-        nota: nota
-    });
+    const estabaReemplazando = itemReemplazoId !== null;
+    if (estabaReemplazando) {
+        const idx = listaItems.findIndex(i => i.id === itemReemplazoId);
+        if (idx !== -1) {
+            listaItems[idx] = {
+                ...listaItems[idx],
+                rubro: valTema || listaItems[idx].rubro || 'Materiales',
+                material: nombreCompleto,
+                cantidad: qty,
+                unidad: unidad,
+                nota: nota
+            };
+        }
+        cancelarReemplazoItem();
+    } else {
+        listaItems.push({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            rubro: valTema || 'Materiales',
+            material: nombreCompleto,
+            cantidad: qty,
+            unidad: unidad,
+            nota: nota
+        });
+    }
 
     guardarEstadoLocal();
     renderTabla();
@@ -755,15 +949,23 @@ function agregarTrabajo() {
     document.getElementById('obsManual').value = "";
     document.getElementById('cantidad').value = 1;
     cambioTema();
-    mostrarToast("Agregado", `${qty} ${unidad} sumado a la lista.`);
-      }
+
+    if (estabaReemplazando) {
+        mostrarToast("Ítem Reemplazado", `${qty} ${unidad} actualizado en la lista.`);
+        abrirDrawerLista(false);
+    } else {
+        mostrarToast("Agregado", `${qty} ${unidad} sumado a la lista.`);
+    }
+}
 
 // ==========================================
 // ÍTEM MANUAL Y EDICIÓN DE ÍTEMS
 // ==========================================
 function abrirModalItemManual() {
     document.getElementById('manMaterial').value = '';
-    document.getElementById('manCantidad').value = 1;
+    document.getElementById('manCantidad').value = itemReemplazoId !== null
+        ? (Math.max(1, parseInt(document.getElementById('cantidad')?.value, 10) || 1))
+        : 1;
     document.getElementById('manNota').value = '';
     document.getElementById('manUnitUnid').checked = true;
     document.getElementById('modalItemManual').classList.remove('oculto');
@@ -785,19 +987,41 @@ function guardarItemManual() {
     const radio = document.querySelector('input[name="manTipoUnidad"]:checked');
     const unidad = radio ? radio.value : 'UNID';
 
-    listaItems.push({
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        material: mat,
-        cantidad: qty,
-        unidad: unidad,
-        nota: nota
-    });
+    const estabaReemplazando = itemReemplazoId !== null;
+    if (estabaReemplazando) {
+        const idx = listaItems.findIndex(i => i.id === itemReemplazoId);
+        if (idx !== -1) {
+            listaItems[idx] = {
+                ...listaItems[idx],
+                material: mat,
+                cantidad: qty,
+                unidad: unidad,
+                nota: nota
+            };
+        }
+        cancelarReemplazoItem();
+    } else {
+        listaItems.push({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            rubro: 'Manual',
+            material: mat,
+            cantidad: qty,
+            unidad: unidad,
+            nota: nota
+        });
+    }
 
     cerrarModalItemManual();
     guardarEstadoLocal();
     renderTabla();
     dispararAutoGuardadoNube();
-    mostrarToast("Material Manual Agregado", mat);
+
+    if (estabaReemplazando) {
+        mostrarToast("Ítem Reemplazado", mat);
+        abrirDrawerLista(false);
+    } else {
+        mostrarToast("Material Manual Agregado", mat);
+    }
 }
 
 function abrirModalEditarItem(id) {
@@ -877,6 +1101,9 @@ function duplicarItem(id) {
 }
 
 function borrarItem(id) {
+    if (itemReemplazoId === id) {
+        cancelarReemplazoItem();
+    }
     listaItems = listaItems.filter(i => i.id !== id);
     guardarEstadoLocal();
     renderTabla();
@@ -979,10 +1206,11 @@ function renderTabla() {
                     </div>
                 </div>
                 <div class="pres-item-actions-bar" style="margin-top: 0; justify-content: space-between; align-items: center;">
-                    <div style="display: flex; gap: 5px;">
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                         <button type="button" class="pres-mini-act" onclick="ajustarCantidadItem(${i.id}, -1)" title="Restar 1"><i class="fa-solid fa-minus"></i></button>
                         <button type="button" class="pres-mini-act" onclick="ajustarCantidadItem(${i.id}, 1)" title="Sumar 1"><i class="fa-solid fa-plus"></i></button>
                         <button type="button" class="pres-mini-act" onclick="abrirModalEditarItem(${i.id})"><i class="fa-solid fa-pen"></i> Editar</button>
+                        <button type="button" class="pres-mini-act" style="color: var(--ngc-warning); border-color: rgba(245, 195, 59, 0.35);" onclick="iniciarReemplazoItem(${i.id})" title="Reemplazar con otro material del catálogo"><i class="fa-solid fa-arrows-rotate"></i> Reemplazar</button>
                         <button type="button" class="pres-mini-act" onclick="duplicarItem(${i.id})" title="Duplicar ítem"><i class="fa-solid fa-copy"></i></button>
                     </div>
                     <button type="button" class="pres-mini-act" style="color: var(--error-red); border-color: rgba(228, 30, 63, 0.35);" onclick="borrarItem(${i.id})" title="Eliminar">
@@ -994,7 +1222,7 @@ function renderTabla() {
     }
 
     sincronizarVistaPreviaPDF();
-      }
+}
 
 // ==========================================
 // WHATSAPP
@@ -1274,7 +1502,7 @@ function cerrarVistaPrevia() {
 
     const drawerAbierto = !document.getElementById('modalListaMateriales')?.classList.contains('oculto');
     document.body.style.overflow = drawerAbierto ? 'hidden' : '';
-}
+        }
 
 // ==========================================
 // GENERACIÓN DE PDF FINAL
@@ -1336,7 +1564,7 @@ async function ejecutarDescargaPDF() {
         }
         if (selloAgua) selloAgua.style.display = 'flex';
     }
-        }
+}
 
 // ==========================================
 // MENÚ INFERIOR SCROLL (MATCH GLOBAL)
