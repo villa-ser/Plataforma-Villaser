@@ -461,6 +461,7 @@ function inicializarZoomTactilPlano() {
 // PLANTILLAS RÁPIDAS E IMPORTACIÓN DESDE MÓDULO POTENCIA
 // ==========================================================================
 function aplicarPlantillaCroquis(tipo) {
+    materialesEditadosDesdeCatalogo = null;
     elementoSeleccionadoId = null;
     origenConexionId = null;
 
