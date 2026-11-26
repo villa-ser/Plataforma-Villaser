@@ -2488,6 +2488,7 @@ function normalizarEstadoCroquis(raw) {
     if (!Array.isArray(base.aberturas)) base.aberturas = [];
     if (!Array.isArray(base.elementos)) base.elementos = [];
     if (!Array.isArray(base.tramos)) base.tramos = [];
+    base.itemsPersonalizados = Array.isArray(raw?.itemsPersonalizados) ? raw.itemsPersonalizados : null;
     base.tramos.forEach(tr => {
         if (!tr.via) tr.via = 'TECHO';
     });
