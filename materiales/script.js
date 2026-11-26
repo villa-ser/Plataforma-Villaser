@@ -83,14 +83,6 @@ function cerrarDrawerLista() {
 // ==========================================
 // INTEGRACIÓN BIDIRECCIONAL CON CROQUIS 3D
 // ==========================================
-
-let origenCroquisActivo = false;
-let metaCroquisOrigen = {
-    ambienteNombre: '',
-    desperdicio: 10,
-    telefonoClienteActual: ''
-};
-
 function verificarEntradaDesdeCroquis() {
     const params = new URLSearchParams(window.location.search);
     const paqueteRaw = localStorage.getItem('villaser_computo_croquis');
@@ -117,7 +109,7 @@ function verificarEntradaDesdeCroquis() {
                 ? Boolean(datos.permiteGuardarNube)
                 : clienteDesdeAgenda;
 
-            metaCroquisOrigen = {
+            croquisMetaOrigen = {
                 ambienteNombre: datos.ambienteNombre || '',
                 desperdicio: datos.desperdicio !== undefined ? datos.desperdicio : 10,
                 telefonoClienteActual: datos.telefonoClienteActual || ''
@@ -126,28 +118,19 @@ function verificarEntradaDesdeCroquis() {
             if (Array.isArray(datos.items) && datos.items.length > 0) {
                 listaItems = datos.items.map((it, idx) => ({
                     id: it.id || (Date.now() + idx),
+                    rubro: it.rubro || 'Croquis',
                     material: it.material || '',
                     cantidad: Number(it.cantidad || 1),
-                    unidad: it.unidad || 'Un.',
+                    unidad: it.unidad || 'UNID',
                     nota: it.nota || ''
                 }));
             }
 
-            origenCroquisActivo = true;
+            modoOrigenCroquis = true;
             localStorage.removeItem('villaser_computo_croquis');
 
-            const btnVolver = document.getElementById('btnVolverCroquis');
-            if (btnVolver) btnVolver.classList.remove('oculto');
-
-            if (typeof guardarEstadoLocal === 'function') guardarEstadoLocal();
-            if (typeof avanzarPasoTrabajo === 'function') avanzarPasoTrabajo();
-
-            mostrarToast(
-                'Cómputo de Croquis',
-                clienteDesdeAgenda
-                    ? 'Listado cargado con cliente agendado.'
-                    : 'Listado cargado en modo temporal.'
-            );
+            guardarEstadoLocal();
+            actualizarInterfazModoCroquis();
         }
     } catch (err) {
         console.error('Error al importar cómputo desde Croquis:', err);
@@ -159,10 +142,11 @@ function verificarEntradaDesdeCroquis() {
             window.history.replaceState({}, '', limpiaUrl);
         }
     }
-    return true;
+    return modoOrigenCroquis;
 }
 
 function guardarYVolverACroquis() {
+    const meta = croquisMetaOrigen || {};
     const retorno = {
         destino: 'croquis',
         timestamp: Date.now(),
@@ -171,14 +155,14 @@ function guardarYVolverACroquis() {
         cliProyecto: (document.getElementById('cliProyecto')?.value || '').trim(),
         clienteDesdeAgenda: Boolean(clienteDesdeAgenda),
         permiteGuardarNube: Boolean(permiteGuardarNube),
-        ambienteNombre: metaCroquisOrigen.ambienteNombre,
-        desperdicio: metaCroquisOrigen.desperdicio,
-        telefonoClienteActual: metaCroquisOrigen.telefonoClienteActual,
+        ambienteNombre: meta.ambienteNombre || '',
+        desperdicio: meta.desperdicio !== undefined ? meta.desperdicio : 10,
+        telefonoClienteActual: meta.telefonoClienteActual || '',
         items: listaItems.map((it, idx) => ({
             id: it.id || (Date.now() + idx),
             material: it.material || '',
             cantidad: Number(it.cantidad || 1),
-            unidad: it.unidad || 'Un.',
+            unidad: it.unidad || 'UNID',
             nota: it.nota || ''
         }))
     };
@@ -214,7 +198,6 @@ function iniciarReemplazoItem(id) {
         btnAdd.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Reemplazar`;
     }
 
-    // Pre-cargar cantidad, unidad y nota del ítem a reemplazar para agilizar
     const inpCant = document.getElementById('cantidad');
     if (inpCant) inpCant.value = Math.max(1, parseInt(item.cantidad, 10) || 1);
 
@@ -247,6 +230,7 @@ function cancelarReemplazoItem() {
         btnAdd.innerHTML = `<i class="fa-solid fa-plus"></i> Agregar`;
     }
 }
+
 
 
 // ==========================================
