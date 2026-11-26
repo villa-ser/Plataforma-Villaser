@@ -326,6 +326,8 @@ function actualizarBadgeNube() {
 // ==========================================================================
 // ALTERNAR VISTA 3D CUBO / PLANTA 2D Y ZOOM TÁCTIL DEL PLANO
 // ==========================================================================
+let modoVista3D = true;
+
 function alternarModoVista3D() {
     modoVista3D = !modoVista3D;
     const btn = document.getElementById('btnToggleVista3D');
@@ -337,6 +339,29 @@ function alternarModoVista3D() {
     }
     renderizarTodoCroquis();
 }
+
+function factorEscalaPerspectiva3D(z) {
+    const alto = Math.max(2, estadoCroquis.alto || 2.60);
+    const ratio = Math.max(0, Math.min(1, (z ?? 0) / alto));
+    // Piso (z = 0) -> 0.70 del tamaño exterior; Techo (z = alto) -> 1.00
+    return 0.70 + 0.30 * ratio;
+}
+
+function proyectarPunto3D(x, y, z, geom) {
+    const basePx = geom.ox + x * geom.scale;
+    const basePy = geom.oy + y * geom.scale;
+    if (!modoVista3D) {
+        return { px: basePx, py: basePy };
+    }
+    const cx = geom.ox + geom.roomW / 2;
+    const cy = geom.oy + geom.roomH / 2;
+    const f = factorEscalaPerspectiva3D(z);
+    return {
+        px: cx + (basePx - cx) * f,
+        py: cy + (basePy - cy) * f
+    };
+}
+
 
 function aplicarTransformacionZoomPlano() {
     const layer = document.getElementById('zoomLayerSvgCroquis');
