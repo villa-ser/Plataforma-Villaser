@@ -152,6 +152,8 @@ function generarMenuInferiorLocal() {
 // FLUJO DE CLIENTE, AGENDA Y PERSISTENCIA LOCAL
 // ==========================================================================
 function cargarEstadoInicial() {
+    if (verificarRetornoDesdeMateriales()) return;
+
     const raw = localStorage.getItem(STORAGE_KEY_CROQUIS);
     if (raw) {
         try {
@@ -192,21 +194,8 @@ function cargarEstadoInicial() {
             }
         } catch (e) {}
     }
-    // Al final de cargarEstadoInicial():
-verificarRetornoDesdeMateriales();
 }
 
-function guardarClienteGlobal() {
-    const payload = {
-        nombre: document.getElementById('cliNombre').value.trim(),
-        direccion: document.getElementById('cliDireccion').value.trim(),
-        proyecto: document.getElementById('cliProyecto').value.trim(),
-        telefono: telefonoClienteActual || ''
-    };
-    if (payload.nombre) {
-        localStorage.setItem('villaser_cliente_global', JSON.stringify(payload));
-    }
-}
 
 function guardarEstadoLocal(enTrabajo = true) {
     const payload = {
