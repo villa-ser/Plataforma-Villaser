@@ -1,5 +1,5 @@
 // ==========================================================================
-// MÓDULO CROQUIS ELÉCTRICO DE AMBIENTE 3D CENITAL (CUBO) + CÓMPUTO 2.5D
+// MÓDULO CROQUIS ELÉCTRICO DE AMBIENTE 2.5D - VILLASER
 // ==========================================================================
 let db = null;
 let uidSeguro = null;
@@ -14,14 +14,6 @@ const STORAGE_KEY_CROQUIS = 'croquis_estado_actual';
 let herramientaActiva = 'SELECT';
 let elementoSeleccionadoId = null;
 let origenConexionId = null;
-let vistaCubo3D = true;
-let listadoComputoVisible = false; // Oculto por defecto en móvil para ahorro de scroll
-
-// Estado de Zoom y Paneo táctil sobre el lienzo del Cubo/Planta
-let zoomPlano = 1;
-let panXPlano = 0;
-let panYPlano = 0;
-let gestosPlanoInicializados = false;
 
 // Catálogo de cotas y metadatos normativos AEA 90364 por tipo de boca
 const PRESETS_ELEMENTOS = {
@@ -58,9 +50,9 @@ function crearPlantillaDormitorio() {
             { id: 'el5', tag: 'T3',  tipo: 'TOMA_10A',   x: 2.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: '' }
         ],
         tramos: [
-            { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'BAJADA_1P', via: 'TECHO' },
-            { id: 'tr2', desde: 'el3', hasta: 'el5', rol: 'ALIM_TUG',  via: 'PARED' },
-            { id: 'tr3', desde: 'el5', hasta: 'el4', rol: 'ALIM_TUG',  via: 'PARED' }
+            { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'BAJADA_1P' },
+            { id: 'tr2', desde: 'el3', hasta: 'el4', rol: 'ALIM_TUG' },
+            { id: 'tr3', desde: 'el4', hasta: 'el5', rol: 'ALIM_TUG' }
         ]
     };
 }
@@ -100,10 +92,8 @@ function arrancarModuloCroquis() {
     }
 
     generarMenuInferiorLocal();
-    inicializarZoomTactilPlano();
     cargarEstadoInicial();
     actualizarPDFHeaders();
-    actualizarVistaPreviaPDF();
 }
 
 if (document.readyState === 'loading') {
@@ -151,156 +141,6 @@ function generarMenuInferiorLocal() {
 }
 
 // ==========================================================================
-// ZOOM TÁCTIL (PINZA CON 2 DEDOS) Y PANEO EN EL PLANO / CUBO 3D
-// ==========================================================================
-function inicializarZoomTactilPlano() {
-    if (gestosPlanoInicializados) return;
-    const viewport = document.getElementById('viewportSvgCroquis');
-    if (!viewport) return;
-
-    let distInicial = 0;
-    let zoomInicialPellizco = 1;
-    let toqueInicioX = 0;
-    let toqueInicioY = 0;
-    let panInicioX = 0;
-    let panInicioY = 0;
-    let huboArrastre = false;
-
-    viewport.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
-            huboArrastre = true;
-            distInicial = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            zoomInicialPellizco = zoomPlano;
-        } else if (e.touches.length === 1) {
-            toqueInicioX = e.touches[0].clientX;
-            toqueInicioY = e.touches[0].clientY;
-            panInicioX = panXPlano;
-            panInicioY = panYPlano;
-            huboArrastre = false;
-        }
-    }, { passive: true });
-
-    viewport.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && distInicial > 0) {
-            e.preventDefault();
-            huboArrastre = true;
-            const rect = viewport.getBoundingClientRect();
-            const centroX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
-            const centroY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
-
-            const distActual = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            const nuevoZoom = Math.min(3.5, Math.max(1, zoomInicialPellizco * (distActual / distInicial)));
-            const factor = nuevoZoom / zoomPlano;
-
-            panXPlano = centroX - (centroX - panXPlano) * factor;
-            panYPlano = centroY - (centroY - panYPlano) * factor;
-            zoomPlano = nuevoZoom;
-            aplicarTransformPlano();
-        } else if (e.touches.length === 1 && zoomPlano > 1.02) {
-            const dx = e.touches[0].clientX - toqueInicioX;
-            const dy = e.touches[0].clientY - toqueInicioY;
-            if (Math.hypot(dx, dy) > 8) {
-                e.preventDefault();
-                huboArrastre = true;
-                panXPlano = panInicioX + dx;
-                panYPlano = panInicioY + dy;
-                aplicarTransformPlano();
-            }
-        }
-    }, { passive: false });
-
-    viewport.addEventListener('touchend', (e) => {
-        if (e.touches.length < 2) {
-            distInicial = 0;
-        }
-        if (!huboArrastre && e.changedTouches && e.changedTouches.length === 1) {
-            const svgNode = viewport.querySelector('svg');
-            if (svgNode) {
-                e.preventDefault();
-                manejarToqueLienzo({
-                    currentTarget: svgNode,
-                    clientX: e.changedTouches[0].clientX,
-                    clientY: e.changedTouches[0].clientY
-                });
-            }
-        }
-    }, { passive: false });
-
-    gestosPlanoInicializados = true;
-}
-
-function aplicarTransformPlano() {
-    const viewport = document.getElementById('viewportSvgCroquis');
-    const layer = document.getElementById('zoomLayerSvgCroquis');
-    if (!viewport || !layer) return;
-
-    const w = viewport.clientWidth || 320;
-    const h = viewport.clientHeight || 310;
-
-    if (zoomPlano <= 1.01) {
-        zoomPlano = 1;
-        panXPlano = 0;
-        panYPlano = 0;
-        viewport.style.touchAction = 'pan-y';
-    } else {
-        viewport.style.touchAction = 'none';
-        const minX = w * (1 - zoomPlano);
-        const minY = h * (1 - zoomPlano);
-        panXPlano = Math.min(0, Math.max(minX, panXPlano));
-        panYPlano = Math.min(0, Math.max(minY, panYPlano));
-    }
-
-    layer.style.transform = `translate3d(${panXPlano}px, ${panYPlano}px, 0) scale(${zoomPlano})`;
-
-    const txt = document.getElementById('txtZoomPlano');
-    if (txt) txt.innerText = `${Math.round(zoomPlano * 100)}%`;
-
-    const btnReset = document.getElementById('btnResetZoomPlano');
-    if (btnReset) btnReset.classList.toggle('oculto', zoomPlano <= 1.02);
-}
-
-function ajustarZoomPlano(delta) {
-    const viewport = document.getElementById('viewportSvgCroquis');
-    const w = viewport ? viewport.clientWidth : 320;
-    const h = viewport ? viewport.clientHeight : 310;
-
-    const nuevoZoom = Math.min(3.5, Math.max(1, zoomPlano + delta));
-    const factor = nuevoZoom / zoomPlano;
-    panXPlano = (w / 2) - ((w / 2) - panXPlano) * factor;
-    panYPlano = (h / 2) - ((h / 2) - panYPlano) * factor;
-    zoomPlano = nuevoZoom;
-    aplicarTransformPlano();
-}
-
-function resetearZoomPlano() {
-    zoomPlano = 1;
-    panXPlano = 0;
-    panYPlano = 0;
-    aplicarTransformPlano();
-}
-
-// ==========================================================================
-// DESPLEGABLE DE MATERIALES CALCULADOS
-// ==========================================================================
-function toggleListaComputo() {
-    listadoComputoVisible = !listadoComputoVisible;
-    const lista = document.getElementById('ui-lista-computo');
-    const btn = document.getElementById('btnToggleComputo');
-    if (lista) lista.classList.toggle('oculto', !listadoComputoVisible);
-    if (btn) {
-        btn.innerHTML = listadoComputoVisible
-            ? '<i class="fa-solid fa-eye-slash"></i> Ocultar'
-            : '<i class="fa-solid fa-eye"></i> Ver Listado';
-    }
-}
-
-// ==========================================================================
 // FLUJO DE CLIENTE, AGENDA Y PERSISTENCIA LOCAL
 // ==========================================================================
 function cargarEstadoInicial() {
@@ -314,12 +154,10 @@ function cargarEstadoInicial() {
                 document.getElementById('cliProyecto').value = data.cliProyecto || '';
                 document.getElementById('obsGenerales').value = data.obsGenerales || '';
                 estadoCroquis = normalizarEstadoCroquis(data.estadoCroquis);
-                                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
+                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
                 permiteGuardarNube = data.permiteGuardarNube !== false;
                 nombreBorradorActual = data.nombreBorrador || null;
                 telefonoClienteActual = data.telefonoClienteActual || '';
-
-                procesarRetornoDesdeMateriales();
 
                 if (data.enTrabajo && data.cliNombre) {
                     avanzarPasoTrabajo(false);
@@ -381,6 +219,7 @@ function marcarClienteManual() {
     permiteGuardarNube = false;
 }
 
+// Callback invocado por global.js cuando el usuario toca "Usar" en #modalAgenda
 function seleccionarContacto(nombre, dir, tel = '') {
     document.getElementById('cliNombre').value = nombre || '';
     document.getElementById('cliDireccion').value = dir || '';
@@ -391,7 +230,6 @@ function seleccionarContacto(nombre, dir, tel = '') {
     guardarClienteGlobal();
     actualizarCabeceraProyecto();
     actualizarBadgeNube();
-    actualizarVistaPreviaPDF();
     mostrarToast('Cliente Seleccionado', `${nombre} vinculado desde Agenda.`);
 }
 
@@ -492,7 +330,6 @@ function actualizarBadgeNube() {
 function aplicarPlantillaCroquis(tipo) {
     elementoSeleccionadoId = null;
     origenConexionId = null;
-    resetearZoomPlano();
 
     if (tipo === 'dormitorio') {
         estadoCroquis = crearPlantillaDormitorio();
@@ -517,9 +354,9 @@ function aplicarPlantillaCroquis(tipo) {
                 { id: 'el6', tag: 'T2',  tipo: 'TOMA_10A',   x: 0.60, y: 0.00, z: 0.30, muro: 'NORTE', rot: 0,   circ: 'C2', nota: 'Heladera' }
             ],
             tramos: [
-                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG',  via: 'TECHO' },
-                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P', via: 'TECHO' },
-                { id: 'tr3', desde: 'el6', hasta: 'el5', rol: 'ALIM_TUG',  via: 'PARED' }
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P' },
+                { id: 'tr3', desde: 'el6', hasta: 'el5', rol: 'ALIM_TUG' }
             ]
         };
     } else if (tipo === 'bano') {
@@ -541,8 +378,8 @@ function aplicarPlantillaCroquis(tipo) {
                 { id: 'el4', tag: 'T1',  tipo: 'TOMA_10A',   x: 0.00, y: 1.30, z: 1.10, muro: 'OESTE', rot: 270, circ: 'C2', nota: 'Con tapa IP' }
             ],
             tramos: [
-                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG',  via: 'TECHO' },
-                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P', via: 'TECHO' }
+                { id: 'tr1', desde: 'el1', hasta: 'el2', rol: 'ALIM_IUG' },
+                { id: 'tr2', desde: 'el1', hasta: 'el3', rol: 'BAJADA_2P' }
             ]
         };
     } else {
@@ -656,6 +493,7 @@ async function importarAmbientePotencia(docId, ambIndex) {
             });
         }
 
+        // Llave junto a la puerta
         elementos.push({
             id: 'el_ll1',
             tag: 'LL1',
@@ -674,11 +512,11 @@ async function importarAmbientePotencia(docId, ambIndex) {
                 id: 'tr_bajada',
                 desde: 'el_b1',
                 hasta: 'el_ll1',
-                rol: cantIUG > 1 ? 'BAJADA_2P' : 'BAJADA_1P',
-                via: 'TECHO'
+                rol: cantIUG > 1 ? 'BAJADA_2P' : 'BAJADA_1P'
             });
         }
 
+        // Distribuir tomas TUG por los muros
         const cantTUG = Math.min(6, parseInt(amb.bTUG, 10) || 2);
         const murosCiclo = [
             { muro: 'OESTE', x: 0,     y: largo * 0.5, rot: 270 },
@@ -702,7 +540,7 @@ async function importarAmbientePotencia(docId, ambIndex) {
                 nota: ''
             });
             if (t > 0) {
-                tramos.push({ id: `tr_t${t}`, desde: `el_t${t}`, hasta: idT, rol: 'ALIM_TUG', via: 'PARED' });
+                tramos.push({ id: `tr_t${t}`, desde: `el_t${t}`, hasta: idT, rol: 'ALIM_TUG' });
             }
         }
 
@@ -720,7 +558,6 @@ async function importarAmbientePotencia(docId, ambIndex) {
 
         elementoSeleccionadoId = null;
         origenConexionId = null;
-        resetearZoomPlano();
         cerrarModalImportarPotencia();
         guardarEstadoLocal(true);
         renderizarTodoCroquis();
@@ -728,7 +565,7 @@ async function importarAmbientePotencia(docId, ambIndex) {
     } catch (e) {
         mostrarAlertaCorp('Error', 'No se pudo importar el ambiente.');
     }
-  }
+}
 
 // ==========================================================================
 // CONFIGURACIÓN DE AMBIENTE, ABERTURAS Y ELEMENTOS
@@ -759,6 +596,7 @@ function guardarConfigAmbiente() {
     estadoCroquis.desperdicio = parseInt(document.getElementById('ambDesperdicio').value, 10) || 10;
     estadoCroquis.canoDiam = document.getElementById('ambCanoDiam').value;
 
+    // Reajustar cajas que hayan quedado fuera de las nuevas cotas
     estadoCroquis.elementos.forEach(el => {
         if (el.muro === 'ESTE') el.x = nuevoAncho;
         else if (el.muro === 'OESTE') el.x = 0;
@@ -769,7 +607,6 @@ function guardarConfigAmbiente() {
         else el.y = Math.min(nuevoLargo, Math.max(0, el.y));
 
         if (el.tipo === 'BOCA_TECHO') el.z = nuevoAlto;
-        else el.z = Math.min(nuevoAlto, el.z ?? 0.30);
     });
 
     cerrarModalAmbiente();
@@ -827,26 +664,11 @@ function eliminarAbertura(idx) {
     renderizarListaAberturasModal();
     guardarEstadoLocal(true);
     renderizarTodoCroquis();
-}
-
-// ==========================================================================
-// HERRAMIENTAS TÁCTILES, COLOCACIÓN EN CUBO 3D Y CONTROL X / Y / Z
-// ==========================================================================
-function alternarModoVista3D() {
-    vistaCubo3D = !vistaCubo3D;
-    const btn = document.getElementById('btnToggleVista3D');
-    if (btn) {
-        if (vistaCubo3D) {
-            btn.classList.add('primary-action');
-            btn.innerHTML = '<i class="fa-solid fa-cube"></i> 3D Cubo';
-        } else {
-            btn.classList.remove('primary-action');
-            btn.innerHTML = '<i class="fa-solid fa-square"></i> 2D Planta';
         }
-    }
-    renderizarTodoCroquis();
-}
 
+// ==========================================================================
+// HERRAMIENTAS TÁCTILES, COLOCACIÓN CON IMÁN A MUROS Y D-PAD
+// ==========================================================================
 function seleccionarHerramienta(tool) {
     herramientaActiva = tool;
     origenConexionId = null;
@@ -857,14 +679,14 @@ function seleccionarHerramienta(tool) {
     });
 
     const hints = {
-        SELECT: 'Tocá una caja para moverla • Pellizcá con 2 dedos para hacer zoom en el plano.',
-        BOCA_TECHO: 'Tocá en el plano del techo para ubicar una Boca de Centro.',
-        APLIQUE: 'Tocá sobre cualquiera de las 4 paredes internas para fijar un Aplique (Z=2,10m).',
-        LLAVE_1P: 'Tocá sobre una pared (ej. junto a puerta) para colocar Llave de Luz (Z=1,10m).',
-        TOMA_10A: 'Tocá sobre una pared para ubicar un Tomacorriente (Z=0,30m).',
-        TABLERO: 'Tocá sobre una pared para ubicar el Tablero Seccional (Z=1,60m).',
-        CAJA_PASO: 'Tocá una pared para colocar una Caja de Paso (Z=2,40m).',
-        CONECTAR: 'Paso 1: Tocá la caja de ORIGEN del caño en el cubo.'
+        SELECT: 'Tocá cualquier caja en el plano para moverla con precisión o editar sus datos.',
+        BOCA_TECHO: 'Tocá cualquier punto del techo para ubicar una Boca de Centro.',
+        APLIQUE: 'Tocá cerca de una pared para fijar un Aplique (se orienta solo).',
+        LLAVE_1P: 'Tocá cerca de una pared (ej. junto a puerta) para colocar Llave de Luz.',
+        TOMA_10A: 'Tocá cerca de una pared para ubicar un Tomacorriente.',
+        TABLERO: 'Tocá una pared para ubicar el Tablero Seccional (TS).',
+        CAJA_PASO: 'Tocá una pared o esquina para colocar Caja de Paso.',
+        CONECTAR: 'Paso 1: Tocá la caja de ORIGEN del caño.'
     };
     document.getElementById('ui-hint-herramienta').innerText = hints[tool] || '';
 }
@@ -914,16 +736,17 @@ function manejarToqueLienzo(evt) {
     const svgX = ((clientX - rect.left) / rect.width) * vb.width;
     const svgY = ((clientY - rect.top) / rect.height) * vb.height;
 
-    const geom = calcularGeometriaCubo3D(vb.width, vb.height);
+    const geom = calcularGeometriaPlano(vb.width, vb.height);
+    const realX = Math.max(0, Math.min(estadoCroquis.ancho, (svgX - geom.ox) / geom.scale));
+    const realY = Math.max(0, Math.min(estadoCroquis.largo, (svgY - geom.oy) / geom.scale));
 
-    // 1. Verificar si tocó algún elemento ya dibujado
+    // Buscar si tocó cerca de algún elemento existente (radio 0.32 m)
     let tocado = null;
-    let minPixelDist = 26;
+    let minDist = 0.35;
     estadoCroquis.elementos.forEach(el => {
-        const pt = proyectarPunto3D(el.x, el.y, el.z ?? 0, geom);
-        const d = Math.hypot(pt.sx - svgX, pt.sy - svgY);
-        if (d < minPixelDist) {
-            minPixelDist = d;
+        const d = Math.hypot(el.x - realX, el.y - realY);
+        if (d < minDist) {
+            minDist = d;
             tocado = el;
         }
     });
@@ -952,33 +775,19 @@ function manejarToqueLienzo(evt) {
         return;
     }
 
-    // 2. Inserción inteligente sobre pared o techo en perspectiva 3D
+    // Inserción de nuevo elemento con snap automático a pared si corresponde
     const preset = PRESETS_ELEMENTOS[herramientaActiva] || PRESETS_ELEMENTOS.TOMA_10A;
-    const W = estadoCroquis.ancho;
-    const L = estadoCroquis.largo;
-    const H = estadoCroquis.alto || 2.60;
-
-    let posX = redondear05(W / 2);
-    let posY = redondear05(L / 2);
-    let posZ = herramientaActiva === 'BOCA_TECHO' ? H : preset.zDefault;
+    let posX = redondear05(realX);
+    let posY = redondear05(realY);
     let muro = 'TECHO';
     let rot = 0;
 
-    if (!preset.pared) {
-        const rx = ((svgX - geom.ox) / geom.roomW) * W;
-        const ry = ((svgY - geom.oy) / geom.roomH) * L;
-        posX = redondear05(Math.max(0.15, Math.min(W - 0.15, rx)));
-        posY = redondear05(Math.max(0.15, Math.min(L - 0.15, ry)));
-        posZ = H;
-        muro = 'TECHO';
-        rot = 0;
-    } else {
-        const infoPared = detectarParedDesdeToque3D(svgX, svgY, geom);
-        muro = infoPared.muro;
-        rot = infoPared.rot;
-        posX = infoPared.x;
-        posY = infoPared.y;
-        posZ = Math.min(H - 0.10, preset.zDefault);
+    if (preset.pared) {
+        const snap = ajustarAParedCercana(posX, posY);
+        posX = snap.x;
+        posY = snap.y;
+        muro = snap.muro;
+        rot = snap.rot;
     }
 
     const nuevo = {
@@ -987,7 +796,7 @@ function manejarToqueLienzo(evt) {
         tipo: herramientaActiva,
         x: posX,
         y: posY,
-        z: posZ,
+        z: herramientaActiva === 'BOCA_TECHO' ? estadoCroquis.alto : preset.zDefault,
         muro,
         rot,
         circ: preset.circ,
@@ -999,34 +808,6 @@ function manejarToqueLienzo(evt) {
     seleccionarHerramienta('SELECT');
     guardarEstadoLocal(true);
     renderizarTodoCroquis();
-}
-
-function detectarParedDesdeToque3D(svgX, svgY, geom) {
-    const W = estadoCroquis.ancho;
-    const L = estadoCroquis.largo;
-
-    const cx = geom.ox + geom.roomW / 2;
-    const cy = geom.oy + geom.roomH / 2;
-    const nx = (svgX - cx) / (geom.roomW / 2);
-    const ny = (svgY - cy) / (geom.roomH / 2);
-
-    if (Math.abs(nx) > Math.abs(ny)) {
-        const fracY = Math.max(0, Math.min(1, (svgY - (geom.oy + geom.dyP * 0.5)) / (geom.roomH - geom.dyP)));
-        const yReal = redondear05(fracY * L);
-        if (nx < 0) {
-            return { muro: 'OESTE', x: 0, y: yReal, rot: 270 };
-        } else {
-            return { muro: 'ESTE', x: W, y: yReal, rot: 90 };
-        }
-    } else {
-        const fracX = Math.max(0, Math.min(1, (svgX - (geom.ox + geom.dxP * 0.5)) / (geom.roomW - geom.dxP)));
-        const xReal = redondear05(fracX * W);
-        if (ny < 0) {
-            return { muro: 'NORTE', x: xReal, y: 0, rot: 0 };
-        } else {
-            return { muro: 'SUR', x: xReal, y: L, rot: 180 };
-        }
-    }
 }
 
 function ajustarAParedCercana(x, y) {
@@ -1068,26 +849,13 @@ function moverElementoSeleccionado(dx, dy) {
     renderizarTodoCroquis();
 }
 
-function moverAlturaSeleccionado(dirZ) {
-    const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
-    if (!el) return;
-
-    const paso = parseFloat(document.getElementById('selPasoFino').value) || 0.10;
-    const maxZ = estadoCroquis.alto || 2.60;
-    const actualZ = el.z ?? 0.30;
-    el.z = redondear05(Math.max(0.10, Math.min(maxZ, actualZ + dirZ * paso)));
-
-    guardarEstadoLocal(true);
-    renderizarTodoCroquis();
-}
-
 function iniciarConexionDesdeSeleccionado() {
     if (!elementoSeleccionadoId) return;
     const el = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
     seleccionarHerramienta('CONECTAR');
     origenConexionId = elementoSeleccionadoId;
     if (el) {
-        document.getElementById('ui-hint-herramienta').innerText = `Origen: [${el.tag}]. Tocá ahora la caja de DESTINO en el cubo.`;
+        document.getElementById('ui-hint-herramienta').innerText = `Origen: [${el.tag}]. Tocá ahora la caja de DESTINO en el plano.`;
     }
     renderizarTodoCroquis();
 }
@@ -1139,7 +907,7 @@ function guardarEdicionElemento() {
     el.tag = document.getElementById('elTag').value.trim() || el.tag;
     el.tipo = nuevoTipo;
     el.circ = document.getElementById('elCircuito').value;
-    el.z = Math.max(0, Math.min(estadoCroquis.alto || 6, parseFloat(document.getElementById('elZ').value) || 0));
+    el.z = Math.max(0, parseFloat(document.getElementById('elZ').value) || 0);
     el.x = Math.max(0, Math.min(estadoCroquis.ancho, parseFloat(document.getElementById('elX').value) || 0));
     el.y = Math.max(0, Math.min(estadoCroquis.largo, parseFloat(document.getElementById('elY').value) || 0));
     el.nota = document.getElementById('elNota').value.trim();
@@ -1152,23 +920,17 @@ function guardarEdicionElemento() {
         el.rot = snap.rot;
     } else {
         el.muro = 'TECHO';
-        el.z = estadoCroquis.alto;
         el.rot = 0;
     }
 
     cerrarModalElemento();
     guardarEstadoLocal(true);
     renderizarTodoCroquis();
-      }
+    }
 
 // ==========================================================================
-// CONEXIÓN DE TRAMOS (PARED / TECHO / CONTRAPISO) Y CÁLCULO 2.5D REAL
+// CONEXIÓN DE TRAMOS Y CÁLCULO 2.5D REAL
 // ==========================================================================
-function sonMurosOpuestos(mA, mB) {
-    return (mA === 'NORTE' && mB === 'SUR') || (mA === 'SUR' && mB === 'NORTE') ||
-           (mA === 'OESTE' && mB === 'ESTE') || (mA === 'ESTE' && mB === 'OESTE');
-}
-
 function conectarDosCajas(idA, idB) {
     const a = estadoCroquis.elementos.find(e => e.id === idA);
     const b = estadoCroquis.elementos.find(e => e.id === idB);
@@ -1183,32 +945,15 @@ function conectarDosCajas(idA, idB) {
     else if (tipos.includes('TOMA_20A') || a.circ === 'C3' || b.circ === 'C3') rol = 'ALIM_TUE';
     else if (a.circ === 'C1' && b.circ === 'C1') rol = 'ALIM_IUG';
 
-    let via = 'TECHO';
-    if (a.muro !== 'TECHO' && b.muro !== 'TECHO') {
-        if (!sonMurosOpuestos(a.muro, b.muro)) {
-            via = 'PARED';
-        } else if ((a.z ?? 0) <= 0.50 && (b.z ?? 0) <= 0.50) {
-            via = 'CONTRAPISO';
-        }
-    }
-
     estadoCroquis.tramos.push({
         id: 'tr_' + Date.now(),
         desde: idA,
         hasta: idB,
-        rol,
-        via
+        rol
     });
     guardarEstadoLocal(true);
     renderizarTodoCroquis();
-    mostrarToast('Tramo Conectado', `${a.tag} → ${b.tag} (${via})`);
-}
-
-function cambiarViaTramo(idx, nuevaVia) {
-    if (!estadoCroquis.tramos[idx]) return;
-    estadoCroquis.tramos[idx].via = nuevaVia;
-    guardarEstadoLocal(true);
-    renderizarTodoCroquis();
+    mostrarToast('Tramo Conectado', `${a.tag} → ${b.tag}`);
 }
 
 function abrirModalTramoManual() {
@@ -1233,12 +978,11 @@ function guardarTramoManual() {
     const desde = document.getElementById('tramoDesde').value;
     const hasta = document.getElementById('tramoHasta').value;
     const rol = document.getElementById('tramoRol').value;
-    const via = document.getElementById('tramoVia').value || 'TECHO';
     if (desde === hasta) {
         mostrarAlertaCorp('Misma Caja', 'Seleccioná dos cajas diferentes.');
         return;
     }
-    estadoCroquis.tramos.push({ id: 'tr_' + Date.now(), desde, hasta, rol, via });
+    estadoCroquis.tramos.push({ id: 'tr_' + Date.now(), desde, hasta, rol });
     cerrarModalTramo();
     guardarEstadoLocal(true);
     renderizarTodoCroquis();
@@ -1250,81 +994,29 @@ function eliminarTramo(idx) {
     renderizarTodoCroquis();
 }
 
-function tramoParedCruzaPuerta(a, b) {
-    const puertas = (estadoCroquis.aberturas || []).filter(ab => ab.tipo.startsWith('PUERTA'));
-    if (puertas.length === 0) return false;
-
-    const W = estadoCroquis.ancho;
-    const L = estadoCroquis.largo;
-
-    const hayPuertaEnRango = (pared, c1, c2) => {
-        const minC = Math.min(c1, c2);
-        const maxC = Math.max(c1, c2);
-        return puertas.some(p => {
-            if (p.pared !== pared) return false;
-            const pIni = p.offset;
-            const pFin = p.offset + p.ancho;
-            return maxC > pIni + 0.05 && minC < pFin - 0.05;
-        });
-    };
-
-    if (a.muro === b.muro) {
-        if (a.muro === 'NORTE' || a.muro === 'SUR') return hayPuertaEnRango(a.muro, a.x, b.x);
-        return hayPuertaEnRango(a.muro, a.y, b.y);
-    }
-
-    if (!sonMurosOpuestos(a.muro, b.muro)) {
-        const esquinaX = (a.muro === 'OESTE' || b.muro === 'OESTE') ? 0 : W;
-        const esquinaY = (a.muro === 'NORTE' || b.muro === 'NORTE') ? 0 : L;
-        const cruzaA = (a.muro === 'NORTE' || a.muro === 'SUR')
-            ? hayPuertaEnRango(a.muro, a.x, esquinaX)
-            : hayPuertaEnRango(a.muro, a.y, esquinaY);
-        const cruzaB = (b.muro === 'NORTE' || b.muro === 'SUR')
-            ? hayPuertaEnRango(b.muro, b.x, esquinaX)
-            : hayPuertaEnRango(b.muro, b.y, esquinaY);
-        return cruzaA || cruzaB;
-    }
-
-    return false;
-}
-
 function calcularLongitudTramo25D(tramo) {
     const a = estadoCroquis.elementos.find(e => e.id === tramo.desde);
     const b = estadoCroquis.elementos.find(e => e.id === tramo.hasta);
     if (!a || !b) return 0;
 
-    const W = estadoCroquis.ancho || 3.50;
-    const L = estadoCroquis.largo || 3.20;
-    const H = estadoCroquis.alto || 2.60;
     const dx = Math.abs(b.x - a.x);
     const dy = Math.abs(b.y - a.y);
     const dz = Math.abs((b.z ?? 0) - (a.z ?? 0));
-    const via = tramo.via || 'TECHO';
+    const techo = estadoCroquis.alto || 2.60;
 
-    if (via === 'CONTRAPISO') {
-        return (a.z ?? 0) + dx + dy + (b.z ?? 0);
-    }
-
-    if (via === 'PARED' && a.muro !== 'TECHO' && b.muro !== 'TECHO') {
-        if (sonMurosOpuestos(a.muro, b.muro)) {
-            if (a.muro === 'OESTE' || a.muro === 'ESTE') {
-                const perimY = Math.min(a.y + b.y, (L - a.y) + (L - b.y));
-                return W + perimY + dz;
-            } else {
-                const perimX = Math.min(a.x + b.x, (W - a.x) + (W - b.x));
-                return L + perimX + dz;
-            }
-        }
+    // Si alguno está en techo o en el mismo muro a baja diferencia de cota, trazado ortogonal directo
+    if (a.muro === 'TECHO' || b.muro === 'TECHO' || (a.muro === b.muro && dz <= 0.30)) {
         return dx + dy + dz;
     }
-
-    return Math.abs(H - (a.z ?? H)) + dx + dy + Math.abs(H - (b.z ?? H));
+    // Si une dos muros distintos, sube a losa, cruza ortogonalmente y baja a la caja destino
+    return Math.abs(techo - a.z) + dx + dy + Math.abs(techo - b.z);
 }
 
 function calcularComputo25D() {
     const factorDesp = 1 + ((estadoCroquis.desperdicio || 10) / 100);
     let canoNeto = 0;
 
+    // Acumuladores de conductores (en metros netos)
     const cables = {
         f15: 0, n15: 0, pe15: 0, ret15: 0,
         f25: 0, n25: 0, pe25: 0,
@@ -1335,7 +1027,7 @@ function calcularComputo25D() {
         const L = calcularLongitudTramo25D(tr);
         if (L <= 0) return;
         canoNeto += L;
-        const Lhilo = L + 0.40;
+        const Lhilo = L + 0.40; // 20 cm chicote por cada caja
 
         if (tr.rol === 'ALIM_IUG') {
             cables.f15 += Lhilo; cables.n15 += Lhilo; cables.pe15 += Lhilo;
@@ -1354,6 +1046,7 @@ function calcularComputo25D() {
         }
     });
 
+    // Conteo de cajas y mecanismos
     let octoGrandes = 0, octoChicas = 0, rect10x5 = 0, cajasPaso = 0, gabinetes = 0;
     let modPunto = 0, modComb = 0, modToma10 = 0, modToma20 = 0;
 
@@ -1394,6 +1087,7 @@ function calcularComputo25D() {
     if (modToma10 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 10A IRAM 2071', cant: modToma10, unid: 'UNID' });
     if (modToma20 > 0) items.push({ rubro: 'Mecanismos', desc: 'Módulo Tomacorriente 2P+T 20A Reforzado', cant: modToma20, unid: 'UNID' });
 
+    // Conductores discriminados por sección y color IRAM
     const addCable = (metros, desc) => {
         if (metros > 0) items.push({ rubro: 'Conductores', desc, cant: Math.ceil(metros * factorDesp), unid: 'MTS' });
     };
@@ -1414,7 +1108,7 @@ function calcularComputo25D() {
 }
 
 // ==========================================================================
-// RENDERIZADO GENERAL DE INTERFAZ Y MOTOR VECTORIAL SVG 3D CENITAL (CUBO)
+// RENDERIZADO GENERAL DE INTERFAZ Y MOTOR VECTORIAL SVG
 // ==========================================================================
 function renderizarTodoCroquis() {
     const sup = (estadoCroquis.ancho * estadoCroquis.largo).toFixed(2).replace('.', ',');
@@ -1425,6 +1119,7 @@ function renderizarTodoCroquis() {
     document.getElementById('ui-stat-bocas').innerText = `${estadoCroquis.elementos.length} cajas`;
     document.getElementById('ui-stat-caneria').innerText = `${comp.canoTotal} m (+${estadoCroquis.desperdicio}%)`;
 
+    // Auditoría rápida AEA
     const banner = document.getElementById('ui-aea-croquis-status');
     const cantTomas = estadoCroquis.elementos.filter(e => e.tipo.startsWith('TOMA_')).length;
     const cantLuces = estadoCroquis.elementos.filter(e => e.tipo === 'BOCA_TECHO' || e.tipo === 'APLIQUE').length;
@@ -1439,6 +1134,7 @@ function renderizarTodoCroquis() {
         banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Replanteo Completo:</strong> ${cantLuces} bocas ilum. + ${cantTomas} tomas • ${comp.canoTotal} m de cañería calculados.`;
     }
 
+    // Panel de selección D-Pad
     const panelSel = document.getElementById('panelControlSeleccion');
     const selEl = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
     if (selEl) {
@@ -1450,6 +1146,7 @@ function renderizarTodoCroquis() {
         panelSel.classList.add('oculto');
     }
 
+    // Lista de tramos
     document.getElementById('ui-cant-tramos').innerText = estadoCroquis.tramos.length;
     const contTramos = document.getElementById('ui-lista-tramos');
     if (estadoCroquis.tramos.length === 0) {
@@ -1459,44 +1156,22 @@ function renderizarTodoCroquis() {
             const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
             const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
             const dist = calcularLongitudTramo25D(tr);
-            const viaActual = tr.via || 'TECHO';
-            const alertaPuerta = (viaActual === 'PARED' && a && b && tramoParedCruzaPuerta(a, b))
-                ? `<span style="color:var(--error-red); font-size:0.7rem; font-weight:700; display:block; margin-top:2px;"><i class="fa-solid fa-triangle-exclamation"></i> Cruza puerta (cambiar a Techo/Piso)</span>`
-                : '';
-
-            const btnVia = (val, label) => {
-                const activo = viaActual === val;
-                const st = activo
-                    ? 'background: var(--ngc-neon); color: #fff; font-weight: 700;'
-                    : 'background: var(--ngc-bg-input); color: var(--ngc-text-faded);';
-                return `<button type="button" class="corp-btn-small" style="padding: 3px 7px; font-size: 0.7rem; ${st}" onclick="cambiarViaTramo(${idx}, '${val}')">${label}</button>`;
-            };
-
             return `
                 <div class="uni-circ-item">
                     <div class="uni-circ-top">
                         <span class="uni-circ-tag"><i class="fa-solid fa-route"></i> ${escapeHtml(a?.tag || '?')} → ${escapeHtml(b?.tag || '?')}</span>
                         <span class="uni-circ-pill">${dist.toFixed(2)} m netos</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
-                        <div style="display:flex; gap:4px; align-items:center;">
-                            ${btnVia('PARED', 'Pared')}
-                            ${btnVia('TECHO', 'Techo')}
-                            ${btnVia('CONTRAPISO', 'Piso')}
-                        </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="uni-circ-details">Rol: <strong>${escapeHtml(tr.rol)}</strong></span>
                         <button type="button" class="corp-btn-small danger" onclick="eliminarTramo(${idx})"><i class="fa-solid fa-trash"></i></button>
                     </div>
-                    ${alertaPuerta}
                 </div>
             `;
         }).join('');
     }
 
-    const pillResumen = document.getElementById('ui-resumen-computo-pill');
-    if (pillResumen) {
-        pillResumen.innerText = `${comp.items.length} ítems • ${comp.canoTotal} m caño (+${estadoCroquis.desperdicio}%)`;
-    }
-
+    // Lista de cómputo de materiales
     const contComp = document.getElementById('ui-lista-computo');
     if (comp.items.length === 0) {
         contComp.innerHTML = '<div style="text-align:center; padding:10px; font-size:0.78rem; color:var(--ngc-text-faded);">Agregá elementos y tramos para ver el cómputo de materiales.</div>';
@@ -1511,27 +1186,21 @@ function renderizarTodoCroquis() {
         `).join('');
     }
 
+    // Dibujar SVG en pantalla y en plantilla A4
     const svgHTML = generarSVGCroquis(true);
-    const zoomLayer = document.getElementById('zoomLayerSvgCroquis');
-    if (zoomLayer) {
-        zoomLayer.innerHTML = svgHTML;
-        const svgNode = zoomLayer.querySelector('svg');
-        if (svgNode) {
-            svgNode.style.cursor = 'pointer';
-            svgNode.onclick = (e) => {
-                if (e.pointerType === 'touch') return;
-                manejarToqueLienzo(e);
-            };
-        }
-        aplicarTransformPlano();
+    const stage = document.getElementById('contenedorSvgPantalla');
+    stage.innerHTML = svgHTML;
+    const svgNode = stage.querySelector('svg');
+    if (svgNode) {
+        svgNode.style.cursor = 'pointer';
+        svgNode.onclick = manejarToqueLienzo;
     }
 
     actualizarVistaPreviaPDF();
 }
 
-// Geometría de proyección Perspectiva Cenital 3D (Cubo abierto visto desde arriba)
-function calcularGeometriaCubo3D(vbW, vbH) {
-    const padL = 54, padR = 44, padT = 46, padB = 46;
+function calcularGeometriaPlano(vbW, vbH) {
+    const padL = 56, padR = 46, padT = 48, padB = 48;
     const dispW = vbW - padL - padR;
     const dispH = vbH - padT - padB;
     const scale = Math.min(dispW / estadoCroquis.ancho, dispH / estadoCroquis.largo);
@@ -1539,146 +1208,33 @@ function calcularGeometriaCubo3D(vbW, vbH) {
     const roomH = estadoCroquis.largo * scale;
     const ox = padL + (dispW - roomW) / 2;
     const oy = padT + (dispH - roomH) / 2;
-
-    const H = estadoCroquis.alto || 2.60;
-    const factorAltura = Math.min(0.30, Math.max(0.18, (H / 2.60) * 0.24));
-    const dxP = vistaCubo3D ? Math.min(roomW * 0.28, Math.min(roomW, roomH) * factorAltura) : 0;
-    const dyP = vistaCubo3D ? Math.min(roomH * 0.28, Math.min(roomW, roomH) * factorAltura) : 0;
-
-    return { ox, oy, roomW, roomH, scale, dxP, dyP, H };
-}
-
-function proyectarPunto3D(x, y, z, geom) {
-    const W = estadoCroquis.ancho || 3.50;
-    const L = estadoCroquis.largo || 3.20;
-    const H = geom.H || 2.60;
-    const t = vistaCubo3D ? Math.max(0, Math.min(1, (z ?? 0) / H)) : 1;
-
-    const xMin = geom.ox + geom.dxP * (1 - t);
-    const xMax = geom.ox + geom.roomW - geom.dxP * (1 - t);
-    const yMin = geom.oy + geom.dyP * (1 - t);
-    const yMax = geom.oy + geom.roomH - geom.dyP * (1 - t);
-
-    const sx = xMin + (x / W) * (xMax - xMin);
-    const sy = yMin + (y / L) * (yMax - yMin);
-    return { sx, sy };
-}
-
-// Helper: calcula posición perpendicular al segmento de cañería para que la etiqueta NUNCA pise el trazo de color
-function calcularPosicionEtiquetaTramo(segX1, segY1, segX2, segY2, idxTramo, extraOffset = 0) {
-    const mx = (segX1 + segX2) / 2;
-    const my = (segY1 + segY2) / 2;
-    const dx = segX2 - segX1;
-    const dy = segY2 - segY1;
-    const len = Math.hypot(dx, dy) || 1;
-
-    // Vector normal unitario perpendicular al tramo
-    let nx = -dy / len;
-    let ny = dx / len;
-
-    // En tramos horizontales o diagonales suaves, orientar por defecto hacia arriba (ny <= 0)
-    if (Math.abs(dx) >= Math.abs(dy)) {
-        if (ny > 0) { nx = -nx; ny = -ny; }
-    } else {
-        // En tramos verticales, orientar hacia la derecha (nx >= 0) salvo que esté muy pegado al borde derecho
-        if (nx < 0) { nx = -nx; ny = -ny; }
-    }
-
-    const desplazamiento = 13 + extraOffset + (idxTramo % 2) * 2;
-    return {
-        lx: Math.max(38, Math.min(462, mx + nx * desplazamiento)),
-        ly: Math.max(20, Math.min(458, my + ny * desplazamiento))
-    };
+    return { ox, oy, roomW, roomH, scale };
 }
 
 function generarSVGCroquis(mostrarSeleccion = true) {
     const vbW = 500;
     const vbH = 480;
-    const geom = calcularGeometriaCubo3D(vbW, vbH);
-    const { ox, oy, roomW, roomH, dxP, dyP } = geom;
+    const { ox, oy, roomW, roomH, scale } = calcularGeometriaPlano(vbW, vbH);
     const W = estadoCroquis.ancho;
     const L = estadoCroquis.largo;
-    const H = estadoCroquis.alto;
 
-    const tNW = { x: ox, y: oy };
-    const tNE = { x: ox + roomW, y: oy };
-    const tSE = { x: ox + roomW, y: oy + roomH };
-    const tSW = { x: ox, y: oy + roomH };
-
-    const fNW = { x: ox + dxP, y: oy + dyP };
-    const fNE = { x: ox + roomW - dxP, y: oy + dyP };
-    const fSE = { x: ox + roomW - dxP, y: oy + roomH - dyP };
-    const fSW = { x: ox + dxP, y: oy + roomH - dyP };
-
-    // SVG con preserveAspectRatio y estilo fluido para mantener relación exacta 500:480 en móvil y A4
-    const estiloSvg = mostrarSeleccion
-        ? 'width: 100%; height: auto; display: block;'
-        : 'width: 375px; height: 360px; display: block; margin: 0 auto;';
-
-    let s = `<svg viewBox="0 0 ${vbW} ${vbH}" preserveAspectRatio="xMidYMid meet" style="${estiloSvg}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
+    let s = `<svg viewBox="0 0 ${vbW} ${vbH}" width="${vbW}" height="${vbH}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
     s += `<rect x="0" y="0" width="${vbW}" height="${vbH}" fill="#ffffff"/>`;
 
-    if (vistaCubo3D) {
-        // 1. CARAS INTERNAS DE LAS 4 PAREDES
-        s += `<polygon points="${tNW.x},${tNW.y} ${tNE.x},${tNE.y} ${fNE.x},${fNE.y} ${fNW.x},${fNW.y}" fill="#eef2f6" stroke="#64748b" stroke-width="1.2"/>`;
-        s += `<polygon points="${fSW.x},${fSW.y} ${fSE.x},${fSE.y} ${tSE.x},${tSE.y} ${tSW.x},${tSW.y}" fill="#e2e8f0" stroke="#64748b" stroke-width="1.2"/>`;
-        s += `<polygon points="${tNW.x},${tNW.y} ${fNW.x},${fNW.y} ${fSW.x},${fSW.y} ${tSW.x},${tSW.y}" fill="#f1f5f9" stroke="#64748b" stroke-width="1.2"/>`;
-        s += `<polygon points="${fNE.x},${fNE.y} ${tNE.x},${tNE.y} ${tSE.x},${tSE.y} ${fSE.x},${fSE.y}" fill="#e8edf3" stroke="#64748b" stroke-width="1.2"/>`;
-
-        // 2. PISO (Z = 0)
-        s += `<rect x="${fNW.x}" y="${fNW.y}" width="${fNE.x - fNW.x}" height="${fSW.y - fNW.y}" fill="#fafbfc" stroke="#475569" stroke-width="1.8"/>`;
-
-        for (let gx = 0.5; gx < W; gx += 0.5) {
-            const pFloorTop = proyectarPunto3D(gx, 0, 0, geom);
-            const pFloorBot = proyectarPunto3D(gx, L, 0, geom);
-            const pCeilTop  = proyectarPunto3D(gx, 0, H, geom);
-            const pCeilBot  = proyectarPunto3D(gx, L, H, geom);
-            s += `<line x1="${pFloorTop.sx}" y1="${pFloorTop.sy}" x2="${pFloorBot.sx}" y2="${pFloorBot.sy}" stroke="#e2e8f0" stroke-width="0.9"/>`;
-            s += `<line x1="${pCeilTop.sx}" y1="${pCeilTop.sy}" x2="${pFloorTop.sx}" y2="${pFloorTop.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
-            s += `<line x1="${pCeilBot.sx}" y1="${pCeilBot.sy}" x2="${pFloorBot.sx}" y2="${pFloorBot.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
-        }
-        for (let gy = 0.5; gy < L; gy += 0.5) {
-            const pFloorL = proyectarPunto3D(0, gy, 0, geom);
-            const pFloorR = proyectarPunto3D(W, gy, 0, geom);
-            const pCeilL  = proyectarPunto3D(0, gy, H, geom);
-            const pCeilR  = proyectarPunto3D(W, gy, H, geom);
-            s += `<line x1="${pFloorL.sx}" y1="${pFloorL.sy}" x2="${pFloorR.sx}" y2="${pFloorR.sy}" stroke="#e2e8f0" stroke-width="0.9"/>`;
-            s += `<line x1="${pCeilL.sx}" y1="${pCeilL.sy}" x2="${pFloorL.sx}" y2="${pFloorL.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
-            s += `<line x1="${pCeilR.sx}" y1="${pCeilR.sy}" x2="${pFloorR.sx}" y2="${pFloorR.sy}" stroke="#cbd5e1" stroke-width="0.7" stroke-dasharray="2,2"/>`;
-        }
-
-        [0.30, 1.10].forEach(zRef => {
-            if (zRef < H) {
-                const c1 = proyectarPunto3D(0, 0, zRef, geom);
-                const c2 = proyectarPunto3D(W, 0, zRef, geom);
-                const c3 = proyectarPunto3D(W, L, zRef, geom);
-                const c4 = proyectarPunto3D(0, L, zRef, geom);
-                s += `<polygon points="${c1.sx},${c1.sy} ${c2.sx},${c2.sy} ${c3.sx},${c3.sy} ${c4.sx},${c4.sy}" fill="none" stroke="#94a3b8" stroke-width="0.6" stroke-dasharray="3,4" opacity="0.55"/>`;
-            }
-        });
-    } else {
-        s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="#fafafa"/>`;
-        for (let gx = 0.5; gx < W; gx += 0.5) {
-            const p1 = proyectarPunto3D(gx, 0, H, geom);
-            const p2 = proyectarPunto3D(gx, L, H, geom);
-            s += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${p2.sx}" y2="${p2.sy}" stroke="#f1f5f9" stroke-width="1"/>`;
-        }
-        for (let gy = 0.5; gy < L; gy += 0.5) {
-            const p1 = proyectarPunto3D(0, gy, H, geom);
-            const p2 = proyectarPunto3D(W, gy, H, geom);
-            s += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${p2.sx}" y2="${p2.sy}" stroke="#f1f5f9" stroke-width="1"/>`;
-        }
+    // Grilla auxiliar cada 0.50 m
+    for (let gx = 0.5; gx < W; gx += 0.5) {
+        const px = ox + gx * scale;
+        s += `<line x1="${px}" y1="${oy}" x2="${px}" y2="${oy + roomH}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }
+    for (let gy = 0.5; gy < L; gy += 0.5) {
+        const py = oy + gy * scale;
+        s += `<line x1="${ox}" y1="${py}" x2="${ox + roomW}" y2="${py}" stroke="#f1f5f9" stroke-width="1"/>`;
     }
 
-    // 3. ABERTURAS EN PERSPECTIVA 3D
-    (estadoCroquis.aberturas || []).forEach(ab => {
-        s += dibujarAbertura3D(ab, geom);
-    });
+    // Muros perimetrales del ambiente
+    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="#fafafa" stroke="#0f172a" stroke-width="5"/>`;
 
-    // 4. CORONAMIENTO SUPERIOR DE MUROS
-    s += `<rect x="${ox}" y="${oy}" width="${roomW}" height="${roomH}" fill="none" stroke="#0f172a" stroke-width="4.5"/>`;
-
-    // 5. COTAS EXTERIORES
+    // Cotas exteriores (Ancho arriba, Largo izquierda)
     s += `<line x1="${ox}" y1="${oy - 22}" x2="${ox + roomW}" y2="${oy - 22}" stroke="#475569" stroke-width="1"/>`;
     s += `<line x1="${ox}" y1="${oy - 27}" x2="${ox}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
     s += `<line x1="${ox + roomW}" y1="${oy - 27}" x2="${ox + roomW}" y2="${oy - 17}" stroke="#475569" stroke-width="1.2"/>`;
@@ -1690,286 +1246,100 @@ function generarSVGCroquis(mostrarSeleccion = true) {
     s += `<line x1="${ox - 27}" y1="${oy + roomH}" x2="${ox - 17}" y2="${oy + roomH}" stroke="#475569" stroke-width="1.2"/>`;
     s += `<text x="${ox - 28}" y="${oy + roomH / 2}" fill="#0f172a" font-size="10.5" font-weight="bold" text-anchor="middle" transform="rotate(-90 ${ox - 28} ${oy + roomH / 2})">${L.toFixed(2)} m</text>`;
 
-    // 6. TRAMOS DE CAÑERÍA EN 3D REAL + ETIQUETA DESPLAZADA PERPENDICULARMENTE (SIN TAPAR EL COLOR)
-    const etiquetasTramosSVG = [];
+    // Aberturas (Puertas y Ventanas)
+    (estadoCroquis.aberturas || []).forEach(ab => {
+        const abW = Math.min(ab.ancho, (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L) * scale;
+        const off = ab.offset * scale;
+        let ax = ox, ay = oy, aw = abW, ah = 7;
 
-    (estadoCroquis.tramos || []).forEach((tr, idxTr) => {
+        if (ab.pared === 'NORTE') { ax = ox + off; ay = oy - 3.5; }
+        else if (ab.pared === 'SUR') { ax = ox + off; ay = oy + roomH - 3.5; }
+        else if (ab.pared === 'OESTE') { ax = ox - 3.5; ay = oy + off; aw = 7; ah = abW; }
+        else if (ab.pared === 'ESTE') { ax = ox + roomW - 3.5; ay = oy + off; aw = 7; ah = abW; }
+
+        s += `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="#ffffff" stroke="#0f172a" stroke-width="1"/>`;
+        if (ab.tipo.startsWith('VENTAN')) {
+            if (ab.pared === 'NORTE' || ab.pared === 'SUR') {
+                s += `<line x1="${ax}" y1="${ay + ah / 2}" x2="${ax + aw}" y2="${ay + ah / 2}" stroke="#0284c7" stroke-width="1.5"/>`;
+            } else {
+                s += `<line x1="${ax + aw / 2}" y1="${ay}" x2="${ax + aw / 2}" y2="${ay + ah}" stroke="#0284c7" stroke-width="1.5"/>`;
+            }
+        } else {
+            // Arco de barrido de puerta
+            if (ab.pared === 'SUR') {
+                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 - abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax} ${ay + 3.5 - abW} A ${abW} ${abW} 0 0 1 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'NORTE') {
+                s += `<line x1="${ax}" y1="${ay + 3.5}" x2="${ax}" y2="${ay + 3.5 + abW}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax} ${ay + 3.5 + abW} A ${abW} ${abW} 0 0 0 ${ax + abW} ${ay + 3.5}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'OESTE') {
+                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 + abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax + 3.5 + abW} ${ay} A ${abW} ${abW} 0 0 1 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            } else if (ab.pared === 'ESTE') {
+                s += `<line x1="${ax + 3.5}" y1="${ay}" x2="${ax + 3.5 - abW}" y2="${ay}" stroke="#0f172a" stroke-width="1.5"/>`;
+                s += `<path d="M ${ax + 3.5 - abW} ${ay} A ${abW} ${abW} 0 0 0 ${ax + 3.5} ${ay + abW}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
+            }
+        }
+    });
+
+    // Tramos de cañería (curva suave o trazo técnico)
+    (estadoCroquis.tramos || []).forEach(tr => {
         const a = estadoCroquis.elementos.find(e => e.id === tr.desde);
         const b = estadoCroquis.elementos.find(e => e.id === tr.hasta);
         if (!a || !b) return;
 
-        const via = tr.via || 'TECHO';
+        const x1 = ox + a.x * scale;
+        const y1 = oy + a.y * scale;
+        const x2 = ox + b.x * scale;
+        const y2 = oy + b.y * scale;
         const esBajada = tr.rol.startsWith('BAJADA') || tr.rol === 'COMBINACION';
+        const colorLinea = esBajada ? '#ea580c' : '#2563eb';
+        const dash = esBajada ? 'stroke-dasharray="4,2"' : '';
 
-        let colorLinea = esBajada ? '#ea580c' : '#2563eb';
-        let dash = esBajada ? 'stroke-dasharray="4,2.5"' : '';
-        if (via === 'PARED') {
-            colorLinea = '#16a34a';
-            dash = '';
-        } else if (via === 'CONTRAPISO') {
-            colorLinea = '#0891b2';
-            dash = 'stroke-dasharray="5,3"';
-        }
-
-        const pA = proyectarPunto3D(a.x, a.y, a.z ?? 0, geom);
-        const pB = proyectarPunto3D(b.x, b.y, b.z ?? 0, geom);
-
-        // Segmento de referencia donde apoyar la etiqueta desplazada perpendicularmente
-        let seg1 = pA;
-        let seg2 = pB;
-        let extraOff = 0;
-
-        if (via === 'PARED' && a.muro !== 'TECHO' && b.muro !== 'TECHO') {
-            let dPared = `M ${pA.sx} ${pA.sy} `;
-            if (a.muro === b.muro) {
-                const pMid = proyectarPunto3D(b.x, b.y, a.z ?? 0, geom);
-                dPared += `L ${pMid.sx} ${pMid.sy} L ${pB.sx} ${pB.sy}`;
-                if (Math.hypot(pMid.sx - pA.sx, pMid.sy - pA.sy) >= Math.hypot(pB.sx - pMid.sx, pB.sy - pMid.sy)) {
-                    seg1 = pA; seg2 = pMid;
-                } else {
-                    seg1 = pMid; seg2 = pB;
-                }
-            } else if (!sonMurosOpuestos(a.muro, b.muro)) {
-                const esqX = (a.muro === 'OESTE' || b.muro === 'OESTE') ? 0 : W;
-                const esqY = (a.muro === 'NORTE' || b.muro === 'NORTE') ? 0 : L;
-                const pEsqA = proyectarPunto3D(esqX, esqY, a.z ?? 0, geom);
-                const pEsqB = proyectarPunto3D(esqX, esqY, b.z ?? 0, geom);
-                dPared += `L ${pEsqA.sx} ${pEsqA.sy} L ${pEsqB.sx} ${pEsqB.sy} L ${pB.sx} ${pB.sy}`;
-                if (Math.hypot(pEsqA.sx - pA.sx, pEsqA.sy - pA.sy) >= Math.hypot(pB.sx - pEsqB.sx, pB.sy - pEsqB.sy)) {
-                    seg1 = pA; seg2 = pEsqA;
-                } else {
-                    seg1 = pEsqB; seg2 = pB;
-                }
-            } else {
-                if (a.muro === 'OESTE' || a.muro === 'ESTE') {
-                    const yConn = (a.y + b.y) <= L ? 0 : L;
-                    const pC1 = proyectarPunto3D(a.x, yConn, a.z ?? 0, geom);
-                    const pC2 = proyectarPunto3D(b.x, yConn, b.z ?? 0, geom);
-                    dPared += `L ${pC1.sx} ${pC1.sy} L ${pC2.sx} ${pC2.sy} L ${pB.sx} ${pB.sy}`;
-                    seg1 = pC1; seg2 = pC2;
-                } else {
-                    const xConn = (a.x + b.x) <= W ? 0 : W;
-                    const pC1 = proyectarPunto3D(xConn, a.y, a.z ?? 0, geom);
-                    const pC2 = proyectarPunto3D(xConn, b.y, b.z ?? 0, geom);
-                    dPared += `L ${pC1.sx} ${pC1.sy} L ${pC2.sx} ${pC2.sy} L ${pB.sx} ${pB.sy}`;
-                    seg1 = pC1; seg2 = pC2;
-                }
-            }
-            s += `<path d="${dPared}" fill="none" stroke="${colorLinea}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
-        } else if (via === 'CONTRAPISO' && vistaCubo3D) {
-            const pAPiso = proyectarPunto3D(a.x, a.y, 0, geom);
-            const pBPiso = proyectarPunto3D(b.x, b.y, 0, geom);
-            const cx = (pAPiso.sx + pBPiso.sx) / 2;
-            const cy = (pAPiso.sy + pBPiso.sy) / 2 + 12;
-            let dPiso = `M ${pA.sx} ${pA.sy} L ${pAPiso.sx} ${pAPiso.sy} Q ${cx} ${cy} ${pBPiso.sx} ${pBPiso.sy} L ${pB.sx} ${pB.sy}`;
-            s += `<path d="${dPiso}" fill="none" stroke="${colorLinea}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
-            seg1 = pAPiso; seg2 = pBPiso; extraOff = 4;
-        } else if (vistaCubo3D) {
-            const pATecho = proyectarPunto3D(a.x, a.y, H, geom);
-            const pBTecho = proyectarPunto3D(b.x, b.y, H, geom);
-            const cx = (pATecho.sx + pBTecho.sx) / 2 + (ox + roomW / 2 - (pATecho.sx + pBTecho.sx) / 2) * 0.14;
-            const cy = (pATecho.sy + pBTecho.sy) / 2 + (oy + roomH / 2 - (pATecho.sy + pBTecho.sy) / 2) * 0.14;
-
-            let dPath = `M ${pA.sx} ${pA.sy} `;
-            if (a.muro !== 'TECHO' && (a.z ?? 0) < H - 0.05) {
-                dPath += `L ${pATecho.sx} ${pATecho.sy} `;
-            }
-            dPath += `Q ${cx} ${cy} ${pBTecho.sx} ${pBTecho.sy} `;
-            if (b.muro !== 'TECHO' && (b.z ?? 0) < H - 0.05) {
-                dPath += `L ${pB.sx} ${pB.sy}`;
-            }
-            s += `<path d="${dPath}" fill="none" stroke="${colorLinea}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${dash}/>`;
-            seg1 = pATecho; seg2 = pBTecho; extraOff = 3;
-        } else {
-            const cx = (pA.sx + pB.sx) / 2 + (ox + roomW / 2 - (pA.sx + pB.sx) / 2) * 0.18;
-            const cy = (pA.sy + pB.sy) / 2 + (oy + roomH / 2 - (pA.sy + pB.sy) / 2) * 0.18;
-            s += `<path d="M ${pA.sx} ${pA.sy} Q ${cx} ${cy} ${pB.sx} ${pB.sy}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
-            seg1 = pA; seg2 = pB; extraOff = 3;
-        }
-
-        // Etiqueta del tramo desplazada perpendicularmente al trazo de color
-        const dist25D = calcularLongitudTramo25D(tr);
-        if (dist25D > 0) {
-            const circTag = a.circ || b.circ || '';
-            const textoTramo = circTag ? `${circTag}·${dist25D.toFixed(1)}m` : `${dist25D.toFixed(1)}m`;
-            const { lx, ly } = calcularPosicionEtiquetaTramo(seg1.sx, seg1.sy, seg2.sx, seg2.sy, idxTr, extraOff);
-            const pillW = textoTramo.length * 4.5 + 8;
-
-            etiquetasTramosSVG.push(
-                `<g pointer-events="none">` +
-                `<rect x="${(lx - pillW / 2).toFixed(1)}" y="${(ly - 6.5).toFixed(1)}" width="${pillW.toFixed(1)}" height="10.5" rx="2.5" fill="rgba(255,255,255,0.95)" stroke="${colorLinea}" stroke-width="0.7"/>` +
-                `<text x="${lx.toFixed(1)}" y="${(ly + 1.2).toFixed(1)}" fill="${colorLinea}" font-size="7.4" font-weight="bold" text-anchor="middle">${escapeXml(textoTramo)}</text>` +
-                `</g>`
-            );
-        }
+        // Curva leve hacia el centro del ambiente para visibilidad limpia
+        const cx = (x1 + x2) / 2 + (ox + roomW / 2 - (x1 + x2) / 2) * 0.18;
+        const cy = (y1 + y2) / 2 + (oy + roomH / 2 - (y1 + y2) / 2) * 0.18;
+        s += `<path d="M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}" fill="none" stroke="${colorLinea}" stroke-width="1.8" ${dash}/>`;
     });
 
-    // Renderizar las etiquetas de cañerías por encima de los trazos pero fuera de su eje
-    s += etiquetasTramosSVG.join('');
-
-    // 7. COTAS DINÁMICAS 3D DEL ELEMENTO SELECCIONADO
+    // Cotas dinámicas del elemento seleccionado
     if (mostrarSeleccion && elementoSeleccionadoId) {
         const sel = estadoCroquis.elementos.find(e => e.id === elementoSeleccionadoId);
         if (sel) {
-            const pSel = proyectarPunto3D(sel.x, sel.y, sel.z ?? 0, geom);
-            s += `<circle cx="${pSel.sx}" cy="${pSel.sy}" r="18" fill="rgba(35,116,225,0.18)" stroke="#2374E1" stroke-width="1.6" stroke-dasharray="3,2"/>`;
-
-            if (sel.muro === 'TECHO') {
-                const pIzq = proyectarPunto3D(0, sel.y, H, geom);
-                const pArr = proyectarPunto3D(sel.x, 0, H, geom);
-                s += `<line x1="${pIzq.sx}" y1="${pIzq.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
-                s += `<text x="${(pIzq.sx + pSel.sx) / 2}" y="${pSel.sy - 5}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">X:${sel.x.toFixed(2)}m</text>`;
-                s += `<line x1="${pArr.sx}" y1="${pArr.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
-                s += `<text x="${pSel.sx + 6}" y="${(pArr.sy + pSel.sy) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">Y:${sel.y.toFixed(2)}m</text>`;
-            } else {
-                const pPiso = proyectarPunto3D(sel.x, sel.y, 0, geom);
-                s += `<line x1="${pPiso.sx}" y1="${pPiso.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#dc2626" stroke-width="1.3" stroke-dasharray="2,2"/>`;
-                s += `<text x="${(pPiso.sx + pSel.sx) / 2 + 5}" y="${(pPiso.sy + pSel.sy) / 2}" fill="#dc2626" font-size="8.5" font-weight="bold">Z:${(sel.z ?? 0).toFixed(2)}m</text>`;
-
-                const pEsq = (sel.muro === 'NORTE' || sel.muro === 'SUR')
-                    ? proyectarPunto3D(0, sel.y, sel.z ?? 0, geom)
-                    : proyectarPunto3D(sel.x, 0, sel.z ?? 0, geom);
-                const valHoriz = (sel.muro === 'NORTE' || sel.muro === 'SUR') ? sel.x : sel.y;
-                s += `<line x1="${pEsq.sx}" y1="${pEsq.sy}" x2="${pSel.sx}" y2="${pSel.sy}" stroke="#2374E1" stroke-width="1.1" stroke-dasharray="2,2"/>`;
-                s += `<text x="${(pEsq.sx + pSel.sx) / 2}" y="${(pEsq.sy + pSel.sy) / 2 - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${valHoriz.toFixed(2)}m</text>`;
+            const sx = ox + sel.x * scale;
+            const sy = oy + sel.y * scale;
+            s += `<circle cx="${sx}" cy="${sy}" r="18" fill="rgba(35,116,225,0.16)" stroke="#2374E1" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+            if (sel.x > 0.05) {
+                s += `<line x1="${ox}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${(ox + sx) / 2}" y="${sy - 4}" fill="#1d4ed8" font-size="8.5" font-weight="bold" text-anchor="middle">${sel.x.toFixed(2)}m</text>`;
+            }
+            if (sel.y > 0.05) {
+                s += `<line x1="${sx}" y1="${oy}" x2="${sx}" y2="${sy}" stroke="#2374E1" stroke-width="1" stroke-dasharray="2,2"/>`;
+                s += `<text x="${sx + 5}" y="${(oy + sy) / 2}" fill="#1d4ed8" font-size="8.5" font-weight="bold">${sel.y.toFixed(2)}m</text>`;
             }
         }
-                      }
+    }
 
-// 8. DIBUJO DE CAJAS Y SÍMBOLOS NORMALIZADOS
-    const elementosOrdenados = [...estadoCroquis.elementos].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
-    elementosOrdenados.forEach(el => {
-        const pt = proyectarPunto3D(el.x, el.y, el.z ?? 0, geom);
-
-        if (vistaCubo3D && el.muro === 'TECHO') {
-            const pSuelo = proyectarPunto3D(el.x, el.y, 0, geom);
-            s += `<line x1="${pt.sx}" y1="${pt.sy}" x2="${pSuelo.sx}" y2="${pSuelo.sy}" stroke="#94a3b8" stroke-width="0.9" stroke-dasharray="2,3" opacity="0.65"/>`;
-            s += `<circle cx="${pSuelo.sx}" cy="${pSuelo.sy}" r="2.2" fill="#94a3b8" opacity="0.65"/>`;
-        }
-
-        s += dibujarSimboloCroquis3D(el, pt.sx, pt.sy);
+    // Dibujo de símbolos normalizados
+    estadoCroquis.elementos.forEach(el => {
+        const px = ox + el.x * scale;
+        const py = oy + el.y * scale;
+        s += dibujarSimboloCroquis(el, px, py);
     });
 
-    // 9. LEYENDA INFERIOR DENTRO DEL PLANO
-    const modoTxt = vistaCubo3D ? 'Vista 3D Cenital (Cubo)' : 'Vista Planta 2D';
-    s += `<text x="${ox}" y="${oy + roomH + 22}" fill="#334155" font-size="9.5" font-weight="bold">${escapeXml(estadoCroquis.nombre.toUpperCase())} • SUP: ${(W * L).toFixed(2)} m² • H: ${H.toFixed(2)} m</text>`;
-    s += `<text x="${ox + roomW}" y="${oy + roomH + 22}" fill="#64748b" font-size="8.8" text-anchor="end">${modoTxt} • AEA 90364</text>`;
+    // Leyenda inferior dentro del plano
+    s += `<text x="${ox}" y="${oy + roomH + 22}" fill="#334155" font-size="9.5" font-weight="bold">${escapeXml(estadoCroquis.nombre.toUpperCase())} • SUP: ${(W * L).toFixed(2)} m² • H: ${estadoCroquis.alto.toFixed(2)} m</text>`;
+    s += `<text x="${ox + roomW}" y="${oy + roomH + 22}" fill="#64748b" font-size="9" text-anchor="end">Escala Gráfica AEA 90364</text>`;
 
     s += `</svg>`;
     return s;
 }
 
-function dibujarAbertura3D(ab, geom) {
-    const W = estadoCroquis.ancho;
-    const L = estadoCroquis.largo;
-    const H = geom.H || 2.60;
-    const maxLen = (ab.pared === 'NORTE' || ab.pared === 'SUR') ? W : L;
-    const d1 = Math.max(0, Math.min(maxLen - 0.2, ab.offset));
-    const d2 = Math.max(d1 + 0.2, Math.min(maxLen, ab.offset + ab.ancho));
-
-    const esPuerta = ab.tipo.startsWith('PUERTA');
-    const zBot = esPuerta ? 0 : (ab.tipo === 'VENTANUCO' ? Math.min(H - 0.4, 1.60) : Math.min(H - 0.5, 0.90));
-    const zTop = Math.min(H - 0.05, esPuerta ? 2.05 : 2.10);
-
-    const getPt = (dist, zVal) => {
-        if (ab.pared === 'NORTE') return proyectarPunto3D(dist, 0, zVal, geom);
-        if (ab.pared === 'SUR')   return proyectarPunto3D(dist, L, zVal, geom);
-        if (ab.pared === 'OESTE') return proyectarPunto3D(0, dist, zVal, geom);
-        return proyectarPunto3D(W, dist, zVal, geom);
-    };
-
-    const p1 = getPt(d1, zBot);
-    const p2 = getPt(d2, zBot);
-    const p3 = getPt(d2, zTop);
-    const p4 = getPt(d1, zTop);
-
-    let out = '';
-    if (esPuerta) {
-        out += `<polygon points="${p1.sx},${p1.sy} ${p2.sx},${p2.sy} ${p3.sx},${p3.sy} ${p4.sx},${p4.sy}" fill="#ffffff" stroke="#0f172a" stroke-width="1.5"/>`;
-        if (ab.pared === 'SUR') {
-            const pHoja = proyectarPunto3D(d1, L - ab.ancho, 0, geom);
-            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
-            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${p2.sx} ${pHoja.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-        } else if (ab.pared === 'NORTE') {
-            const pHoja = proyectarPunto3D(d1, ab.ancho, 0, geom);
-            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
-            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${p2.sx} ${pHoja.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-        } else if (ab.pared === 'OESTE') {
-            const pHoja = proyectarPunto3D(ab.ancho, d1, 0, geom);
-            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
-            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${pHoja.sx} ${p2.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-        } else if (ab.pared === 'ESTE') {
-            const pHoja = proyectarPunto3D(W - ab.ancho, d1, 0, geom);
-            out += `<line x1="${p1.sx}" y1="${p1.sy}" x2="${pHoja.sx}" y2="${pHoja.sy}" stroke="#0f172a" stroke-width="1.6"/>`;
-            out += `<path d="M ${pHoja.sx} ${pHoja.sy} Q ${pHoja.sx} ${p2.sy} ${p2.sx} ${p2.sy}" fill="none" stroke="#64748b" stroke-width="1" stroke-dasharray="3,2"/>`;
-        }
-    } else {
-        const pmBot = getPt((d1 + d2) / 2, zBot);
-        const pmTop = getPt((d1 + d2) / 2, zTop);
-        out += `<polygon points="${p1.sx},${p1.sy} ${p2.sx},${p2.sy} ${p3.sx},${p3.sy} ${p4.sx},${p4.sy}" fill="#bae6fd" fill-opacity="0.65" stroke="#0284c7" stroke-width="1.4"/>`;
-        out += `<line x1="${pmBot.sx}" y1="${pmBot.sy}" x2="${pmTop.sx}" y2="${pmTop.sy}" stroke="#0284c7" stroke-width="1.1"/>`;
-    }
-    return out;
-}
-
-function dibujarSimboloCroquis3D(el, x, y) {
+function dibujarSimboloCroquis(el, x, y) {
     const rot = el.rot || 0;
     let g = `<g transform="translate(${x}, ${y})">`;
-
-    if (vistaCubo3D && el.muro !== 'TECHO') {
-        g += `<rect x="-8" y="-8" width="16" height="16" rx="3" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
-        switch (el.tipo) {
-            case 'APLIQUE':
-                g += `<circle cx="0" cy="0" r="5" fill="#fef08a" stroke="#0f172a" stroke-width="1.3"/>`;
-                g += `<line x1="-3.5" y1="-3.5" x2="3.5" y2="3.5" stroke="#0f172a" stroke-width="1.1"/>`;
-                g += `<line x1="3.5" y1="-3.5" x2="-3.5" y2="3.5" stroke="#0f172a" stroke-width="1.1"/>`;
-                break;
-            case 'LLAVE_1P':
-            case 'LLAVE_2P':
-            case 'LLAVE_3P':
-            case 'LLAVE_COMB': {
-                const cant = el.tipo === 'LLAVE_3P' ? 3 : (el.tipo === 'LLAVE_2P' ? 2 : 1);
-                g += `<circle cx="-1" cy="1" r="3.5" fill="#ffffff" stroke="#0f172a" stroke-width="1.4"/>`;
-                g += `<line x1="-1" y1="-2.5" x2="4.5" y2="-6" stroke="#0f172a" stroke-width="1.5"/>`;
-                if (el.tipo === 'LLAVE_COMB') {
-                    g += `<line x1="-1" y1="4.5" x2="-5.5" y2="7" stroke="#0f172a" stroke-width="1.4"/>`;
-                } else if (cant > 1) {
-                    g += `<text x="11" y="3" fill="#0f172a" font-size="7.5" font-weight="bold">×${cant}</text>`;
-                }
-                break;
-            }
-            case 'TOMA_10A':
-            case 'TOMA_DOBLE':
-            case 'TOMA_20A': {
-                g += `<path d="M -5 1 A 5 5 0 0 1 5 1" fill="none" stroke="#0f172a" stroke-width="1.6"/>`;
-                g += `<line x1="-5.5" y1="1.5" x2="5.5" y2="1.5" stroke="#0f172a" stroke-width="1.4"/>`;
-                g += `<line x1="0" y1="-5" x2="0" y2="-3.5" stroke="#0f172a" stroke-width="1.4"/>`;
-                if (el.tipo === 'TOMA_DOBLE') {
-                    g += `<text x="11" y="3" fill="#0f172a" font-size="7.5" font-weight="bold">×2</text>`;
-                } else if (el.tipo === 'TOMA_20A') {
-                    g += `<text x="12" y="3" fill="#dc2626" font-size="7" font-weight="bold">20A</text>`;
-                }
-                break;
-            }
-            case 'TABLERO':
-                g += `<rect x="-10" y="-7" width="20" height="14" rx="2" fill="#0f172a" stroke="#0f172a" stroke-width="1.4"/>`;
-                g += `<line x1="-10" y1="-7" x2="10" y2="7" stroke="#ffffff" stroke-width="1.2"/>`;
-                break;
-            default:
-                g += `<rect x="-5" y="-5" width="10" height="10" fill="#e2e8f0" stroke="#0f172a" stroke-width="1.3"/>`;
-                break;
-        }
-
-        const ly = -12;
-        const txtBadge = `${el.tag} (${(el.z ?? 0).toFixed(1)}m)`;
-        const boxW = txtBadge.length * 4.7 + 6;
-        g += `<rect x="${-boxW / 2}" y="${ly - 7.5}" width="${boxW}" height="10.5" rx="2.5" fill="rgba(255,255,255,0.94)" stroke="#cbd5e1" stroke-width="0.6"/>`;
-        g += `<text x="0" y="${ly}" fill="#0f172a" font-size="7.8" font-weight="bold" text-anchor="middle">${escapeXml(txtBadge)}</text>`;
-        g += `</g>`;
-        return g;
-    }
-
     g += `<g transform="rotate(${rot})">`;
+
     switch (el.tipo) {
         case 'BOCA_TECHO':
             g += `<circle cx="0" cy="0" r="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.8"/>`;
@@ -2013,21 +1383,21 @@ function dibujarSimboloCroquis3D(el, x, y) {
             g += `<rect x="-12" y="2" width="24" height="10" fill="#0f172a" stroke="#0f172a" stroke-width="1.4"/>`;
             g += `<line x1="-12" y1="2" x2="12" y2="12" stroke="#ffffff" stroke-width="1.2"/>`;
             break;
-        default:
+        default: // CAJA_PASO
             g += `<rect x="-6" y="3" width="12" height="12" fill="#ffffff" stroke="#0f172a" stroke-width="1.6"/>`;
             break;
     }
+
     g += `</g>`;
 
-    let lx = 0, ly = -14;
-    if (el.muro !== 'TECHO') {
-        if (rot === 0) ly = 26;
-        else if (rot === 180) ly = -16;
-        else if (rot === 270) { lx = 22; ly = 4; }
-        else if (rot === 90) { lx = -22; ly = 4; }
-    }
+    // Etiqueta del tag desplazada hacia el interior para máxima legibilidad
+    let lx = 0, ly = -13;
+    if (rot === 0) ly = 26;
+    else if (rot === 180) ly = -16;
+    else if (rot === 270) { lx = 22; ly = 4; }
+    else if (rot === 90) { lx = -22; ly = 4; }
 
-    g += `<rect x="${lx - 13}" y="${ly - 8}" width="26" height="11" rx="2" fill="rgba(255,255,255,0.92)"/>`;
+    g += `<rect x="${lx - 13}" y="${ly - 8}" width="26" height="11" rx="2" fill="rgba(255,255,255,0.9)"/>`;
     g += `<text x="${lx}" y="${ly}" fill="#0f172a" font-size="8.5" font-weight="bold" text-anchor="middle">${escapeXml(el.tag)}</text>`;
     g += `</g>`;
     return g;
@@ -2040,59 +1410,31 @@ function actualizarVistaPreviaPDF() {
     const hoy = new Date().toLocaleDateString('es-AR');
     const comp = calcularComputo25D();
 
-    const elFecha = document.getElementById('pdf-fecha');
-    if (elFecha) elFecha.innerText = hoy;
-
-    const elCli = document.getElementById('pdf-cliente');
-    if (elCli) elCli.innerText = document.getElementById('cliNombre')?.value.trim() || '-';
-
-    const elDir = document.getElementById('pdf-dir');
-    if (elDir) elDir.innerText = document.getElementById('cliDireccion')?.value.trim() || '-';
-
-    const elProy = document.getElementById('pdf-proyecto');
-    if (elProy) elProy.innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)}m)`;
-
-    const elSub = document.getElementById('pdf-sub-ambiente');
-    if (elSub) elSub.innerText = `${estadoCroquis.nombre} • Desperdicio +${estadoCroquis.desperdicio}%`;
+    document.getElementById('pdf-fecha').innerText = hoy;
+    document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value.trim() || '-';
+    document.getElementById('pdf-dir').innerText = document.getElementById('cliDireccion').value.trim() || '-';
+    document.getElementById('pdf-proyecto').innerText = `${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)}m)`;
+    document.getElementById('pdf-sub-ambiente').innerText = `${estadoCroquis.nombre} • Desperdicio +${estadoCroquis.desperdicio}%`;
 
     const svgCont = document.getElementById('pdf-svg-container');
     if (svgCont) svgCont.innerHTML = generarSVGCroquis(false);
 
     const tbody = document.getElementById('pdf-tbody-computo');
-    if (tbody) {
-        if (comp.items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="padding:8px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Sin elementos o canalizaciones cargadas en el croquis.</td></tr>';
-        } else {
-            const maxFilas = 12;
-            const visibles = comp.items.slice(0, maxFilas);
-            let htmlFilas = visibles.map((it, idx) => `
-                <tr style="background: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
-                    <td style="padding: 3px 6px; border: 1px solid #cbd5e1; font-weight: 700;">${escapeHtml(it.rubro)}</td>
-                    <td style="padding: 3px 6px; border: 1px solid #cbd5e1;">${escapeHtml(it.desc)}</td>
-                    <td style="padding: 3px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800;">${it.cant}</td>
-                    <td style="padding: 3px 6px; border: 1px solid #cbd5e1; text-align: center;">${it.unid}</td>
-                </tr>
-            `).join('');
-
-            if (comp.items.length > maxFilas) {
-                const restantes = comp.items.length - maxFilas;
-                htmlFilas += `
-                    <tr style="background: #f1f5f9;">
-                        <td colspan="4" style="padding: 3px 6px; border: 1px solid #cbd5e1; text-align: center; font-style: italic; color: #475569;">
-                            + ${restantes} rubro(s) adicional(es) incluidos en el envío a Materiales.
-                        </td>
-                    </tr>
-                `;
-            }
-            tbody.innerHTML = htmlFilas;
-        }
+    if (comp.items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="padding:8px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Sin elementos o canalizaciones cargadas en el croquis.</td></tr>';
+    } else {
+        tbody.innerHTML = comp.items.slice(0, 14).map((it, idx) => `
+            <tr style="background: ${idx % 2 === 1 ? '#f8fafc' : '#ffffff'};">
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; font-weight: 700;">${escapeHtml(it.rubro)}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1;">${escapeHtml(it.desc)}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800;">${it.cant}</td>
+                <td style="padding: 3.5px 6px; border: 1px solid #cbd5e1; text-align: center;">${it.unid}</td>
+            </tr>
+        `).join('');
     }
 
-    const notas = document.getElementById('obsGenerales')?.value.trim() || '';
-    const elNotas = document.getElementById('pdf-notas-texto');
-    if (elNotas) {
-        elNotas.innerText = notas || 'Cotas expresadas en metros desde ejes interiores. Alturas estándar: llaves 1,10 m, tomas 0,30 m, apliques 2,10 m NPT.';
-    }
+    const notas = document.getElementById('obsGenerales').value.trim();
+    document.getElementById('pdf-notas-texto').innerText = notas || 'Cotas expresadas en metros desde ejes interiores. Alturas estándar: llaves 1,10 m, tomas 0,30 m, apliques 2,10 m NPT.';
 
     actualizarPDFHeaders();
 }
@@ -2154,20 +1496,13 @@ async function convertirSvgCroquisAImagen() {
     if (!svgEl) return () => {};
 
     const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
-    const vbW = (vb && vb.width) ? vb.width : 500;
-    const vbH = (vb && vb.height) ? vb.height : 480;
-
-    // Dimensiones explícitas en px preservando al 100 % la relación viewBox (500:480 -> 375x360 px)
-    // Evita que html2canvas estire la imagen al ignorar object-fit: contain
-    const maxH = 360;
-    const targetH = maxH;
-    const targetW = Math.round(targetH * (vbW / vbH));
+    const ancho = (vb && vb.width) ? vb.width : 500;
+    const alto = (vb && vb.height) ? vb.height : 480;
 
     const svgClon = svgEl.cloneNode(true);
     svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    svgClon.setAttribute('width', vbW);
-    svgClon.setAttribute('height', vbH);
-    svgClon.removeAttribute('style');
+    svgClon.setAttribute('width', ancho);
+    svgClon.setAttribute('height', alto);
 
     const xml = new XMLSerializer().serializeToString(svgClon);
     const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
@@ -2175,20 +1510,17 @@ async function convertirSvgCroquisAImagen() {
     try {
         const pngDataUrl = await new Promise((resolve, reject) => {
             const imgLoader = new Image();
-            imgLoader.onload = async () => {
+            imgLoader.onload = () => {
                 try {
-                    if (typeof imgLoader.decode === 'function') {
-                        await imgLoader.decode().catch(() => {});
-                    }
-                    const escala = 2.5;
+                    const escala = 2;
                     const canvas = document.createElement('canvas');
-                    canvas.width = Math.round(vbW * escala);
-                    canvas.height = Math.round(vbH * escala);
+                    canvas.width = ancho * escala;
+                    canvas.height = alto * escala;
                     const ctx = canvas.getContext('2d');
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.scale(escala, escala);
-                    ctx.drawImage(imgLoader, 0, 0, vbW, vbH);
+                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
                     resolve(canvas.toDataURL('image/png'));
                 } catch (err) {
                     reject(err);
@@ -2200,8 +1532,8 @@ async function convertirSvgCroquisAImagen() {
 
         const imgFinal = document.createElement('img');
         imgFinal.src = pngDataUrl;
-        imgFinal.alt = 'Croquis Eléctrico 3D';
-        imgFinal.style.cssText = `width: ${targetW}px; height: ${targetH}px; display: block; margin: 0 auto;`;
+        imgFinal.alt = 'Croquis Eléctrico';
+        imgFinal.style.cssText = 'width: 100%; max-height: 410px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
         contenedor.innerHTML = '';
         contenedor.appendChild(imgFinal);
 
@@ -2210,7 +1542,7 @@ async function convertirSvgCroquisAImagen() {
         console.warn('Error rasterizando SVG croquis:', e);
         return () => { contenedor.innerHTML = svgOriginalHTML; };
     }
-}
+                                                       }
 
 function generarPDF() {
     actualizarVistaPreviaPDF();
@@ -2242,16 +1574,10 @@ async function ejecutarDescargaPDF() {
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
     const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
-    const padreOriginal = element ? element.parentNode : null;
-    let movidoAlBody = false;
 
     if (!modalAbierto && element) {
         element.classList.remove('oculto');
         element.style.display = 'block';
-        if (window.innerWidth < 992) {
-            document.body.appendChild(element);
-            movidoAlBody = true;
-        }
         window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
@@ -2329,10 +1655,7 @@ async function ejecutarDescargaPDF() {
             if (teniaClaseOculto) element.classList.add('oculto');
         }
         if (marcaAgua) marcaAgua.style.display = 'flex';
-        if (movidoAlBody && padreOriginal && element) {
-            element.style.display = '';
-            padreOriginal.appendChild(element);
-        } else if (modalAbierto) {
+        if (modalAbierto) {
             aplicarEscalaVistaPrevia(escalaActualPreview);
         } else if (element && window.innerWidth < 992) {
             element.style.display = 'none';
@@ -2425,7 +1748,7 @@ function prepararEnvioWhatsApp() {
     const cli = document.getElementById('cliNombre').value.trim() || 'Cliente';
     const comp = calcularComputo25D();
 
-    let msg = `*${profNombre.toUpperCase()} - CROQUIS 3D Y CÓMPUTO 2.5D*\n`;
+    let msg = `*${profNombre.toUpperCase()} - CROQUIS Y CÓMPUTO 2.5D*\n`;
     msg += `*Cliente:* ${cli}\n`;
     msg += `*Ambiente:* ${estadoCroquis.nombre} (${estadoCroquis.ancho.toFixed(2)}×${estadoCroquis.largo.toFixed(2)} m)\n\n`;
 
@@ -2439,7 +1762,7 @@ function prepararEnvioWhatsApp() {
     if (typeof abrirModalWspGlobal === 'function') {
         abrirModalWspGlobal(telefonoClienteActual, msg);
     }
-              }
+                }
 
 // ==========================================================================
 // BORRADORES EN FIREBASE (perfiles/{uid}/borradores_croquis)
@@ -2488,10 +1811,6 @@ function normalizarEstadoCroquis(raw) {
     if (!Array.isArray(base.aberturas)) base.aberturas = [];
     if (!Array.isArray(base.elementos)) base.elementos = [];
     if (!Array.isArray(base.tramos)) base.tramos = [];
-    base.itemsPersonalizados = Array.isArray(raw?.itemsPersonalizados) ? raw.itemsPersonalizados : null;
-    base.tramos.forEach(tr => {
-        if (!tr.via) tr.via = 'TECHO';
-    });
     return base;
 }
 
@@ -2600,7 +1919,6 @@ function cargarBorradorCroquis(docId) {
         nombreBorradorActual = d.nombreBorrador || docId;
         telefonoClienteActual = d.telefonoClienteActual || '';
 
-        resetearZoomPlano();
         cerrarModalBorradores();
         avanzarPasoTrabajo(true);
         mostrarToast('Borrador Cargado', `Croquis "${nombreBorradorActual}" listo.`);
@@ -2647,7 +1965,6 @@ function ejecutarNuevoCroquis() {
     telefonoClienteActual = '';
     elementoSeleccionadoId = null;
     origenConexionId = null;
-    resetearZoomPlano();
 
     estadoCroquis = crearPlantillaDormitorio();
     localStorage.removeItem(STORAGE_KEY_CROQUIS);
@@ -2657,7 +1974,6 @@ function ejecutarNuevoCroquis() {
 
     document.getElementById('step-trabajo').classList.add('oculto');
     document.getElementById('step-cliente').classList.remove('oculto');
-    actualizarVistaPreviaPDF();
 }
 
 function generarSiguienteTag(prefijo) {
@@ -2705,4 +2021,4 @@ function escapeXml(str) {
 
 function escapeJs(str) {
     return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-      }
+                               }
