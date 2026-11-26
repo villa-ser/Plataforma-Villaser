@@ -1861,8 +1861,8 @@ async function convertirSvgCroquisAImagen() {
     if (!svgEl) return () => {};
 
     const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
-    const ancho = (vb && vb.width) ? vb.width : 500;
-    const alto = (vb && vb.height) ? vb.height : 480;
+    const ancho = (vb && vb.width) ? vb.width : (parseFloat(svgEl.getAttribute('width')) || 500);
+    const alto = (vb && vb.height) ? vb.height : (parseFloat(svgEl.getAttribute('height')) || 500);
 
     const svgClon = svgEl.cloneNode(true);
     svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
@@ -1870,60 +1870,36 @@ async function convertirSvgCroquisAImagen() {
     svgClon.setAttribute('height', alto);
 
     const xml = new XMLSerializer().serializeToString(svgClon);
-    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`<?xml version="1.0" encoding="UTF-8"?>\n${xml}`);
 
     try {
         const pngDataUrl = await new Promise((resolve, reject) => {
             const imgLoader = new Image();
             imgLoader.onload = () => {
-                try {
-                    const escala = 2;
-                    const canvas = document.createElement('canvas');
-                    canvas.width = ancho * escala;
-                    canvas.height = alto * escala;
-                    const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.scale(escala, escala);
-                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
-                    resolve(canvas.toDataURL('image/png'));
-                } catch (err) {
-                    reject(err);
-                }
+                const escala = 3;
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(ancho * escala);
+                canvas.height = Math.round(alto * escala);
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.scale(escala, escala);
+                ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                resolve(canvas.toDataURL('image/png'));
             };
             imgLoader.onerror = reject;
             imgLoader.src = dataUri;
         });
 
-        const imgFinal = document.createElement('img');
-        imgFinal.src = pngDataUrl;
-        imgFinal.alt = 'Croquis Eléctrico 3D';
-        imgFinal.style.cssText = 'width: 100%; max-height: 360px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
-        contenedor.innerHTML = '';
-        contenedor.appendChild(imgFinal);
-
-        return () => { contenedor.innerHTML = svgOriginalHTML; };
+        contenedor.innerHTML = `<img src="${pngDataUrl}" alt="Croquis Eléctrico" style="width: auto; max-width: 100%; height: 340px; object-fit: contain; display: block; margin: 0 auto;">`;
+        return () => {
+            contenedor.innerHTML = svgOriginalHTML;
+        };
     } catch (e) {
-        console.warn('Error rasterizando SVG croquis:', e);
-        return () => { contenedor.innerHTML = svgOriginalHTML; };
-    }
-                                 }
-
-function generarPDF() {
-    actualizarVistaPreviaPDF();
-    const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
-    const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
-    const sufijo = Math.floor(Math.random() * 9000) + 1000;
-    document.getElementById('nombreArchivoPDF').value = `Croquis_${amb}_${cli}_${sufijo}`;
-    document.getElementById('modalDescargarPDF').classList.remove('oculto');
-}
-
-function cerrarModalPDF() {
-    document.getElementById('modalDescargarPDF').classList.add('oculto');
-    const btn = document.getElementById('btnConfirmarDescargaPDF');
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = 'Descargar';
+        console.warn('Respaldo vectorial SVG en PDF:', e);
+        return () => {
+            contenedor.innerHTML = svgOriginalHTML;
+        };
     }
 }
 
@@ -1939,10 +1915,16 @@ async function ejecutarDescargaPDF() {
     const modalVista = document.getElementById('modalVistaPrevia');
     const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
     const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
+    const padreOriginal = element ? element.parentNode : null;
+    let movidoAlBody = false;
 
     if (!modalAbierto && element) {
         element.classList.remove('oculto');
         element.style.display = 'block';
+        if (window.innerWidth < 992) {
+            document.body.appendChild(element);
+            movidoAlBody = true;
+        }
         window.scrollTo(0, 0);
     } else if (pdfContainer) {
         pdfContainer.style.transform = 'none';
@@ -1997,7 +1979,7 @@ async function ejecutarDescargaPDF() {
         cerrarModalPDF();
         mostrarToast('Éxito', 'Croquis Eléctrico PDF generado.');
 
-        if (permiteGuardarNube) {
+        if (permiteGuardarNube && typeof guardarBorradorFirebase === 'function') {
             try {
                 guardarBorradorFirebase(false, true);
             } catch (errNube) {
@@ -2020,13 +2002,35 @@ async function ejecutarDescargaPDF() {
             if (teniaClaseOculto) element.classList.add('oculto');
         }
         if (marcaAgua) marcaAgua.style.display = 'flex';
-        if (modalAbierto) {
+        if (movidoAlBody && padreOriginal && element) {
+            element.style.display = '';
+            padreOriginal.appendChild(element);
+        } else if (modalAbierto && typeof aplicarEscalaVistaPrevia === 'function') {
             aplicarEscalaVistaPrevia(escalaActualPreview);
         } else if (element && window.innerWidth < 992) {
             element.style.display = 'none';
         }
     }
+    }
+
+function generarPDF() {
+    actualizarVistaPreviaPDF();
+    const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const amb = (estadoCroquis.nombre || 'Ambiente').replace(/\s+/g, '_');
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Croquis_${amb}_${cli}_${sufijo}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
 }
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Descargar';
+    }
+}
+
 
 // ==========================================================================
 // PUENTE BIDIRECCIONAL: CROQUIS <-> MATERIALES
