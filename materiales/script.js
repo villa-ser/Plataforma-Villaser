@@ -83,51 +83,108 @@ function cerrarDrawerLista() {
 // ==========================================
 // INTEGRACIÓN BIDIRECCIONAL CON CROQUIS 3D
 // ==========================================
+
+let origenCroquisActivo = false;
+let metaCroquisOrigen = {
+    ambienteNombre: '',
+    desperdicio: 10,
+    telefonoClienteActual: ''
+};
+
 function verificarEntradaDesdeCroquis() {
     const params = new URLSearchParams(window.location.search);
-    const desdeUrl = params.get('from') === 'croquis';
-    const rawExport = localStorage.getItem('villaser_computo_croquis_export');
+    const paqueteRaw = localStorage.getItem('villaser_computo_croquis');
 
-    if (desdeUrl && rawExport) {
-        try {
-            const paquete = JSON.parse(rawExport);
-            if (paquete && Array.isArray(paquete.items)) {
-                modoOrigenCroquis = true;
-                croquisMetaOrigen = {
-                    ambienteNombre: paquete.ambienteNombre || '',
-                    desperdicio: paquete.desperdicio || 10
-                };
+    if (!paqueteRaw && params.get('from') !== 'croquis') return false;
 
-                document.getElementById('cliNombre').value = paquete.cliente || '';
-                document.getElementById('cliDireccion').value = paquete.direccion || '';
-                document.getElementById('cliProyecto').value = paquete.proyecto || '';
-                document.getElementById('obsGenerales').value = '';
+    try {
+        if (paqueteRaw) {
+            const datos = JSON.parse(paqueteRaw);
 
-                clienteDesdeAgenda = !!paquete.clienteDesdeAgenda;
-                permiteGuardarNube = !!paquete.permiteGuardarNube;
+            if (datos.cliNombre && document.getElementById('cliNombre')) {
+                document.getElementById('cliNombre').value = datos.cliNombre;
+            }
+            if (datos.cliDireccion && document.getElementById('cliDireccion')) {
+                document.getElementById('cliDireccion').value = datos.cliDireccion;
+            }
+            if (datos.cliProyecto && document.getElementById('cliProyecto')) {
+                document.getElementById('cliProyecto').value = datos.cliProyecto;
+            }
 
-                listaItems = paquete.items.map((it, idx) => ({
-                    id: Date.now() + idx + Math.floor(Math.random() * 1000),
-                    rubro: it.rubro || 'Croquis 2.5D',
-                    material: it.desc || it.material || '',
-                    cantidad: Math.max(1, parseInt(it.cant ?? it.cantidad, 10) || 1),
-                    unidad: it.unid || it.unidad || 'UNID',
+            // Respetar estado real de Agenda y permisos de Nube enviados desde Croquis
+            clienteDesdeAgenda = Boolean(datos.clienteDesdeAgenda);
+            permiteGuardarNube = datos.permiteGuardarNube !== undefined
+                ? Boolean(datos.permiteGuardarNube)
+                : clienteDesdeAgenda;
+
+            metaCroquisOrigen = {
+                ambienteNombre: datos.ambienteNombre || '',
+                desperdicio: datos.desperdicio !== undefined ? datos.desperdicio : 10,
+                telefonoClienteActual: datos.telefonoClienteActual || ''
+            };
+
+            if (Array.isArray(datos.items) && datos.items.length > 0) {
+                listaItems = datos.items.map((it, idx) => ({
+                    id: it.id || (Date.now() + idx),
+                    material: it.material || '',
+                    cantidad: Number(it.cantidad || 1),
+                    unidad: it.unidad || 'Un.',
                     nota: it.nota || ''
                 }));
-
-                localStorage.removeItem('villaser_computo_croquis_export');
-                guardarEstadoLocal();
-
-                if (window.history && typeof window.history.replaceState === 'function') {
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                }
-                return true;
             }
-        } catch (e) {
-            console.warn('Error leyendo paquete de Croquis:', e);
+
+            origenCroquisActivo = true;
+            localStorage.removeItem('villaser_computo_croquis');
+
+            const btnVolver = document.getElementById('btnVolverCroquis');
+            if (btnVolver) btnVolver.classList.remove('oculto');
+
+            if (typeof guardarEstadoLocal === 'function') guardarEstadoLocal();
+            if (typeof avanzarPasoTrabajo === 'function') avanzarPasoTrabajo();
+
+            mostrarToast(
+                'Cómputo de Croquis',
+                clienteDesdeAgenda
+                    ? 'Listado cargado con cliente agendado.'
+                    : 'Listado cargado en modo temporal.'
+            );
+        }
+    } catch (err) {
+        console.error('Error al importar cómputo desde Croquis:', err);
+        localStorage.removeItem('villaser_computo_croquis');
+    } finally {
+        if (params.has('from')) {
+            params.delete('from');
+            const limpiaUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+            window.history.replaceState({}, '', limpiaUrl);
         }
     }
-    return false;
+    return true;
+}
+
+function guardarYVolverACroquis() {
+    const retorno = {
+        destino: 'croquis',
+        timestamp: Date.now(),
+        cliNombre: (document.getElementById('cliNombre')?.value || '').trim(),
+        cliDireccion: (document.getElementById('cliDireccion')?.value || '').trim(),
+        cliProyecto: (document.getElementById('cliProyecto')?.value || '').trim(),
+        clienteDesdeAgenda: Boolean(clienteDesdeAgenda),
+        permiteGuardarNube: Boolean(permiteGuardarNube),
+        ambienteNombre: metaCroquisOrigen.ambienteNombre,
+        desperdicio: metaCroquisOrigen.desperdicio,
+        telefonoClienteActual: metaCroquisOrigen.telefonoClienteActual,
+        items: listaItems.map((it, idx) => ({
+            id: it.id || (Date.now() + idx),
+            material: it.material || '',
+            cantidad: Number(it.cantidad || 1),
+            unidad: it.unidad || 'Un.',
+            nota: it.nota || ''
+        }))
+    };
+
+    localStorage.setItem('villaser_computo_croquis_return', JSON.stringify(retorno));
+    window.location.href = '../croquis/index.html?from=materiales';
 }
 
 function actualizarInterfazModoCroquis() {
@@ -191,38 +248,6 @@ function cancelarReemplazoItem() {
     }
 }
 
-function guardarYVolverACroquis() {
-    if (listaItems.length === 0) {
-        mostrarAlertaCorp("Lista Vacía", "Agregá al menos un material antes de volver al Croquis.");
-        return;
-    }
-
-    const retorno = {
-        origen: 'materiales',
-        fecha: Date.now(),
-        notasGlobales: document.getElementById('obsGenerales')?.value.trim() || '',
-        items: listaItems.map(i => ({
-            rubro: i.rubro || 'Materiales',
-            desc: i.material,
-            cant: Math.max(1, parseInt(i.cantidad, 10) || 1),
-            unid: i.unidad || 'UNID',
-            nota: i.nota || ''
-        }))
-    };
-
-    localStorage.setItem('villaser_computo_croquis_return', JSON.stringify(retorno));
-
-    // Limpiar el modo puente en materiales para futuros ingresos independientes
-    modoOrigenCroquis = false;
-    croquisMetaOrigen = null;
-    itemReemplazoId = null;
-    guardarEstadoLocal();
-
-    mostrarToast("Cómputo Guardado", "Volviendo al Croquis 3D...");
-    setTimeout(() => {
-        window.location.replace('../croquis/index.html?from=materiales');
-    }, 550);
-}
 
 // ==========================================
 // INICIALIZACIÓN
