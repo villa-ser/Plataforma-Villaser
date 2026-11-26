@@ -1907,59 +1907,60 @@ function cerrarModalPDF() {
     }
 }
 
-
 // ==========================================================================
 // PUENTE BIDIRECCIONAL: CROQUIS <-> MATERIALES
 // ==========================================================================
 let materialesEditadosDesdeCatalogo = null;
 
 function exportarComputoAMateriales() {
-    const itemsComputados = (typeof obtenerItemsComputoParaExportar === 'function')
-        ? obtenerItemsComputoParaExportar()
-        : (materialesEditadosDesdeCatalogo || []);
+    const calculo25D = calcularComputo25D();
+    const itemsBase = (Array.isArray(materialesEditadosDesdeCatalogo) && materialesEditadosDesdeCatalogo.length > 0)
+        ? materialesEditadosDesdeCatalogo
+        : calculo25D.items.map((it, idx) => ({
+            id: Date.now() + idx,
+            material: it.desc,
+            cantidad: it.cant,
+            unidad: it.unid,
+            nota: `${it.rubro} • ${estadoCroquis.nombre || 'Ambiente'}`
+        }));
 
-    if (!itemsComputados || itemsComputados.length === 0) {
-        mostrarAlertaCorp('Sin Cómputo', 'Cargá al menos un elemento o circuito en el croquis antes de enviar a Materiales.');
+    if (!itemsBase || itemsBase.length === 0) {
+        mostrarAlertaCorp('Sin Cómputo', 'Cargá al menos un elemento y tramo en el croquis antes de enviar a Materiales.');
         return;
     }
 
     const cliNombre = (document.getElementById('cliNombre')?.value || '').trim();
     const cliDireccion = (document.getElementById('cliDireccion')?.value || '').trim();
     const cliProyecto = (document.getElementById('cliProyecto')?.value || '').trim();
-    const ambienteNombre = (document.getElementById('ambNombre')?.value || estadoCroquis?.ambNombre || 'Ambiente').trim();
-    const desperdicio = parseFloat(document.getElementById('selectDesperdicio')?.value || estadoCroquis?.desperdicio || 10);
+    const ambienteNombre = (estadoCroquis.nombre || document.getElementById('ambNombre')?.value || 'Ambiente').trim();
+    const desperdicio = parseFloat(document.getElementById('ambDesperdicio')?.value || estadoCroquis.desperdicio || 10);
 
-    // Sincronizar cliente global
     localStorage.setItem('villaser_cliente_global', JSON.stringify({
         nombre: cliNombre,
         direccion: cliDireccion,
         proyecto: cliProyecto || `Instalación ${ambienteNombre}`,
-        telefono: typeof telefonoClienteActual !== 'undefined' ? telefonoClienteActual : ''
+        telefono: telefonoClienteActual || ''
     }));
 
-    // Guardar estado actual del croquis antes de salir
-    if (typeof guardarEstadoLocal === 'function') {
-        guardarEstadoLocal();
-    }
+    guardarEstadoLocal(true);
 
-    // Paquete completo hacia Materiales (conserva permisos de Agenda/Nube y metadatos del ambiente)
     const paqueteExportacion = {
         origen: 'croquis',
         timestamp: Date.now(),
         cliNombre,
         cliDireccion,
         cliProyecto: cliProyecto || `Instalación ${ambienteNombre}`,
-        telefonoClienteActual: typeof telefonoClienteActual !== 'undefined' ? telefonoClienteActual : '',
-        clienteDesdeAgenda: Boolean(typeof clienteDesdeAgenda !== 'undefined' && clienteDesdeAgenda),
-        permiteGuardarNube: typeof permiteGuardarNube !== 'undefined' ? Boolean(permiteGuardarNube) : true,
+        telefonoClienteActual: telefonoClienteActual || '',
+        clienteDesdeAgenda: Boolean(clienteDesdeAgenda),
+        permiteGuardarNube: Boolean(permiteGuardarNube),
         ambienteNombre,
         desperdicio,
-        items: itemsComputados.map((it, idx) => ({
+        items: itemsBase.map((it, idx) => ({
             id: it.id || (Date.now() + idx),
-            material: it.material || it.descripcion || '',
-            cantidad: Number(it.cantidad || it.qty || 1),
-            unidad: it.unidad || 'Un.',
-            nota: it.nota || it.obs || `Croquis: ${ambienteNombre}`
+            material: it.material || '',
+            cantidad: Number(it.cantidad || 1),
+            unidad: it.unidad || 'UNID',
+            nota: it.nota || `Croquis: ${ambienteNombre}`
         }))
     };
 
@@ -1989,14 +1990,17 @@ function verificarRetornoDesdeMateriales() {
             if (datosRetorno.cliProyecto && document.getElementById('cliProyecto')) {
                 document.getElementById('cliProyecto').value = datosRetorno.cliProyecto;
             }
-            if (datosRetorno.ambienteNombre && document.getElementById('ambNombre')) {
-                document.getElementById('ambNombre').value = datosRetorno.ambienteNombre;
-                if (typeof estadoCroquis === 'object' && estadoCroquis) {
-                    estadoCroquis.ambNombre = datosRetorno.ambienteNombre;
+            if (datosRetorno.ambienteNombre) {
+                estadoCroquis.nombre = datosRetorno.ambienteNombre;
+                if (document.getElementById('ambNombre')) {
+                    document.getElementById('ambNombre').value = datosRetorno.ambienteNombre;
                 }
             }
-            if (datosRetorno.desperdicio !== undefined && document.getElementById('selectDesperdicio')) {
-                document.getElementById('selectDesperdicio').value = String(datosRetorno.desperdicio);
+            if (datosRetorno.desperdicio !== undefined) {
+                estadoCroquis.desperdicio = parseFloat(datosRetorno.desperdicio) || 10;
+                if (document.getElementById('ambDesperdicio')) {
+                    document.getElementById('ambDesperdicio').value = String(estadoCroquis.desperdicio);
+                }
             }
             if (datosRetorno.clienteDesdeAgenda !== undefined) {
                 clienteDesdeAgenda = Boolean(datosRetorno.clienteDesdeAgenda);
@@ -2006,21 +2010,8 @@ function verificarRetornoDesdeMateriales() {
             }
 
             localStorage.removeItem('villaser_computo_croquis_return');
-
-            // Asegurar que la vista de trabajo quede activa con el listado actualizado
-            const stepCliente = document.getElementById('step-cliente');
-            const stepTrabajo = document.getElementById('step-trabajo');
-            if (stepCliente && stepTrabajo) {
-                stepCliente.classList.add('oculto');
-                stepTrabajo.classList.remove('oculto');
-                stepTrabajo.classList.add('flex-column', 'gap-15');
-            }
-
-            if (typeof guardarEstadoLocal === 'function') guardarEstadoLocal();
-            if (typeof actualizarTodoElCroquis === 'function') actualizarTodoElCroquis();
-            else if (typeof renderizarComputoYPreview === 'function') renderizarComputoYPreview();
-
-            mostrarToast('Cómputo Actualizado', 'Se aplicaron los materiales seleccionados desde el catálogo.');
+            avanzarPasoTrabajo(true);
+            mostrarToast('Cómputo Actualizado', 'Se aplicaron los materiales editados desde el catálogo.');
         }
     } catch (err) {
         console.error('Error al procesar retorno desde Materiales:', err);
@@ -2033,7 +2024,8 @@ function verificarRetornoDesdeMateriales() {
         }
     }
     return true;
-                }
+                          }
+                                   
 
 // ==========================================================================
 // VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
