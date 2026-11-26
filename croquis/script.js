@@ -314,10 +314,12 @@ function cargarEstadoInicial() {
                 document.getElementById('cliProyecto').value = data.cliProyecto || '';
                 document.getElementById('obsGenerales').value = data.obsGenerales || '';
                 estadoCroquis = normalizarEstadoCroquis(data.estadoCroquis);
-                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
+                                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
                 permiteGuardarNube = data.permiteGuardarNube !== false;
                 nombreBorradorActual = data.nombreBorrador || null;
                 telefonoClienteActual = data.telefonoClienteActual || '';
+
+                procesarRetornoDesdeMateriales();
 
                 if (data.enTrabajo && data.cliNombre) {
                     avanzarPasoTrabajo(false);
