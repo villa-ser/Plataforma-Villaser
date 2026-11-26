@@ -2427,6 +2427,7 @@ function ejecutarEliminarBorrador() {
 // REINICIO DE MÓDULO Y UTILIDADES
 // ==========================================================================
 function ejecutarNuevoCroquis() {
+    materialesEditadosDesdeCatalogo = null;
     if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
 
     document.getElementById('cliNombre').value = '';
