@@ -192,6 +192,8 @@ function cargarEstadoInicial() {
             }
         } catch (e) {}
     }
+    // Al final de cargarEstadoInicial():
+verificarRetornoDesdeMateriales();
 }
 
 function guardarClienteGlobal() {
