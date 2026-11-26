@@ -719,85 +719,123 @@ function mostrarToast(titulo, mensaje) {
     }, 3000);
 }
 
-function agregarTrabajo() {
-    const valConcepto = document.getElementById('selConcepto').value;
+let ultimoRegistroItem = { firma: '', timestamp: 0 };
+let ultimoDuplicadoTimestamp = 0;
 
-    if (!valConcepto) {
-        return mostrarAlertaCorp("Falta Material", "Seleccioná al menos una Categoría y un Material, o usá el botón + Manual.");
+function esCargaDuplicadaReciente(firma) {
+    const ahora = Date.now();
+    if (ultimoRegistroItem.firma === firma && (ahora - ultimoRegistroItem.timestamp) < 1200) {
+        return true;
     }
+    ultimoRegistroItem = { firma, timestamp: ahora };
+    return false;
+}
 
-    const valTema = document.getElementById('selTema').value;
-    const valNivel3 = document.getElementById('selNivel3').value;
-    const valNivel4 = document.getElementById('selNivel4').value;
-    const valNivel5 = document.getElementById('selNivel5').value;
+function agregarTrabajo() {
+    const itemOriginal = dbPrecios.find(i => i.tema === selTema.value && i.concepto === selConcepto.value);
+    
+    if(!itemOriginal) { 
+        mostrarAlertaCorp("Atención", "Seleccione un trabajo de la lista o cargue un 'Ítem Manual'."); 
+        return; 
+    }
+    
+    const qty = Math.max(1, parseInt(document.getElementById('cantidad').value) || 1);
+    const desc = Math.min(100, Math.max(0, parseInt(document.getElementById('porcentajeDesc').value) || 0));
+    const minRaw = document.getElementById('minutosTrabajo').value;
+    const minutos = (minRaw !== '' && !isNaN(parseInt(minRaw))) ? Math.max(0, parseInt(minRaw)) : 30;
+    const fPrecio = redondearMoneda(precioEditado !== null ? precioEditado : itemOriginal.precio);
+    const fTotal = redondearMoneda((fPrecio * qty) * (1 - desc / 100));
+    const conceptoFinal = conceptoEditado || itemOriginal.concepto;
+    const obsFinal = document.getElementById('obsManual').value.trim();
 
-    const partes = [valTema, valConcepto, valNivel3, valNivel4, valNivel5];
-    const nombreCompleto = partes.filter(Boolean).join(' | ');
-
-    const qty = Math.max(1, parseInt(document.getElementById('cantidad').value, 10) || 1);
-    const nota = document.getElementById('obsManual').value.trim();
-    const radioUnidad = document.querySelector('input[name="tipoUnidad"]:checked');
-    const unidad = radioUnidad ? radioUnidad.value : 'UNID';
-
-    listaItems.push({
-        id: Date.now() + Math.floor(Math.random() * 1000),
-        material: nombreCompleto,
-        cantidad: qty,
-        unidad: unidad,
-        nota: nota
+    const firmaItem = `${conceptoFinal}|${fPrecio}|${qty}|${desc}|${minutos}|${obsFinal}`;
+    if (esCargaDuplicadaReciente(firmaItem)) return;
+          
+    listaItems.push({ 
+        id: Date.now() + Math.floor(Math.random() * 1000), 
+        concepto: conceptoFinal, 
+        obs: obsFinal, 
+        qty, 
+        total: fTotal, 
+        unitario: fPrecio, 
+        desc,
+        minutos
     });
-
-    guardarEstadoLocal();
-    renderTabla();
-    dispararAutoGuardadoNube();
-
-    // Limpiar selección manteniendo la Categoría para agilizar cargas múltiples
-    document.getElementById('obsManual').value = "";
-    document.getElementById('cantidad').value = 1;
-    cambioTema();
-    mostrarToast("Agregado", `${qty} ${unidad} sumado a la lista.`);
-                                     }
+    
+    guardarEstadoLocal(); 
+    renderTabla(true); 
+    
+    document.getElementById('obsManual').value = ""; 
+    document.getElementById('cantidad').value = 1; 
+    document.getElementById('porcentajeDesc').value = 0; 
+    document.getElementById('minutosTrabajo').value = 30;
+    selConcepto.value = ""; 
+    sumConcepto.innerText = '-- SELECCIONE TRABAJO --';
+    limpiarEdicionesTemporales(); 
+    document.getElementById('unitarioLabel').innerText = "Unit: $ 0,00";
+    actualizarSubtotalItemActual();
+}
 
 // ==========================================
-// ÍTEM MANUAL Y EDICIÓN DE ÍTEMS
+// ÍTEM MANUAL Y EDICIÓN / ORDEN DE ÍTEMS CARGADOS
 // ==========================================
 function abrirModalItemManual() {
-    document.getElementById('manMaterial').value = '';
-    document.getElementById('manCantidad').value = 1;
-    document.getElementById('manNota').value = '';
-    document.getElementById('manUnitUnid').checked = true;
+    document.getElementById('manualItemConcepto').value = '';
+    document.getElementById('manualItemPrecio').value = '';
+    document.getElementById('manualItemQty').value = 1;
+    document.getElementById('manualItemDesc').value = 0;
+    document.getElementById('manualItemMinutos').value = 60;
+    document.getElementById('manualItemObs').value = '';
+    document.getElementById('manualItemPreviewTotal').innerText = '$ 0';
     document.getElementById('modalItemManual').classList.remove('oculto');
-    setTimeout(() => document.getElementById('manMaterial').focus(), 80);
+    setTimeout(() => document.getElementById('manualItemConcepto').focus(), 80);
 }
 
 function cerrarModalItemManual() {
     document.getElementById('modalItemManual').classList.add('oculto');
 }
 
+function recalcularPreviewModalManual() {
+    const precio = Math.max(0, parseFloat(document.getElementById('manualItemPrecio').value) || 0);
+    const qty = Math.max(1, parseInt(document.getElementById('manualItemQty').value) || 1);
+    const desc = Math.min(100, Math.max(0, parseInt(document.getElementById('manualItemDesc').value) || 0));
+    const total = redondearMoneda((precio * qty) * (1 - desc / 100));
+    document.getElementById('manualItemPreviewTotal').innerText = `$ ${total.toLocaleString('es-AR')}`;
+}
+
 function guardarItemManual() {
-    const mat = document.getElementById('manMaterial').value.trim();
-    if (!mat) {
-        mostrarAlertaCorp("Falta Descripción", "Ingresá el nombre o descripción del material.");
+    const concepto = document.getElementById('manualItemConcepto').value.trim();
+    const precio = redondearMoneda(Math.max(0, parseFloat(document.getElementById('manualItemPrecio').value) || 0));
+    const qty = Math.max(1, parseInt(document.getElementById('manualItemQty').value) || 1);
+    const desc = Math.min(100, Math.max(0, parseInt(document.getElementById('manualItemDesc').value) || 0));
+    const minutos = Math.max(0, parseInt(document.getElementById('manualItemMinutos').value) || 0);
+    const obs = document.getElementById('manualItemObs').value.trim();
+
+    if (!concepto) {
+        mostrarAlertaCorp("Datos incompletos", "Ingresá el nombre o descripción del trabajo.");
         return;
     }
-    const qty = Math.max(1, parseInt(document.getElementById('manCantidad').value, 10) || 1);
-    const nota = document.getElementById('manNota').value.trim();
-    const radio = document.querySelector('input[name="manTipoUnidad"]:checked');
-    const unidad = radio ? radio.value : 'UNID';
+
+    const firmaItem = `MANUAL|${concepto}|${precio}|${qty}|${desc}|${minutos}|${obs}`;
+    if (esCargaDuplicadaReciente(firmaItem)) return;
+
+    const total = redondearMoneda((precio * qty) * (1 - desc / 100));
 
     listaItems.push({
         id: Date.now() + Math.floor(Math.random() * 1000),
-        material: mat,
-        cantidad: qty,
-        unidad: unidad,
-        nota: nota
+        concepto,
+        obs,
+        qty,
+        total,
+        unitario: precio,
+        desc,
+        minutos
     });
 
-    cerrarModalItemManual();
     guardarEstadoLocal();
-    renderTabla();
-    dispararAutoGuardadoNube();
-    mostrarToast("Material Manual Agregado", mat);
+    renderTabla(true);
+    cerrarModalItemManual();
+    mostrarToast("Ítem Agregado", "Se añadió el trabajo personalizado.");
 }
 
 function abrirModalEditarItem(id) {
@@ -805,20 +843,14 @@ function abrirModalEditarItem(id) {
     if (!item) return;
 
     document.getElementById('editItemId').value = item.id;
-    document.getElementById('editMaterial').value = item.material;
-    document.getElementById('editCantidad').value = item.cantidad;
-    document.getElementById('editNota').value = item.nota || '';
+    document.getElementById('editItemConcepto').value = item.concepto;
+    document.getElementById('editItemPrecio').value = item.unitario;
+    document.getElementById('editItemQty').value = item.qty;
+    document.getElementById('editItemDesc').value = item.desc || 0;
+    document.getElementById('editItemMinutos').value = item.minutos !== undefined ? item.minutos : 30;
+    document.getElementById('editItemObs').value = item.obs || '';
 
-    const radios = document.querySelectorAll('input[name="editTipoUnidad"]');
-    let marcoAlguno = false;
-    radios.forEach(r => {
-        if (r.value === item.unidad) {
-            r.checked = true;
-            marcoAlguno = true;
-        }
-    });
-    if (!marcoAlguno) document.getElementById('editUnitUnid').checked = true;
-
+    recalcularPreviewModalEditar();
     document.getElementById('modalEditarItem').classList.remove('oculto');
 }
 
@@ -826,61 +858,217 @@ function cerrarModalEditarItem() {
     document.getElementById('modalEditarItem').classList.add('oculto');
 }
 
-function guardarEdicionItem() {
-    const id = parseInt(document.getElementById('editItemId').value, 10);
-    const item = listaItems.find(i => i.id === id);
-    if (!item) return;
+function recalcularPreviewModalEditar() {
+    const precio = Math.max(0, parseFloat(document.getElementById('editItemPrecio').value) || 0);
+    const qty = Math.max(1, parseInt(document.getElementById('editItemQty').value) || 1);
+    const desc = Math.min(100, Math.max(0, parseInt(document.getElementById('editItemDesc').value) || 0));
+    const total = redondearMoneda((precio * qty) * (1 - desc / 100));
+    document.getElementById('editItemPreviewTotal').innerText = `$ ${total.toLocaleString('es-AR')}`;
+}
 
-    const nuevoMat = document.getElementById('editMaterial').value.trim();
-    if (!nuevoMat) {
-        mostrarAlertaCorp("Falta Descripción", "La descripción del material no puede quedar vacía.");
+function guardarEdicionItem() {
+    const id = Number(document.getElementById('editItemId').value);
+    const idx = listaItems.findIndex(i => i.id === id);
+    if (idx === -1) return;
+
+    const concepto = document.getElementById('editItemConcepto').value.trim();
+    if (!concepto) {
+        mostrarAlertaCorp("Datos incompletos", "La descripción del trabajo no puede estar vacía.");
         return;
     }
 
-    const radio = document.querySelector('input[name="editTipoUnidad"]:checked');
-    item.material = nuevoMat;
-    item.cantidad = Math.max(1, parseInt(document.getElementById('editCantidad').value, 10) || 1);
-    item.unidad = radio ? radio.value : 'UNID';
-    item.nota = document.getElementById('editNota').value.trim();
+    const precio = redondearMoneda(Math.max(0, parseFloat(document.getElementById('editItemPrecio').value) || 0));
+    const qty = Math.max(1, parseInt(document.getElementById('editItemQty').value) || 1);
+    const desc = Math.min(100, Math.max(0, parseInt(document.getElementById('editItemDesc').value) || 0));
+    const minutos = Math.max(0, parseInt(document.getElementById('editItemMinutos').value) || 0);
+    const obs = document.getElementById('editItemObs').value.trim();
+    const total = redondearMoneda((precio * qty) * (1 - desc / 100));
 
-    cerrarModalEditarItem();
+    listaItems[idx] = {
+        ...listaItems[idx],
+        concepto,
+        unitario: precio,
+        qty,
+        desc,
+        minutos,
+        obs,
+        total
+    };
+
     guardarEstadoLocal();
     renderTabla();
-    dispararAutoGuardadoNube();
-    mostrarToast("Actualizado", "Ítem modificado correctamente.");
+    cerrarModalEditarItem();
+    mostrarToast("Ítem Actualizado", "Cambios guardados en el presupuesto.");
 }
 
-function ajustarCantidadItem(id, delta) {
-    const item = listaItems.find(i => i.id === id);
-    if (!item) return;
-    const nueva = (parseInt(item.cantidad, 10) || 1) + delta;
-    if (nueva < 1) return;
-    item.cantidad = nueva;
+function moverItem(index, direccion) {
+    const nuevoIndex = index + direccion;
+    if (nuevoIndex < 0 || nuevoIndex >= listaItems.length) return;
+    const temp = listaItems[index];
+    listaItems[index] = listaItems[nuevoIndex];
+    listaItems[nuevoIndex] = temp;
     guardarEstadoLocal();
     renderTabla();
-    dispararAutoGuardadoNube();
 }
 
 function duplicarItem(id) {
+    const ahora = Date.now();
+    if (ahora - ultimoDuplicadoTimestamp < 700) return;
+    ultimoDuplicadoTimestamp = ahora;
+
     const idx = listaItems.findIndex(i => i.id === id);
     if (idx === -1) return;
-    const orig = listaItems[idx];
     const copia = {
-        ...orig,
-        id: Date.now() + Math.floor(Math.random() * 1000)
+        ...listaItems[idx],
+        id: ahora + Math.floor(Math.random() * 1000)
     };
     listaItems.splice(idx + 1, 0, copia);
     guardarEstadoLocal();
     renderTabla();
-    dispararAutoGuardadoNube();
-    mostrarToast("Duplicado", "Se creó una copia del ítem.");
+    mostrarToast("Ítem Duplicado", "Se creó una copia debajo.");
 }
 
-function borrarItem(id) {
-    listaItems = listaItems.filter(i => i.id !== id);
-    guardarEstadoLocal();
-    renderTabla();
-    dispararAutoGuardadoNube();
+// ==========================================
+// RENDERIZADO DE TABLA, MÉTRICAS Y DOCK EN VIVO
+// ==========================================
+function renderTabla(pulsarDock = false) {
+    const tbody = document.getElementById('cuerpoTabla'); 
+    let total = 0;
+    let subtotalBruto = 0;
+    let totalMinutos = 0;
+    const f = new Date().toLocaleDateString('es-AR');
+
+    listaItems.forEach(i => {
+        total = redondearMoneda(total + i.total);
+        subtotalBruto = redondearMoneda(subtotalBruto + (i.unitario * i.qty));
+        const minItem = (i.minutos !== undefined && i.minutos !== null) ? Number(i.minutos) : 30;
+        totalMinutos += minItem * i.qty;
+    });
+
+    const descuentoTotal = redondearMoneda(subtotalBruto - total);
+    const horas = Math.floor(totalMinutos / 60);
+    const mins = totalMinutos % 60;
+    const tiempoFormateado = `${horas}h ${mins < 10 ? '0' + mins : mins}m`;
+    const promedioHora = totalMinutos > 0 ? Math.round(total / (totalMinutos / 60)) : 0;
+
+    actualizarCabeceraClientePaso2();
+
+    const filtroWrap = document.getElementById('filtroItemsDrawerWrap');
+    const filtroInput = document.getElementById('filtroItemsDrawer');
+    if (filtroWrap) {
+        filtroWrap.classList.toggle('oculto', listaItems.length < 4);
+        if (listaItems.length < 4 && filtroInput) filtroInput.value = '';
+    }
+
+    const cliNombreSeguro = escaparHTML(inputCliNombre.value.trim() || 'Sin Nombre');
+    const cliDirSeguro = escaparHTML(document.getElementById('cliDireccion').value.trim());
+    const cliProySeguro = escaparHTML(document.getElementById('cliProyecto').value.trim() || 'General');
+    
+    let htmlFilas = `<tr>
+        <td colspan="4" style="padding-bottom:14px; border-bottom: 1px solid var(--ngc-privacy-border);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap;">
+                <div style="color:var(--ngc-neon); font-size:0.84rem; line-height: 1.45; flex: 1; min-width: 170px;">
+                    <div><b>CLIENTE:</b> ${cliNombreSeguro}</div>
+                    ${cliDirSeguro ? `<div style="color: var(--ngc-text-faded); font-size: 0.78rem;"><b>DIR:</b> ${cliDirSeguro}</div>` : ''}
+                    <div><b>PROYECTO:</b> ${cliProySeguro}</div>
+                    <div style="color: var(--ngc-text-faded); font-size: 0.78rem;"><b>FECHA:</b> ${f} • <b>N°:</b> ${escaparHTML(nroPresupuestoGlobal)}</div>
+                    <button type="button" class="corp-btn-small pres-btn-edit-client" onclick="abrirModalEditarCliente()">
+                        <i class="fa-solid fa-user-pen"></i> Editar Cliente / Vincular
+                    </button>
+                </div>
+                <div class="pres-metrics-box">
+                    <div><span style="color: var(--ngc-text-faded);">Tiempo Est.:</span> <b style="color: var(--ngc-warning);">${tiempoFormateado}</b></div>
+                    <div><span style="color: var(--ngc-text-faded);">Prom./Hora:</span> <b style="color: var(--ngc-neon);">$ ${promedioHora.toLocaleString('es-AR')}</b></div>
+                </div>
+            </div>
+        </td>
+    </tr>`; 
+
+    if (listaItems.length === 0) {
+        htmlFilas += `<tr>
+            <td colspan="4" style="text-align: center; padding: 26px 10px; color: var(--ngc-text-faded); border: none;">
+                <i class="fa-solid fa-clipboard-list" style="font-size: 1.6rem; margin-bottom: 8px; display: block; opacity: 0.6;"></i>
+                Todavía no agregaste trabajos.<br><small>Cerrá esta vista y seleccioná un rubro o tocá <b>+ Ítem Manual</b>.</small>
+            </td>
+        </tr>`;
+    }
+    
+    listaItems.forEach((i, idx) => { 
+        const obsHtml = i.obs 
+            ? `<small style="display:block; opacity:0.85; white-space: pre-wrap; margin-top:4px; color: var(--ngc-text-faded);">${escaparHTML(i.obs)}</small>` 
+            : '';
+        const badgeDesc = i.desc > 0 
+            ? ` <strong style="color:var(--ngc-warning)">(-${i.desc}%)</strong>` 
+            : '';
+        const searchData = escaparHTML(`${i.concepto} ${i.obs || ''}`);
+
+        htmlFilas += `<tr class="pres-item-row" data-search="${searchData}">
+            <td style="padding-right: 6px;">
+                <div style="display: flex; align-items: baseline; gap: 6px;">
+                    <span style="font-size: 0.72rem; font-weight: 700; color: var(--ngc-text-faded);">${String(idx + 1).padStart(2, '0')}</span>
+                    <b>${escaparHTML(i.concepto)}</b>
+                </div>
+                <span style="display:block; font-size:0.78rem; color:var(--ngc-text-faded); margin-top: 2px;">
+                    Unit: $${i.unitario.toLocaleString('es-AR')}${badgeDesc} • ${i.minutos || 30}m
+                </span>
+                ${obsHtml}
+                <div class="pres-item-actions-bar">
+                    <button type="button" class="pres-mini-act" onclick="abrirModalEditarItem(${i.id})" title="Editar ítem"><i class="fa-solid fa-pen"></i> Editar</button>
+                    <button type="button" class="pres-mini-act" onclick="duplicarItem(${i.id})" title="Duplicar ítem"><i class="fa-solid fa-copy"></i></button>
+                    ${idx > 0 ? `<button type="button" class="pres-mini-act" onclick="moverItem(${idx}, -1)" title="Subir"><i class="fa-solid fa-arrow-up"></i></button>` : ''}
+                    ${idx < listaItems.length - 1 ? `<button type="button" class="pres-mini-act" onclick="moverItem(${idx}, 1)" title="Bajar"><i class="fa-solid fa-arrow-down"></i></button>` : ''}
+                </div>
+            </td>
+            <td align="center" style="font-weight: 600; white-space: nowrap;">x${i.qty}</td>
+            <td align="right" style="color:var(--ngc-neon); font-weight:bold; white-space: nowrap;">$${i.total.toLocaleString('es-AR')}</td>
+            <td align="right" style="width:36px;">
+                <button type="button" class="corp-btn-icon danger" style="width:32px; height:32px;" onclick="borrarItem(${i.id})" title="Eliminar">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </td>
+        </tr>`; 
+    });
+
+    const og = document.getElementById('obsGenerales').value.trim(); 
+    if(og) {
+        htmlFilas += `<tr><td colspan="4" style="font-size:0.85rem; color:var(--ngc-text-faded); padding-top:12px; font-style:italic; border: none;">Nota: ${escaparHTML(og)}</td></tr>`; 
+    }
+
+    tbody.innerHTML = htmlFilas;
+
+    const desgloseEl = document.getElementById('desgloseTotalesLive');
+    if (desgloseEl) {
+        if (descuentoTotal > 0) {
+            desgloseEl.innerHTML = `
+                <div class="pres-subtotals-strip">
+                    <span>Subtotal: $ ${subtotalBruto.toLocaleString('es-AR')}</span>
+                    <span style="color: var(--ngc-warning);">Bonificación: -$ ${descuentoTotal.toLocaleString('es-AR')}</span>
+                </div>`;
+        } else {
+            desgloseEl.innerHTML = '';
+        }
+    }
+
+    const badgeCant = document.getElementById('badgeCantidadItems');
+    if (badgeCant) {
+        badgeCant.innerText = `${listaItems.length} ${listaItems.length === 1 ? 'ítem' : 'ítems'}`;
+    }
+    
+    totalMontoActual = total; 
+    document.getElementById('totalDisplay').innerText = `TOTAL: $ ${total.toLocaleString('es-AR')}`;
+
+    if (filtroInput && filtroInput.value.trim() !== '') {
+        filtrarItemsCargadosDrawer();
+    }
+
+    actualizarDockFlotante(total, tiempoFormateado, pulsarDock);
+    sincronizarVistaPreviaPDF();
+}
+
+function borrarItem(id) { 
+    listaItems = listaItems.filter(i => i.id !== id); 
+    guardarEstadoLocal(); 
+    renderTabla(); 
 }
 
 // ==========================================
