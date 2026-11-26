@@ -523,6 +523,26 @@ function limpiarFormularioAmbiente() {
     actualizarSelectoresEnFormulario();
 }
 
+function abrirModalCargaAmbiente(modoEdicion = false) {
+    if (!modoEdicion) {
+        cancelarEdicion();
+        limpiarFormularioAmbiente();
+    }
+    const modal = document.getElementById('modalCargaAmbiente');
+    const body = document.getElementById('bodyModalAmbiente');
+    if (modal) modal.classList.remove('oculto');
+    if (body) body.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalCargaAmbiente() {
+    const modal = document.getElementById('modalCargaAmbiente');
+    if (modal) modal.classList.add('oculto');
+    document.body.style.overflow = '';
+    cancelarEdicion();
+    limpiarFormularioAmbiente();
+}
+
 function guardarAmbiente() {
     const tipoBase = document.getElementById('selAmbiente').value;
     const identificador = document.getElementById('inputIdentificador').value.trim();
@@ -557,7 +577,6 @@ function guardarAmbiente() {
         return;
     }
 
-    // Verificar si se cargaron bocas ESP sin elegir circuito
     let espSinCirc = false;
     document.querySelectorAll('.esp-item').forEach(item => {
         const b = parseInt(item.querySelector('.bocas-esp-input').value) || 0;
@@ -604,14 +623,13 @@ function guardarAmbiente() {
     if (editandoId) {
         const idx = listaAmbientes.findIndex(a => a.id === obj.id);
         if (idx !== -1) listaAmbientes[idx] = obj;
-        cancelarEdicion();
         mostrarToast("Actualizado", `${etiquetaFinal} modificado.`);
     } else {
         listaAmbientes.push(obj);
         mostrarToast("Agregado", `${etiquetaFinal} sumado a la planilla.`);
     }
 
-    limpiarFormularioAmbiente();
+    cerrarModalCargaAmbiente();
     calcularGradoYRenderizar();
 }
 
@@ -623,9 +641,7 @@ function editarAmbiente(id) {
 
     document.getElementById('titulo-form-ambiente').innerHTML = "<i class='fa-solid fa-pen corp-accent-color'></i> Editando Ambiente";
     document.getElementById('btnGuardarAmbiente').innerHTML = "<i class='fa-solid fa-check'></i> Actualizar Ambiente";
-    document.getElementById('btnCancelarEdicion').style.display = "flex";
 
-    // Compatibilidad con registros anteriores que no tenían tipoBase separado
     let tipoBase = amb.tipoBase || amb.tipo;
     let identificador = amb.identificador || "";
     if (!amb.tipoBase && amb.tipo && amb.tipo.includes(" (") && !amb.tipo.endsWith("(Semi)")) {
@@ -667,17 +683,19 @@ function editarAmbiente(id) {
     });
 
     actualizarSelectoresEnFormulario();
-    document.getElementById('step-trabajo').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    abrirModalCargaAmbiente(true);
 }
 
 function cancelarEdicion() {
     editandoId = null;
     const elEdit = document.getElementById('editandoId');
     if (elEdit) elEdit.value = "";
-    document.getElementById('titulo-form-ambiente').innerHTML = "<i class='fa-solid fa-house-signal corp-accent-color'></i> Carga de Ambientes";
-    document.getElementById('btnGuardarAmbiente').innerHTML = "<i class='fa-solid fa-plus'></i> Agregar Ambiente";
-    document.getElementById('btnCancelarEdicion').style.display = "none";
+    const elTitulo = document.getElementById('titulo-form-ambiente');
+    if (elTitulo) elTitulo.innerHTML = "<i class='fa-solid fa-house-signal corp-accent-color'></i> Carga de Ambientes";
+    const elBtn = document.getElementById('btnGuardarAmbiente');
+    if (elBtn) elBtn.innerHTML = "<i class='fa-solid fa-plus'></i> Agregar Ambiente";
 }
+
 
 function borrarItem(id) {
     if (editandoId === id) {
