@@ -126,8 +126,46 @@
             z-index: 10010 !important;
         }
 
-        #modalVistaPrevia {
+                #modalVistaPrevia {
             z-index: 10020 !important;
+        }
+
+        /* Evita que global.css recorte ítems (02, 03...) o el TOTAL dentro del cajón */
+        #modalListaPresupuesto #zonaCaptura {
+            display: block !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        #modalListaPresupuesto #zonaCaptura .corp-table {
+            display: table !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+
+        #modalListaPresupuesto #cuerpoTabla {
+            display: table-row-group !important;
+            height: auto !important;
+            max-height: none !important;
+        }
+
+        #modalListaPresupuesto #cuerpoTabla tr {
+            display: table-row !important;
+            height: auto !important;
+            max-height: none !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        #modalListaPresupuesto #desgloseTotalesLive,
+        #modalListaPresupuesto #totalDisplay {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
         }
     </style>
 </head>
