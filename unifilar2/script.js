@@ -1135,16 +1135,14 @@ function dibujarSimboloPIA(x, y, polosStr) {
     if (cacheSimboloPIA) {
         const altoDestino = 46;
         const escala = altoDestino / cacheSimboloPIA.h;
-        const anchoEscalado = cacheSimboloPIA.w * escala;
-        // Ajuste horizontal para alinear el eje vertical del contacto con la línea del circuito
-        const offsetX = x - (anchoEscalado * 0.5);
-
+        const offsetX = x - (anchoEscalado * 0.68);
+        const offsetY = y - 5;
         return `
-            <g transform="translate(${offsetX.toFixed(2)}, ${y}) scale(${escala.toFixed(4)})">
-                ${cacheSimboloPIA.inner}
+            <g transform="translate(${offsetX.toFixed(2)}, ${offsetY}) scale(${escala.toFixed(4)})" style="stroke-width: 2.2;">
+        ${cacheSimboloPIA.inner}
             </g>
-            ${marcasPolos}
-        `;
+    ${marcasPolos}
+     `;
     }
 
     // Respaldo vectorial instantáneo mientras termina el fetch
