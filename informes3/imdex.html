@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#18191A">
+    <title>Villaser - Informe Técnico</title>
+    
+    <!-- html2pdf ya incluye html2canvas y jsPDF integrados -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet JS & CSS para Mapa Interactivo en Bloque de Ubicación -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+    <link rel="stylesheet" href="../global.css">
+
+    <script>
+    (function() {
+        const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Puente de conexión centralizado -->
+    <script src="../firebase-config.js"></script>
+
+    <!-- Guardián de seguridad -->
+    <script>
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified) window.location.replace('../index.html'); 
+        });
+    </script>
+</head>
+<body>
+
+    <!-- TOAST NOTIFICACIÓN CORPORATIVA -->
+    <div id="toastCliente" class="toast-corp oculto gpu-accel">
+        <div class="toast-icon"><i class="fa-solid fa-check-circle"></i></div>
+        <div class="toast-content">
+            <div id="toastTitle" class="toast-title">Notificación</div>
+            <div id="toastMessage" class="toast-msg">Operación realizada con éxito.</div>
+        </div>
+    </div>
+
+    <!-- WRAPPER -->
+    <div class="layout-wrapper">
+        <main class="container">
+
+            <!-- BARRA SUPERIOR -->
+            <nav class="corp-top-nav">
+                <div style="width: 42px;"></div>
+                <div class="corp-nav-title">
+                    <i class="fa-solid fa-clipboard-check corp-accent-color"></i> INFORME TÉCNICO
+                </div>
+                <button type="button" class="corp-btn-icon danger" onclick="abrirModalConfirmarNuevoGlobal()" title="Nuevo Informe">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </nav>
+
+            <!-- PASO 1: DATOS DEL PROYECTO -->
+            <section id="step-cliente" class="corp-card gpu-accel">
+                <h4 class="corp-card-title"><i class="fa-solid fa-user-tag corp-accent-color"></i> Datos del Proyecto</h4>
+                <div class="action-grid-main" style="margin-bottom: 15px;">
+                    <button type="button" class="corp-btn success-btn" onclick="abrirModalAgendaGlobal()"><i class="fa-solid fa-address-book"></i> Agenda</button>
+                    <button type="button" class="corp-btn primary-action" onclick="abrirModalBorradores()"><i class="fa-solid fa-cloud"></i> Borradores</button>
+                </div>
+                
+                <div class="row-group">
+                    <label>Nombre del Cliente</label>
+                    <input type="text" id="cliNombre" class="corp-input" placeholder="Ej: Familia Gómez" oninput="marcarClienteManual()">
+                </div>
+                
+                <div class="row-group-stretch">
+                    <div class="flex-1">
+                        <label>Dirección</label>
+                        <input type="text" id="cliDireccion" class="corp-input" placeholder="Ej: San Martín 123" oninput="programarGuardadoAutomatico()">
+                    </div>
+                    <div class="flex-1">
+                        <label>Nombre del Proyecto</label>
+                        <input type="text" id="cliProyecto" class="corp-input" placeholder="Ej: Informe de Falla" oninput="programarGuardadoAutomatico()">
+                    </div>
+                </div>
+                
+                <button type="button" class="corp-btn primary-action" style="margin-top: 10px;" onclick="iniciarInforme()">
+                    <i class="fa-solid fa-play"></i> Comenzar Informe
+                </button>
+            </section>
+            
+            <!-- PASO 2: SECCIÓN TRABAJO -->
+            <section id="step-trabajo" class="oculto flex-column gap-15">
+
+                <!-- CABECERA ACTIVA DEL PROYECTO -->
+                <div class="pot-project-bar gpu-accel">
+                    <div class="pot-project-info">
+                        <div class="pot-project-name" id="ui-proyecto-cliente">Cliente</div>
+                        <div class="pot-project-sub" id="ui-proyecto-detalle">Sin detalles adicionales</div>
+                    </div>
+                    <div class="pot-project-actions">
+                        <span id="estadoNubePill" class="pres-cloud-pill local">
+                            <i class="fa-solid fa-hard-drive"></i> Local
+                        </span>
+                        <button type="button" class="corp-btn-small pres-btn-edit-client" style="margin-top:0;" onclick="abrirModalEditarCliente()">
+                            <i class="fa-solid fa-pen"></i> Editar Datos
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BARRA DE HERRAMIENTAS: REDACCIÓN, PLANTILLAS Y CALCULADORA -->
+                <div style="display: grid; grid-template-columns: 1.45fr 1fr auto; gap: 8px;">
+                    <button type="button" class="corp-btn primary-action" style="padding: 13px 10px; font-size: 0.88rem; border: 1px solid rgba(35, 116, 225, 0.45);" onclick="abrirModalRedaccion('parrafo')">
+                        <i class="fa-solid fa-plus-circle"></i> Agregar Bloque
+                    </button>
+                    <button type="button" class="corp-btn" style="padding: 13px 10px; font-size: 0.88rem; background: rgba(49, 162, 76, 0.14); color: var(--success-green); border: 1px solid rgba(49, 162, 76, 0.4);" onclick="abrirModalPlantillas()">
+                        <i class="fa-solid fa-file-lines"></i> Plantillas
+                    </button>
+                    <button type="button" class="corp-btn" style="padding: 13px 13px; font-size: 0.9rem; background: rgba(245, 195, 59, 0.12); color: var(--ngc-warning); border: 1px solid rgba(245, 195, 59, 0.45); width: auto;" onclick="abrirModalCalculadora()" title="Calculadora Técnica">
+                        <i class="fa-solid fa-calculator"></i>
+                    </button>
+                </div>
+
+                <!-- ZONA DE ESTRUCTURA Y VISTA PREVIA DEL INFORME -->
+                <div id="captureSection" class="capture-zone gpu-accel" style="padding: 14px 12px;">
+                    <header style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 800; color: var(--ngc-neon); letter-spacing: 0.8px; border-bottom: 1px solid rgba(35, 116, 225, 0.3); padding-bottom: 10px; margin-bottom: 12px; font-size: 0.88rem;">
+                        <span><i class="fa-solid fa-file-contract"></i> VILLASER - INFORME TÉCNICO</span>
+                        <span id="ui-bloques-count" style="font-size: 0.72rem; font-weight: 700; color: var(--ngc-text-faded); background: var(--ngc-bg-input); padding: 3px 8px; border-radius: 12px; border: 1px solid var(--ngc-privacy-border);">0 bloques</span>
+                    </header>
+
+                    <div id="previewClientInfo" style="font-size: 0.82rem; margin-bottom: 12px; color: var(--ngc-neon); line-height: 1.45; border-bottom: 1px dashed var(--ngc-privacy-border); padding-bottom: 8px;"></div>
+
+                    <!-- Estado vacío -->
+                    <div id="emptyStateInforme" style="text-align: center; padding: 24px 12px; color: var(--ngc-text-faded); font-size: 0.84rem; border: 1px dashed var(--ngc-privacy-border); border-radius: 10px; margin-bottom: 10px;">
+                        <i class="fa-solid fa-pen-nib" style="font-size: 1.5rem; color: var(--ngc-neon); opacity: 0.7; margin-bottom: 8px; display: block;"></i>
+                        Todavía no hay bloques redactados.<br>
+                        Tocá <strong>Agregar Bloque</strong> o cargá una <strong>Plantilla</strong>.
+                    </div>
+
+                    <!-- Lista interactiva de bloques (expandibles, reordenables y editables) -->
+                    <div id="lista-parrafos" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+                    <!-- Vista previa consolidada oculta para compatibilidad o lectura rápida -->
+                    <div id="previewInforme" class="oculto"></div>
+                    <div id="previewNotasGlobales" style="font-size: 0.84rem; margin-top: 12px; color: var(--ngc-text-faded); border-top: 1px dashed var(--ngc-privacy-border); padding-top: 8px; display: none; white-space: pre-wrap; font-style: italic;"></div>
+                </div>
+
+                <!-- NOTAS GLOBALES NORMALIZADAS -->
+                <div class="corp-card gpu-accel">
+                    <label>Observaciones y Conclusiones Finales</label>
+                    <textarea id="obsGenerales" class="corp-input" placeholder="Conclusiones finales, dictamen o recomendaciones..." style="height: 80px; resize: vertical;" oninput="actualizarVistaPreviews(); programarGuardadoAutomatico();"></textarea>
+                </div>
+
+                <!-- BOTONES DE ACCIÓN COMPACTOS -->
+                <div class="mat-drawer-footer-grid" style="margin-top: 4px;">
+                    <div class="mat-drawer-actions-row primary-exports">
+                        <button type="button" id="btnVistaPreviaMobile" class="corp-btn" onclick="abrirVistaPreviaMobile()">
+                            <i class="fa-solid fa-eye"></i> Vista Previa
+                        </button>
+                        <button type="button" class="corp-btn danger-btn" onclick="generarPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> PDF
+                        </button>
+                        <button type="button" class="corp-btn success-btn" onclick="prepararEnvioWhatsApp()">
+                            <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                        </button>
+                    </div>
+                    <div class="mat-drawer-actions-row two-cols">
+                        <button type="button" class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
+                        </button>
+                        <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.1);">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
+                        </button>
+                    </div>
+                </div>
+                
+            </section>
+        </main>
+
+        <!-- PANEL DERECHO: PDF A4 -->
+        <aside class="preview-panel">
+            <div id="plantilla-pdf">
+                <div class="pdf-container" style="position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 1040px; box-sizing: border-box;">
+
+                    <!-- SELLO DE AGUA PROTECCIÓN (30%) -->
+                    <div id="selloAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.3; z-index: 9999; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+                        <img src="../img/negro1024.png" alt="Sello Villaser" style="max-width: 500px; width: 70%; margin-bottom: 20px;">
+                        <h1 style="font-family: 'Segoe UI', Arial, sans-serif; font-size: 5rem; color: #000; margin: 0; font-weight: 900; letter-spacing: 4px; text-align: center; line-height: 1.1;">PLATAFORMA<br>VILLASER</h1>
+                    </div>
+
+                    <!-- BLOQUE SUPERIOR: ENCABEZADO + CUERPO DEL INFORME -->
+                    <div style="position: relative; z-index: 1;">
+                        <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 15px; margin-bottom: 22px;">
+                            
+                            <!-- Izquierda: Título y Datos del Cliente / Obra -->
+                            <div style="flex: 1;">
+                                <div style="font-size: 19px; font-weight: 800; color: #0f172a; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 2px;">
+                                    INFORME TÉCNICO
+                                </div>
+                                <div style="font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px;">
+                                    Documentación y Relevamiento Técnico
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #1e293b;">
+                                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                                        <b style="color: #475569; min-width: 68px;">Fecha:</b>
+                                        <span id="pdf-fecha"></span>
+                                    </div>
+                                    <div style="display: flex; align-items: baseline; gap: 8px;">
+                                        <b style="color: #475569; min-width: 68px;">Cliente:</b>
+                                        <span id="pdf-cliente" style="font-weight: 600; color: #0f172a;"></span>
+                                    </div>
+                                    <div id="pdf-row-dir" style="display: flex; align-items: baseline; gap: 8px;">
+                                        <b style="color: #475569; min-width: 68px;">Dirección:</b>
+                                        <span id="pdf-dir"></span>
+                                    </div>
+                                    <div id="pdf-row-proyecto" style="display: flex; align-items: baseline; gap: 8px;">
+                                        <b style="color: #475569; min-width: 68px;">Proyecto:</b>
+                                        <span id="pdf-proyecto"></span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Derecha: Logo y Datos del Profesional -->
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 265px;">
+                                <img id="pdf-img-logo" src="" alt="Logo Profesional" style="display: none; max-height: 72px; max-width: 195px; object-fit: contain; margin-bottom: 6px;">
+                                <div id="pdf-text-logo" style="font-size: 15px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                                    PROFESIONAL INDEPENDIENTE
+                                </div>
+                                <div id="pdf-header-contacto" style="font-size: 10px; color: #475569; line-height: 1.45;"></div>
+                            </div>
+                        </header>
+
+                        <!-- Contenido Redactado -->
+                        <div class="pdf-body-content">
+                            <div id="pdf-texto-contenido" class="pdf-informe-texto" style="color: #1e293b; font-size: 12px; line-height: 1.6;"></div>
+
+                            <div class="pdf-notas-box" id="pdf-notas-box" style="display: none; width: 100%; box-sizing: border-box; background: #f8fafc; border: 1px solid #cbd5e1; border-left: 3px solid #1e293b; padding: 12px 14px; border-radius: 4px; margin-top: 22px; break-inside: avoid;">
+                                <h3 style="margin: 0 0 6px 0; font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">Observaciones y Conclusiones</h3>
+                                <div id="pdf-notas" class="pdf-notas-content" style="font-size: 11.5px; color: #334155; line-height: 1.5; white-space: pre-wrap;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOQUE INFERIOR ANCLADO: FIRMAS Y PIE CORPORATIVO -->
+                    <div style="position: relative; z-index: 1; margin-top: 28px; break-inside: avoid;">
+                        
+                        <!-- Bloque de Conformidad y Firmas -->
+                        <div style="display: flex; justify-content: space-between; gap: 45px; margin-bottom: 20px; padding: 0 10px;">
+                            <div style="flex: 1; text-align: center;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 6px; margin-top: 34px;">
+                                    <div id="pdf-firma-prof-nombre" style="font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">PROFESIONAL INTERVINIENTE</div>
+                                    <div id="pdf-firma-prof-mat" style="font-size: 9.5px; color: #475569; margin-top: 2px;">Firma y Sello Profesional</div>
+                                </div>
+                            </div>
+                            <div style="flex: 1; text-align: center;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 6px; margin-top: 34px;">
+                                    <div style="font-size: 11px; font-weight: 700; color: #0f172a; text-transform: uppercase;">CONFORMIDAD DEL CLIENTE</div>
+                                    <div style="font-size: 9.5px; color: #475569; margin-top: 2px;">Firma, Aclaración y DNI</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pie de Página Corporativo -->
+                        <footer class="pdf-footer" style="border-top: 1px solid #cbd5e1; padding-top: 10px; margin-top: 0; display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <div style="font-size: 9.5px; color: #64748b;">
+                                Documento emitido mediante Plataforma Villaser
+                            </div>
+                            <div class="pdf-right-footer" style="text-align: right;">
+                                <div class="pdf-slogan" id="pdf-slogan" style="font-weight: 700; color: #0f172a; margin-bottom: 2px; font-size: 11.5px;"></div>
+                                <div class="pdf-contacto" style="font-size: 10px; color: #475569;">
+                                    <span id="pdf-tel-footer">villaser.com.ar</span>
+                                </div>
+                            </div>
+                        </footer>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+        
+    </div>
+
+    <!-- ================================================== -->
+    <!-- MODAL FULL-SCREEN MÓVIL: REDACCIÓN, TABLAS Y MAPA  -->
+    <!-- ================================================== -->
+    <div id="modalRedaccionBloque" class="modal-overlay inf-editor-modal oculto gpu-accel" style="z-index: 10000;">
+        <div class="corp-modal-card inf-editor-shell">
+            
+            <!-- 1. CABECERA FIJA -->
+            <div class="inf-editor-header">
+                <h4 id="titulo-form-bloque" class="inf-editor-header-title">
+                    <i class="fa-solid fa-pen-to-square corp-accent-color"></i> Redacción de Bloque
+                </h4>
+                <div class="inf-editor-header-actions">
+                    <button type="button" class="corp-btn-icon" style="width: 34px; height: 34px; color: var(--ngc-warning);" onclick="abrirModalCalculadora()" title="Abrir Calculadora">
+                        <i class="fa-solid fa-calculator"></i>
+                    </button>
+                    <button type="button" class="corp-btn-icon" style="width: 34px; height: 34px;" onclick="cerrarModalRedaccion()" title="Cerrar">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. CUERPO FLEXIBLE -->
+            <div id="bodyModalRedaccion" class="inf-editor-body">
+                <!-- Referencia invisible para compatibilidad -->
+                <div id="bannerEdicionBloque" class="oculto" style="display: none;">
+                    <span id="textoBannerEdicion"></span>
+                </div>
+
+                <!-- Selector de Tipo de Bloque (5 elementos) -->
+                <div class="row-group" style="margin-bottom: 0; flex-shrink: 0;">
+                    <label style="margin-bottom: 6px;">Tipo de Elemento</label>
+                    <div class="inf-tipo-grid" style="grid-template-columns: repeat(5, minmax(0, 1fr));">
+                        <button type="button" id="tipoBloqueBtn-parrafo" class="corp-btn success-btn" onclick="seleccionarTipoBloqueModal('parrafo')">
+                            <i class="fa-solid fa-paragraph"></i> Párrafo
+                        </button>
+                        <button type="button" id="tipoBloqueBtn-titulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('titulo')">
+                            <i class="fa-solid fa-heading"></i> Título
+                        </button>
+                        <button type="button" id="tipoBloqueBtn-subtitulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('subtitulo')">
+                            <i class="fa-solid fa-t"></i> Subtít.
+                        </button>
+                        <button type="button" id="tipoBloqueBtn-tabla" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('tabla')">
+                            <i class="fa-solid fa-table"></i> Tabla
+                        </button>
+                        <button type="button" id="tipoBloqueBtn-mapa" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('mapa')">
+                            <i class="fa-solid fa-map-location-dot"></i> Mapa
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cuadro de texto estándar -->
+                <div id="contenedorTextoInforme" class="row-group" style="display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0;">
+                    <textarea id="textoInforme" class="corp-input inf-editor-textarea" placeholder="Redactar contenido aquí..." oninput="actualizarContadorRedaccion()"></textarea>
+                    <div id="contadorTextoRedaccion" class="inf-editor-counter" style="margin-top: 4px;">0 pal. · 0 car.</div>
+                </div>
+
+                <!-- Herramientas de formato sobre el texto -->
+                <div id="barraFormatoTexto" class="inf-format-grid">
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarFormatoSeleccion('**')">
+                        <i class="fa-solid fa-bold"></i> Negrita
+                    </button>
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarFormatoSeleccion('*')">
+                        <i class="fa-solid fa-italic"></i> Cursiva
+                    </button>
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarVinetasSeleccion()">
+                        <i class="fa-solid fa-list-ul"></i> Viñetas
+                    </button>
+                    <button type="button" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.14);" onclick="abrirModalLibreria()">
+                        <i class="fa-solid fa-book-bookmark"></i> Librería
+                    </button>
+                </div>
+
+                <!-- Editor visual de Tabla -->
+                <div id="editorTablaContainer" class="row-group oculto" style="flex: 1; min-height: 0; margin-bottom: 0;">
+                    <div class="tabla-editor-box">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <div>
+                                <label style="text-align: center; display: block; font-size: 0.7rem;">Filas (1–15)</label>
+                                <div class="corp-stepper" style="height: 36px;">
+                                    <button type="button" class="btn-step" onclick="ajustarDimTablaEnVivo('filas', -1)">-</button>
+                                    <input type="number" id="inputFilasTabla" class="corp-input-step" value="4" min="1" max="15" readonly>
+                                    <button type="button" class="btn-step" onclick="ajustarDimTablaEnVivo('filas', 1)">+</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label style="text-align: center; display: block; font-size: 0.7rem;">Columnas (2–6)</label>
+                                <div class="corp-stepper" style="height: 36px;">
+                                    <button type="button" class="btn-step" onclick="ajustarDimTablaEnVivo('columnas', -1)">-</button>
+                                    <input type="number" id="inputColumnasTabla" class="corp-input-step" value="3" min="2" max="6" readonly>
+                                    <button type="button" class="btn-step" onclick="ajustarDimTablaEnVivo('columnas', 1)">+</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="text" id="tituloTablaInput" class="corp-input" placeholder="Título de la tabla (opcional)..." style="text-align: center; font-weight: 700; padding: 8px; font-size: 0.88rem;">
+
+                        <div class="tabla-editor-scroll">
+                            <table id="grillaEditorTabla" class="tabla-editor-grid"></table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Editor visual de Ubicación / Mapa -->
+                <div id="editorMapaContainer" class="row-group oculto" style="flex: 1; min-height: 0; margin-bottom: 0;">
+                    <div class="tabla-editor-box" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <label style="font-size: 0.74rem; margin-bottom: 4px;">Dirección de la Obra / Ubicación</label>
+                            <div style="display: flex; gap: 6px;">
+                                <input type="text" id="inputDireccionMapa" class="corp-input" placeholder="Ej: San Martín 123, Córdoba" style="flex: 1; padding: 10px 12px;" oninput="alEditarDireccionMapaEditor()">
+                                <button type="button" class="corp-btn primary-action" style="width: auto; padding: 0 14px; white-space: nowrap;" onclick="abrirModalMapaEnVivo(true)">
+                                    <i class="fa-solid fa-magnifying-glass-location"></i> Buscar
+                                </button>
+                            </div>
+                            <button type="button" id="btnSincronizarDirCliente" class="corp-btn-small oculto" style="margin-top: 6px; width: 100%; text-align: center; color: var(--ngc-warning); border-color: rgba(245, 195, 59, 0.45); background: rgba(245, 195, 59, 0.1);" onclick="aplicarDireccionMapaACliente()">
+                                <i class="fa-solid fa-arrows-rotate"></i> Actualizar también la dirección en el encabezado del cliente
+                            </button>
+                        </div>
+
+                        <button type="button" class="corp-btn" style="background: rgba(35, 116, 225, 0.16); color: var(--ngc-neon); border: 1px solid rgba(35, 116, 225, 0.45); padding: 12px;" onclick="abrirModalMapaEnVivo(false)">
+                            <i class="fa-solid fa-map-pin"></i> Abrir Mapa en Vivo y Capturar
+                        </button>
+
+                        <!-- Selector de modo Color o Blanco y Negro -->
+                        <div>
+                            <label style="font-size: 0.74rem; margin-bottom: 4px;">Acabado del Gráfico en el Informe</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                <button type="button" id="btnModoMapa-color" class="corp-btn success-btn" style="padding: 9px 8px; font-size: 0.82rem;" onclick="seleccionarModoColorMapa('color')">
+                                    <i class="fa-solid fa-palette"></i> Color
+                                </button>
+                                <button type="button" id="btnModoMapa-bn" class="corp-btn" style="padding: 9px 8px; font-size: 0.82rem; color: var(--ngc-text-faded); background: var(--ngc-glass); border: 1px solid var(--ngc-privacy-border);" onclick="seleccionarModoColorMapa('bn')">
+                                    <i class="fa-solid fa-circle-half-stroke"></i> Blanco y Negro
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="font-size: 0.74rem; margin-bottom: 4px;">Epígrafe debajo del mapa (opcional)</label>
+                            <input type="text" id="epigrafeMapaInput" class="corp-input" placeholder="Ej: Ubicación geográfica de la instalación" style="padding: 10px 12px;" oninput="marcarEpigrafeManual()">
+                        </div>
+
+                        <!-- Vista previa centrada de la captura lista -->
+                        <div id="previewCapturaMapaWrapper" class="oculto" style="background: var(--ngc-glass); border: 1px solid var(--ngc-privacy-border); border-radius: 8px; padding: 10px; text-align: center;">
+                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--success-green); margin-bottom: 6px;">
+                                <i class="fa-solid fa-circle-check"></i> Captura lista para insertar
+                            </div>
+                            <img id="imgPreviewCapturaMapa" src="" alt="Vista previa del mapa capturado" style="display: block; margin: 0 auto; max-width: 100%; max-height: 210px; border-radius: 6px; border: 1px solid var(--ngc-privacy-border);">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. PIE FIJO -->
+            <div class="inf-editor-footer">
+                <button type="button" class="corp-btn danger-btn" onclick="cerrarModalRedaccion()">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </button>
+                <button type="button" id="btnConfirmarBloqueModal" class="corp-btn success-btn" onclick="confirmarBloqueDesdeModal()">
+                    <i class="fa-solid fa-plus"></i> Agregar Párrafo
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- MODAL FULL-SCREEN: MAPA EN VIVO Y CAPTURA          -->
+    <!-- ================================================== -->
+    <div id="modalMapaEnVivo" class="modal-overlay oculto gpu-accel" style="position: fixed; inset: 0; width: 100vw; height: 100dvh; z-index: 10020; background: var(--bg-body, #18191A); flex-direction: column; padding: 0; overflow: hidden;">
+        <!-- Cabecera fija -->
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #18191A; padding: 10px 14px; border-bottom: 1px solid var(--ngc-privacy-border); width: 100%; box-sizing: border-box; flex-shrink: 0; gap: 8px;">
+            <button type="button" onclick="cerrarModalMapaEnVivo()" class="corp-btn" style="width: auto; background: transparent; color: #ffffff; font-weight: 700; border: 1px solid var(--ngc-privacy-border); margin: 0; padding: 8px 12px; font-size: 0.82rem;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </button>
+            <span style="color: var(--ngc-neon); font-weight: 700; font-size: 0.84rem; letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap;">
+                <i class="fa-solid fa-location-crosshairs"></i> Ubicar Dirección
+            </span>
+            <button type="button" onclick="centrarMapaEnMiGPS()" class="corp-btn" style="width: auto; background: rgba(35, 116, 225, 0.16); color: var(--ngc-neon); border: 1px solid rgba(35, 116, 225, 0.4); margin: 0; padding: 8px 11px; font-size: 0.8rem;" title="Usar mi ubicación GPS">
+                <i class="fa-solid fa-crosshairs"></i> GPS
+            </button>
+        </div>
+
+        <!-- Barra de búsqueda interna con sugerencias en vivo -->
+        <div style="position: relative; padding: 8px 12px; background: var(--ngc-glass); border-bottom: 1px solid var(--ngc-privacy-border); flex-shrink: 0; z-index: 1200;">
+            <div style="display: flex; gap: 6px;">
+                <input type="text" id="buscadorMapaEnVivo" class="corp-input" placeholder="Buscar calle, altura, ciudad..." autocomplete="off" style="flex: 1; padding: 10px 12px; font-size: 0.86rem;" oninput="programarSugerenciasMapa()" onkeydown="if(event.key==='Enter'){ event.preventDefault(); ocultarSugerenciasMapa(); buscarDireccionEnMapaEnVivo(false); }">
+                <button type="button" id="btnBuscarMapaEnVivo" class="corp-btn primary-action" style="width: auto; padding: 0 15px; margin: 0;" onclick="ocultarSugerenciasMapa(); buscarDireccionEnMapaEnVivo(false);">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+            </div>
+            <!-- Desplegable de sugerencias de calles -->
+            <div id="listaSugerenciasMapa" class="oculto" style="position: absolute; left: 12px; right: 12px; top: calc(100% - 2px); background: var(--ngc-glass); border: 1px solid var(--ngc-neon); border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.45); max-height: 210px; overflow-y: auto; z-index: 1300;"></div>
+        </div>
+
+        <!-- Barra de controles de vista y color -->
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 12px; background: #18191A; border-bottom: 1px solid var(--ngc-privacy-border); flex-shrink: 0; font-size: 0.76rem;">
+            <div style="display: flex; gap: 5px;">
+                <button type="button" id="btnCapaMapa-calles" class="corp-btn-small primary-action" style="padding: 5px 9px;" onclick="cambiarCapaMapa('calles')">
+                    <i class="fa-solid fa-road"></i> Calles
+                </button>
+                <button type="button" id="btnCapaMapa-satelite" class="corp-btn-small" style="padding: 5px 9px;" onclick="cambiarCapaMapa('satelite')">
+                    <i class="fa-solid fa-satellite"></i> Satélite
+                </button>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button type="button" id="btnModalColor-color" class="corp-btn-small success-btn" style="padding: 5px 9px;" onclick="seleccionarModoColorMapa('color')">
+                    Color
+                </button>
+                <button type="button" id="btnModalColor-bn" class="corp-btn-small" style="padding: 5px 9px;" onclick="seleccionarModoColorMapa('bn')">
+                    B / N
+                </button>
+            </div>
+        </div>
+
+        <!-- Lienzo del Mapa Interactivo -->
+        <div style="flex: 1; position: relative; width: 100%; overflow: hidden; background: #e5e7eb;" onclick="ocultarSugerenciasMapa()">
+            <div style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); z-index: 800; background: rgba(24, 25, 26, 0.86); color: #ffffff; padding: 5px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 600; white-space: nowrap; pointer-events: none; box-shadow: 0 2px 8px rgba(0,0,0,0.35);">
+                <i class="fa-solid fa-hand-pointer" style="color: var(--ngc-warning);"></i> Arrastrá el pin o tocá el punto exacto
+            </div>
+
+            <!-- Banner contextual si una dirección necesita ajuste o referencia externa -->
+            <div id="bannerAvisoMapa" class="oculto" style="position: absolute; bottom: 10px; left: 10px; right: 10px; z-index: 850; background: rgba(24, 25, 26, 0.94); color: #ffffff; border: 1px solid var(--ngc-warning); border-radius: 10px; padding: 9px 12px; font-size: 0.76rem; box-shadow: 0 4px 14px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                <div id="textoBannerAvisoMapa" style="flex: 1; line-height: 1.35;"></div>
+                <button type="button" class="corp-btn-small" style="color: var(--ngc-neon); border-color: var(--ngc-neon); white-space: nowrap; flex-shrink: 0;" onclick="abrirReferenciaGoogleMaps()">
+                    <i class="fa-solid fa-arrow-up-right-from-square"></i> Ver en Maps
+                </button>
+            </div>
+
+            <div id="contenedorLeafletMapa" style="width: 100%; height: 100%; z-index: 1;"></div>
+        </div>
+
+        <!-- Pie fijo con botón Captura -->
+        <div style="display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px; background: #18191A; border-top: 1px solid var(--ngc-privacy-border); flex-shrink: 0;">
+            <button type="button" class="corp-btn danger-btn" style="margin: 0; padding: 12px;" onclick="cerrarModalMapaEnVivo()">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+            </button>
+            <button type="button" id="btnCapturarMapaAhora" class="corp-btn success-btn" style="margin: 0; padding: 12px; font-weight: 700;" onclick="capturarMapaEnVivo()">
+                <i class="fa-solid fa-camera"></i> Capturar
+            </button>
+        </div>
+    </div>
+
+  <!-- ================================================== -->
+    <!-- MODAL: VISTA PREVIA MÓVIL A PANTALLA COMPLETA      -->
+    <!-- ================================================== -->
+    <div id="modalVistaPrevia" class="modal-overlay oculto gpu-accel" style="z-index: 10005; background: #121212; flex-direction: column; padding: 0; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #18191A; padding: 15px 20px; border-bottom: 1px solid var(--ngc-privacy-border); width: 100%; box-sizing: border-box; flex-shrink: 0; z-index: 2;">
+            <button type="button" onclick="cerrarVistaPrevia()" class="corp-btn" style="width: auto; background: transparent; color: var(--ngc-text-main); font-weight: bold; border: 1px solid var(--ngc-privacy-border); margin: 0; padding: 8px 15px;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </button>
+            <button type="button" onclick="cerrarVistaPrevia(); generarPDF();" class="corp-btn danger-btn" style="width: auto; font-weight: bold; margin: 0; padding: 8px 15px;">
+                <i class="fa-solid fa-file-pdf"></i> Generar PDF
+            </button>
+        </div>
+        <div id="contenedorVistaPreviaMobile" style="flex: 1; width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; padding: 15px; box-sizing: border-box; text-align: center; background: #333; touch-action: pan-x pan-y;"></div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- MODAL: CALCULADORA TÉCNICA A PANTALLA COMPLETA     -->
+    <!-- ================================================== -->
+    <div id="modalCalculadora" class="modal-overlay oculto gpu-accel" style="position: fixed; inset: 0; width: 100vw; height: 100dvh; z-index: 10015; background: var(--bg-body, #18191A); flex-direction: column; padding: 0; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; background: #18191A; padding: 12px 16px; border-bottom: 1px solid var(--ngc-privacy-border); width: 100%; box-sizing: border-box; flex-shrink: 0; z-index: 2;">
+            <button type="button" onclick="cerrarModalCalculadora()" class="corp-btn" style="width: auto; background: transparent; color: #ffffff; font-weight: bold; border: 1px solid var(--ngc-privacy-border); margin: 0; padding: 8px 14px; font-size: 0.85rem;">
+                <i class="fa-solid fa-arrow-left"></i> Volver al Informe
+            </button>
+            <span style="color: var(--ngc-neon); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px; text-transform: uppercase;">
+                <i class="fa-solid fa-calculator"></i> Calculadora
+            </span>
+        </div>
+
+        <div style="flex: 1; position: relative; width: 100%; height: 100%; overflow: hidden;">
+            <div id="loaderCalculadoraModal" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--ngc-neon); text-align: center; z-index: 1;">
+                <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+                <p style="margin-top: 10px; font-size: 0.85rem; color: var(--ngc-text-faded);">Cargando calculadora...</p>
+            </div>
+            <iframe id="iframeCalculadoraModal" src="" style="width: 100%; height: 100%; border: none; display: block; position: relative; z-index: 2; opacity: 0; transition: opacity 0.25s ease;" allow="clipboard-read; clipboard-write" onload="ocultarLoaderCalculadoraModal()"></iframe>
+        </div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- MODAL: EDITAR DATOS DEL CLIENTE / OBRA SIN PERDER  -->
+    <!-- ================================================== -->
+    <div id="modalEditarCliente" class="modal-overlay oculto gpu-accel" style="z-index: 10005;">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-user-pen" style="color: var(--ngc-neon);"></i> Datos del Proyecto</h3>
+            <p style="margin-bottom: 14px; font-size: 0.84rem;">Modificá los datos o vinculá un cliente de tu agenda sin perder el informe actual.</p>
+
+            <div class="row-group" style="text-align: left;">
+                <label>Nombre del Cliente</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="editCliNombre" class="corp-input" placeholder="Ej: Familia Gómez" style="flex: 1;">
+                    <button type="button" class="corp-btn-icon primary-action" onclick="buscarAgendaDesdeEdicion()" title="Importar de Agenda">
+                        <i class="fa-solid fa-address-book"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="row-group" style="text-align: left;">
+                <label>Dirección</label>
+                <input type="text" id="editCliDireccion" class="corp-input" placeholder="Ej: San Martín 123">
+            </div>
+
+            <div class="row-group" style="text-align: left; margin-bottom: 18px;">
+                <label>Nombre del Proyecto</label>
+                <input type="text" id="editCliProyecto" class="corp-input" placeholder="Ej: Relevamiento Tablero">
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalEditarCliente()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarEdicionCliente()">Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================== -->
+    <!-- MODAL: PLANTILLAS TÉCNICAS PREARMADAS              -->
+    <!-- ================================================== -->
+    <div id="modalPlantillasInforme" class="modal-overlay oculto gpu-accel" style="z-index: 10005;">
+        <div class="corp-modal-card" style="max-width: 480px; width: 94%;">
+            <h3 style="margin-bottom: 6px;"><i class="fa-solid fa-file-lines" style="color: var(--success-green);"></i> Plantillas Técnicas</h3>
+            <p style="margin-bottom: 14px; font-size: 0.84rem;">Seleccioná una estructura base para agregarla al informe y completarla con tus datos.</p>
+            <div id="listaPlantillasInforme" class="modal-list-container" style="max-height: 310px;"></div>
+            <button type="button" class="corp-btn danger-btn" onclick="cerrarModalPlantillas()" style="margin-top: 12px;">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODALES COMUNES Y GLOBALES -->
+    <div id="modalAgenda" class="modal-overlay oculto gpu-accel" style="z-index: 10012;">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-users"></i> Contactos</h3>
+            <input type="text" id="buscadorAgenda" class="corp-input" placeholder="Buscar nombre o dirección..." oninput="filtrarAgendaGlobal()" style="margin-bottom: 10px;">
+            <div id="listaAgenda" class="modal-list-container"></div>
+            <button type="button" class="corp-btn" onclick="cerrarModalAgendaGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalBorradores" class="modal-overlay oculto gpu-accel" style="z-index: 10005;">
+        <div class="corp-modal-card" style="max-width: 460px; width: 94%;">
+            <h3><i class="fa-solid fa-cloud-arrow-down"></i> Borradores en Nube</h3>
+            <input type="text" id="buscadorBorradores" class="corp-input pres-select-search" placeholder="Filtrar por cliente, proyecto o fecha..." oninput="filtrarListaBorradoresUI()" style="margin-bottom: 10px;">
+            <div id="listaBorradores" class="modal-list-container" style="max-height: 290px;"></div>
+            <button type="button" class="corp-btn" onclick="cerrarModalBorradoresGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalGuardarBorrador" class="modal-overlay oculto gpu-accel" style="z-index: 10010;">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-cloud-arrow-up corp-modal-icon" style="color: var(--ngc-neon);"></i>
+            <h3 style="margin-bottom: 10px; text-align: left; justify-content: flex-start;">Guardar Borrador</h3>
+            <p style="margin-bottom: 15px; text-align: left;">Verifica o edita el nombre del archivo:</p>
+            <input type="text" id="inputNombreBorrador" class="corp-input" style="margin-bottom: 20px; font-weight: 600; font-size: 1rem;">
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalGuardarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="ejecutarGuardarBorrador()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarEliminar" class="modal-overlay oculto gpu-accel" style="z-index: 10015;">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-trash-can corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Eliminar Borrador</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de eliminar este borrador de la nube? Esta acción no se puede deshacer.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalEliminarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarEliminarBorrador()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMAR ELIMINAR BLOQUE -->
+    <div id="modalConfirmarEliminarParrafo" class="modal-overlay oculto gpu-accel" style="z-index: 10015;">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-trash-can corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Eliminar Elemento</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de eliminar este elemento del informe?</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalEliminarParrafo()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarEliminarParrafo()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESCARGAR PDF -->
+    <div id="modalDescargarPDF" class="modal-overlay oculto gpu-accel" style="z-index: 10025;">
+        <div class="corp-modal-card" style="padding-top: 30px;">
+            <i class="fa-solid fa-file-pdf" style="font-size: 2.5rem; color: var(--error-red); margin-bottom: 15px; display: block; text-align: center;"></i>
+            <h3 style="margin-bottom: 5px; font-size: 1.3rem;">Generar PDF</h3>
+            <p style="font-size: 0.9rem; color: var(--ngc-text-faded); text-align: center; margin-bottom: 25px;">Confirma el nombre para guardar tu archivo.</p>
+
+            <div style="position: relative; margin-bottom: 25px;">
+                <label style="position: absolute; top: -10px; left: 10px; background: var(--bg-body); padding: 0 5px; font-size: 0.75rem; color: var(--ngc-text-faded); z-index: 1;">Nombre del archivo</label>
+                <div style="display: flex; align-items: center; border: 1px solid var(--ngc-privacy-border); border-radius: 8px; overflow: hidden; background: var(--ngc-bg-input);">
+                    <input type="text" id="nombreArchivoPDF" class="corp-input" style="border: none; border-radius: 0; flex: 1; padding: 15px; outline: none; box-shadow: none;">
+                    <span style="padding: 0 15px; color: var(--ngc-text-faded); background: var(--ngc-bg-input);">.pdf</span>
+                </div>
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; justify-content: flex-end; gap: 15px;">
+                <button type="button" class="corp-btn" style="width: auto; background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalPDF()">Cancelar</button>
+                <button type="button" id="btnConfirmarDescargaPDF" class="corp-btn danger-btn" style="width: auto; font-weight: bold; padding: 10px 20px; border-radius: 20px;" onclick="ejecutarDescargaPDF()">Descargar</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="modalConfirmarNuevo" class="modal-overlay oculto gpu-accel" style="z-index: 10015;">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-rotate-right corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Nuevo Informe</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de iniciar un nuevo informe? Se borrarán los datos actuales no guardados.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalConfirmarNuevoGlobal()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarNuevoInforme()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAlertaCorp" class="modal-overlay oculto gpu-accel" style="z-index: 10030;">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-circle-exclamation corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 id="modalAlertaTitulo" style="margin-bottom: 10px;">Atención</h3>
+            <p id="modalAlertaMensaje" style="margin-bottom: 20px;">Mensaje de alerta.</p>
+            <div class="corp-modal-actions">
+                <button type="button" class="corp-btn primary-action" onclick="cerrarModalAlertaCorp()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalWhatsApp" class="modal-overlay oculto gpu-accel" style="z-index: 10015;">
+        <div class="corp-modal-card">
+            <i class="fa-brands fa-whatsapp corp-modal-icon" style="color: #25D366; font-size: 3rem;"></i>
+            <h3 style="margin-bottom: 10px; text-transform: uppercase;">Enviar por WhatsApp</h3>
+            <p style="margin-bottom: 20px;">¿A quién deseas enviarle el detalle?</p>
+            
+            <div class="corp-modal-actions">
+                <button type="button" id="btnWspGuardado" class="corp-btn" style="background: #25D366; color: white; display: none;" onclick="enviarWspGuardadoGlobal()">
+                    <i class="fa-brands fa-whatsapp" style="color: white;"></i> Enviar al Cliente
+                </button>
+                
+                <div style="display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5px;">
+                    <input type="number" id="inputWspManual" class="corp-input" placeholder="Ej: 3512345678" style="flex: 1; text-align: center; font-size: 0.9rem;">
+                    <button type="button" class="corp-btn" style="background: #25D366; color: white; border: none; padding: 0 20px; width: auto;" onclick="enviarWspManualGlobal()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="corp-btn" style="background: transparent; color: #25D366; border: 1px solid #25D366;" onclick="buscarEnWspGlobal()">
+                    <i class="fa-solid fa-magnifying-glass"></i> Buscar en mis contactos
+                </button>
+                
+                <button type="button" class="corp-btn danger-btn" style="margin-top: 10px; background: transparent; border: 1px solid var(--error-red);" onclick="cerrarModalWspGlobal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAgendarCliente" class="modal-overlay oculto gpu-accel" style="z-index: 10015;">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--ngc-warning);">
+            <i class="fa-solid fa-address-book corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 style="margin-bottom: 10px;">Cliente no agendado</h3>
+            <p style="margin-bottom: 20px;">Este nombre fue escrito manualmente. Para mantener el orden y guardar en la nube, ¿qué deseas hacer?</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" class="corp-btn" onclick="accionAgendarCliente()"><i class="fa-solid fa-user-plus"></i> Agendar Nuevo Contacto</button>
+                <button type="button" class="corp-btn" style="background: transparent; color: var(--ngc-neon); border: 1px solid var(--ngc-neon);" onclick="opcionBuscarAgenda()"><i class="fa-solid fa-magnifying-glass"></i> Buscar de mi Agenda</button>
+                <button type="button" class="corp-btn danger-btn" style="background: transparent; color: var(--error-red); border: 1px dashed var(--error-red);" onclick="opcionContinuarSinAgenda()">No por el momento</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarSinAgenda" class="modal-overlay oculto gpu-accel" style="z-index: 10018;">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--error-red);">
+            <i class="fa-solid fa-triangle-exclamation corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">¿Continuar sin Nube?</h3>
+            <p style="margin-bottom: 20px;">Al no estar en tu agenda, este informe NO se guardará en los borradores de la nube. ¿Deseas continuar de todos modos?</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarSinAgenda()">Volver atrás</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarContinuarSinAgenda()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+  <!-- MODAL LIBRERÍA TÉCNICA (FÓRMULAS, SIMBOLOGÍA Y NORMAS) -->
+    <div id="modalLibreriaTecnica" class="modal-overlay oculto gpu-accel" style="z-index: 10012;">
+        <div class="corp-modal-card" style="max-width: 480px; width: 94%;">
+            <h3 style="margin-bottom: 10px;"><i class="fa-solid fa-book-bookmark" style="color: var(--ngc-neon);"></i> Librería Técnica</h3>
+            
+            <input type="text" id="buscadorLibreria" class="corp-input" placeholder="Buscar fórmula, símbolo, IRAM, AEA, IEC..." oninput="filtrarLibreria()" style="margin-bottom: 10px;">
+            
+            <div id="tabsLibreria" class="lib-tabs-scroll">
+                <button type="button" class="lib-tab-btn active" onclick="seleccionarCategoriaLibreria('todas', this)">Todas</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('formulas', this)">Fórmulas</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('simbologia', this)">Simbología</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('aea', this)">Normas AEA</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('iram', this)">Normas IRAM</button>
+                <button type="button" class="lib-tab-btn" onclick="seleccionarCategoriaLibreria('internacionales', this)">Internacionales</button>
+            </div>
+
+            <div id="listaLibreriaTecnica" class="modal-list-container" style="max-height: 310px; overflow-y: auto; padding-right: 2px;"></div>
+            
+            <button type="button" class="corp-btn danger-btn" onclick="cerrarModalLibreria()" style="margin-top: 12px;">Cerrar</button>
+        </div>
+    </div>
+    
+    <!-- MENÚ INFERIOR TIPO APP -->
+    <nav class="corp-bottom-nav">
+        <div class="corp-scroll-container" id="corpFooterMenu"></div>
+    </nav>
+
+    <script src="../global.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
