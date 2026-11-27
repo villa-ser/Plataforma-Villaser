@@ -1131,6 +1131,23 @@ function dibujarSimboloPIA(x, y, polosStr) {
         : `<line x1="${x - 6}" y1="${y + 24}" x2="${x + 6}" y2="${y + 19}" stroke="#0f172a" stroke-width="1.5"/>
            <line x1="${x - 6}" y1="${y + 29}" x2="${x + 6}" y2="${y + 24}" stroke="#0f172a" stroke-width="1.5"/>`;
 
+    // Si Termomagnetica.svg ya cargó, lo inserta escalado a 46px de alto y centrado en X
+    if (cacheSimboloPIA) {
+        const altoDestino = 46;
+        const escala = altoDestino / cacheSimboloPIA.h;
+        const anchoEscalado = cacheSimboloPIA.w * escala;
+        // Ajuste horizontal para alinear el eje vertical del contacto con la línea del circuito
+        const offsetX = x - (anchoEscalado * 0.5);
+
+        return `
+            <g transform="translate(${offsetX.toFixed(2)}, ${y}) scale(${escala.toFixed(4)})">
+                ${cacheSimboloPIA.inner}
+            </g>
+            ${marcasPolos}
+        `;
+    }
+
+    // Respaldo vectorial instantáneo mientras termina el fetch
     return `
         <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 10}" stroke="#0f172a" stroke-width="1.8"/>
         <line x1="${x - 4}" y1="${y + 6}" x2="${x + 4}" y2="${y + 14}" stroke="#0f172a" stroke-width="1.6"/>
