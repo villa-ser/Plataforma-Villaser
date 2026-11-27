@@ -111,11 +111,16 @@
                     </div>
                 </div>
                 
-              <!-- BOTÓN DISPARADOR MODAL CARGA DE AMBIENTES -->
-                <button type="button" class="corp-btn primary-action" style="padding: 14px; font-size: 0.95rem; border: 1px solid rgba(35, 116, 225, 0.45);" onclick="abrirModalCargaAmbiente()">
-                    <i class="fa-solid fa-plus-circle"></i> Cargar Ambiente / Carga
-                </button>
-                
+                <!-- BARRA DUAL: AMBIENTES Y CIRCUITOS -->
+                <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 8px;">
+                    <button type="button" class="corp-btn primary-action" style="padding: 13px 10px; font-size: 0.9rem; border: 1px solid rgba(35, 116, 225, 0.45);" onclick="abrirModalCargaAmbiente()">
+                        <i class="fa-solid fa-plus-circle"></i> Cargar Ambiente
+                    </button>
+                    <button type="button" class="corp-btn" style="padding: 13px 10px; font-size: 0.9rem; background: rgba(245, 195, 59, 0.12); color: var(--ngc-warning); border: 1px solid rgba(245, 195, 59, 0.45);" onclick="abrirModalCircuitos()">
+                        <i class="fa-solid fa-sliders"></i> Circuitos (<span id="ui-circuitos-count">2</span>)
+                    </button>
+                </div>
+
 
                 <!-- ZONA DE RESULTADOS Y PLANILLA -->
                 <div id="zonaCaptura" class="capture-zone gpu-accel" style="padding: 14px 8px;">
@@ -162,20 +167,6 @@
                             <tfoot id="pieTabla" style="border-top: 2px solid var(--ngc-neon);"></tfoot>
                         </table>
                     </div>
-                </div>
-
-                <!-- GESTIÓN DE CIRCUITOS -->
-                <div class="corp-card gpu-accel" style="border: 1px solid rgba(245, 195, 59, 0.4);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-                        <h4 class="corp-card-title" style="color: var(--ngc-warning); font-size: 0.95rem; margin:0;">
-                            <i class="fa-solid fa-sliders"></i> Gestión de Circuitos
-                        </h4>
-                        <span id="ui-circuitos-count" style="font-size:0.72rem; color:var(--ngc-text-faded); font-weight:700;">2 circuitos</span>
-                    </div>
-                    <div id="listaConfigCircuitos" style="width: 100%; display: flex; flex-direction: column; gap: 8px;"></div>
-                    <button class="corp-btn-small" style="width: 100%; margin-top: 12px; border: 1px dashed var(--ngc-privacy-border); padding: 10px;" onclick="agregarCircuitoManual()">
-                        <i class="fa-solid fa-plus"></i> Añadir Circuito Extra
-                    </button>
                 </div>
 
                 <!-- MENÚ AGRUPADOR DE ACCIONES -->
@@ -612,11 +603,16 @@
 
                     <!-- BLOQUE ESP DINÁMICO -->
                     <div>
-                        <div class="pot-esp-header">
-                            <span class="pot-boca-label" style="margin:0;"><i class="fa-solid fa-bolt-lightning"></i> Bocas Especiales (ESP / TUE / ACU)</span>
-                            <button type="button" class="corp-btn-small success-btn" style="padding: 4px 10px; font-size: 0.72rem;" onclick="agregarBocaESP()">
-                                <i class="fa-solid fa-plus"></i> Agregar ESP
-                            </button>
+                      <div class="pot-esp-header" style="gap: 6px; flex-wrap: wrap;">
+                          <span class="pot-boca-label" style="margin:0;"><i class="fa-solid fa-bolt-lightning"></i> Bocas Especiales (ESP)</span>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="button" class="corp-btn-small" style="padding: 4px 8px; font-size: 0.72rem; color: var(--ngc-warning); border: 1px solid rgba(245, 195, 59, 0.4);" onclick="abrirModalCircuitos()">
+                                    <i class="fa-solid fa-sliders"></i> + Circuito
+                                </button>
+                                <button type="button" class="corp-btn-small success-btn" style="padding: 4px 10px; font-size: 0.72rem;" onclick="agregarBocaESP()">
+                                    <i class="fa-solid fa-plus"></i> Agregar ESP
+                                </button>
+                            </div>
                         </div>
                         
                         <div id="contenedor-esps" style="display: flex; flex-direction: column; gap: 8px;">
@@ -646,6 +642,28 @@
                     <i class="fa-solid fa-plus"></i> Agregar Ambiente
                 </button>
             </div>
+        </div>
+    </div>
+
+        <!-- MODAL GESTIÓN DE CIRCUITOS -->
+    <div id="modalGestionCircuitos" class="modal-overlay oculto gpu-accel" style="z-index: 10005;">
+        <div class="corp-modal-card" style="border-top: 3px solid var(--ngc-warning); padding: 20px 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; font-size: 1.05rem; color: var(--ngc-warning); justify-content: flex-start;">
+                    <i class="fa-solid fa-sliders"></i> Gestión de Circuitos
+                </h3>
+                <span id="ui-modal-circuitos-count" style="font-size: 0.75rem; color: var(--ngc-text-faded); font-weight: 700;">2 activos</span>
+            </div>
+            <p style="font-size: 0.78rem; text-align: left; margin-bottom: 12px;">
+                Configurá el tipo de línea (IUG, TUG, TUE, ACU, MBTF) o añadí circuitos dedicados. El mínimo se ajusta según el Grado AEA.
+            </p>
+            <div id="listaConfigCircuitos" class="modal-list-container" style="max-height: 45vh; margin-bottom: 14px; padding-right: 2px;"></div>
+            <button type="button" class="corp-btn-small" style="width: 100%; margin-bottom: 12px; border: 1px dashed var(--ngc-warning); color: var(--ngc-warning); background: rgba(245, 195, 59, 0.08); padding: 11px;" onclick="agregarCircuitoManual()">
+                <i class="fa-solid fa-plus"></i> Añadir Circuito Extra
+            </button>
+            <button type="button" class="corp-btn primary-action" onclick="cerrarModalCircuitos()">
+                <i class="fa-solid fa-check"></i> Listo
+            </button>
         </div>
     </div>
     
