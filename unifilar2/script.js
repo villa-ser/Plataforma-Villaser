@@ -1172,29 +1172,23 @@ function dibujarSimboloPIA(x, y, polosStr) {
     `;
 }
 
-
-function dibujarSimboloID(x, y, polosStr = '') {
-    const strPolos = String(polosStr || '');
-    const es4P = strPolos.includes('4x');
-    const es2P = strPolos.includes('2x');
-
+function dibujarSimboloID(x, y, polosStr) {
+    const es4P = String(polosStr || '').includes('4x');
     const marcasPolos = es4P
-        ? `<line x1="${x - 5}" y1="${y + 45.5}" x2="${x + 5}" y2="${y + 43}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
-           <line x1="${x - 5}" y1="${y + 47.5}" x2="${x + 5}" y2="${y + 45}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
-           <line x1="${x - 5}" y1="${y + 49.5}" x2="${x + 5}" y2="${y + 47}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
-           <line x1="${x - 5}" y1="${y + 51.5}" x2="${x + 5}" y2="${y + 49}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>`
-        : (es2P
-            ? `<line x1="${x - 5}" y1="${y + 47.5}" x2="${x + 5}" y2="${y + 44.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
-               <line x1="${x - 5}" y1="${y + 50.5}" x2="${x + 5}" y2="${y + 47.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>`
-            : '');
+        ? `<line x1="${x - 6}" y1="${y + 30}" x2="${x + 6}" y2="${y + 26}" stroke="#0f172a" stroke-width="1.4"/>
+           <line x1="${x - 6}" y1="${y + 34}" x2="${x + 6}" y2="${y + 30}" stroke="#0f172a" stroke-width="1.4"/>
+           <line x1="${x - 6}" y1="${y + 38}" x2="${x + 6}" y2="${y + 34}" stroke="#0f172a" stroke-width="1.4"/>
+           <line x1="${x - 6}" y1="${y + 42}" x2="${x + 6}" y2="${y + 38}" stroke="#0f172a" stroke-width="1.4"/>`
+        : `<line x1="${x - 6}" y1="${y + 32}" x2="${x + 6}" y2="${y + 27}" stroke="#0f172a" stroke-width="1.5"/>
+           <line x1="${x - 6}" y1="${y + 37}" x2="${x + 6}" y2="${y + 32}" stroke="#0f172a" stroke-width="1.5"/>`;
 
-    // Inserta Diferencial.svg alineado al eje X y empalmado de y a y+52
+    // Inserta Diferencial.svg alineado al eje X y empalmado sin corte de y a y+52
     if (cacheSimboloID) {
-        const altoDestino = 52;
+        const altoDestino = 56;
         const escala = altoDestino / cacheSimboloID.h;
         const anchoEscalado = cacheSimboloID.w * escala;
-        const offsetX = x - (anchoEscalado * 0.56);
-        const offsetY = y;
+        const offsetX = x - (anchoEscalado * 0.515);
+        const offsetY = y - 1;
 
         return `
             <g transform="translate(${offsetX.toFixed(2)}, ${offsetY}) scale(${escala.toFixed(4)})">
@@ -1204,25 +1198,15 @@ function dibujarSimboloID(x, y, polosStr = '') {
         `;
     }
 
-    // Respaldo vectorial instantáneo mientras termina el fetch
+    // Respaldo vectorial instantáneo si Diferencial.svg aún no cargó
     return `
-        <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 10}" stroke="#0f172a" stroke-width="1.8"/>
-        <circle cx="${x}" cy="${y + 10}" r="2.2" fill="#0f172a"/>
-        <line x1="${x}" y1="${y + 36}" x2="${x - 10}" y2="${y + 12}" stroke="#0f172a" stroke-width="2"/>
-        <ellipse cx="${x}" cy="${y + 42}" rx="8" ry="3.2" fill="none" stroke="#0f172a" stroke-width="1.4"/>
-        <polyline points="${x - 8},${y + 42} ${x - 14},${y + 42} ${x - 14},${y + 24} ${x - 5},${y + 24}" fill="none" stroke="#0f172a" stroke-width="1.2" stroke-dasharray="2,2"/>
+        <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 22}" stroke="#0f172a" stroke-width="1.8"/>
+        <ellipse cx="${x}" cy="${y + 11}" rx="7" ry="4" fill="none" stroke="#0f172a" stroke-width="1.4"/>
+        <line x1="${x - 7}" y1="${y + 11}" x2="${x - 14}" y2="${y + 11}" stroke="#0f172a" stroke-width="1.3"/>
+        <rect x="${x - 22}" y="${y + 6}" width="8" height="10" fill="#ffffff" stroke="#0f172a" stroke-width="1.3"/>
+        <line x1="${x}" y1="${y + 42}" x2="${x - 10}" y2="${y + 20}" stroke="#0f172a" stroke-width="2"/>
         ${marcasPolos}
-        <line x1="${x}" y1="${y + 36}" x2="${x}" y2="${y + 52}" stroke="#0f172a" stroke-width="1.8"/>
-    `;
-}
-
-
-function dibujarSimboloPAT(x, y) {
-    return `
-        <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 14}" stroke="#15803d" stroke-width="1.8"/>
-        <line x1="${x - 11}" y1="${y + 14}" x2="${x + 11}" y2="${y + 14}" stroke="#15803d" stroke-width="2"/>
-        <line x1="${x - 7}" y1="${y + 18}" x2="${x + 7}" y2="${y + 18}" stroke="#15803d" stroke-width="1.8"/>
-        <line x1="${x - 3}" y1="${y + 22}" x2="${x + 3}" y2="${y + 22}" stroke="#15803d" stroke-width="1.6"/>
+        <line x1="${x}" y1="${y + 42}" x2="${x}" y2="${y + 52}" stroke="#0f172a" stroke-width="1.8"/>
     `;
 }
 
@@ -1236,7 +1220,7 @@ function generarSVGUnifilar() {
     const bloquesTS = esquema.tablerosSeccionales.map(ts => {
         const circs = esquema.circuitos.filter(c => c.tableroId === ts.id);
         const nC = Math.max(1, circs.length);
-        const w = Math.max(280, nC * colW + 46);
+        const w = Math.max(250, nC * colW + 46);
         return { ts, circs, w };
     });
 
@@ -1292,7 +1276,7 @@ function generarSVGUnifilar() {
         <text x="${tpX + 8}" y="${tpY + 27}" font-size="9" font-weight="700" fill="#475569">${escaparXML(esquema.nivel1.ip)}${esquema.nivel1.dobleAislacion ? ' • Clase II' : ''}</text>
     `;
 
-    // Protección General TP (con tramo superior conectado al borde del tablero)
+    // Protección General TP
     svg += `<line x1="${cx}" y1="${tpY}" x2="${cx}" y2="${tpY + 18}" stroke="#0f172a" stroke-width="1.8"/>`;
     svg += dibujarSimboloPIA(cx, tpY + 18, esquema.nivel1.curvaPolos);
     svg += `
@@ -1352,13 +1336,12 @@ function generarSVGUnifilar() {
             ${ts.ubicacion ? `<text x="${tsX + 10}" y="${tsY + 42}" font-size="8" font-weight="600" fill="#64748b">${escaparXML(ts.ubicacion.slice(0, 34))}</text>` : ''}
         `;
 
-        // Cabecera TS (ID o PIA con tramo superior conectado al borde del TS)
+        // Cabecera TS (ID o PIA)
         const esCabPIA = String(ts.tipoCab || '').startsWith('PIA Seccionadora');
         if (esCabPIA) {
             svg += `<line x1="${tsCx}" y1="${tsY}" x2="${tsCx}" y2="${tsY + 18}" stroke="#0f172a" stroke-width="1.8"/>`;
             svg += dibujarSimboloPIA(tsCx, tsY + 18, ts.in);
         } else {
-            svg += `<line x1="${tsCx}" y1="${tsY}" x2="${tsCx}" y2="${tsY + 12}" stroke="#0f172a" stroke-width="1.8"/>`;
             svg += dibujarSimboloID(tsCx, tsY + 12, ts.in);
         }
         svg += `
@@ -1366,14 +1349,14 @@ function generarSVGUnifilar() {
             <text x="${tsCx + 16}" y="${tsY + 40}" font-size="9" font-weight="600" fill="#334155">${ts.sens !== 'N/A' ? `IΔn ${escaparXML(ts.sens)} • ` : ''}Pcc ${escaparXML(ts.pcc)}A</text>
         `;
 
-        // Barra de distribución del TS
+        // Barra de distribución del TS (empalmada en tsY + 58 para evitar corte en el diferencial)
         const nCirc = circs.length;
         const totalSpan = Math.max(0, (nCirc - 1) * colW);
         const startX = tsCx - totalSpan / 2;
         const endX = tsCx + totalSpan / 2;
         const busY = tsY + 78;
 
-        svg += `<line x1="${tsCx}" y1="${tsY + 64}" x2="${tsCx}" y2="${busY}" stroke="#0f172a" stroke-width="1.8"/>`;
+        svg += `<line x1="${tsCx}" y1="${tsY + 58}" x2="${tsCx}" y2="${busY}" stroke="#0f172a" stroke-width="1.8"/>`;
         if (nCirc > 1) {
             svg += `<line x1="${startX}" y1="${busY}" x2="${endX}" y2="${busY}" stroke="#0f172a" stroke-width="2.4"/>`;
         }
@@ -1474,8 +1457,8 @@ function generarSVGUnifilar() {
 
     svg += `</svg>`;
     return svg;
-                      }
-                      
+}
+
 
 // ==========================================
 // SINCRONIZACIÓN LÁMINA A4 Y MEMBRETE
