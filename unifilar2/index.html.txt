@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#18191A">
+    <title>Villaser - Esquema Unifilar</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="../global.css">
+
+    <script>
+    (function() {
+        const temaGuardado = localStorage.getItem('temaVillaser') || 'system';
+        const prefiereClaro = window.matchMedia('(prefers-color-scheme: light)').matches;
+        if (temaGuardado === 'light' || (temaGuardado === 'system' && prefiereClaro)) {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    })();
+    </script>
+
+    <!-- SDKs de Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- Puente de conexión centralizado -->
+    <script src="../firebase-config.js"></script>
+
+    <!-- Guardián de seguridad -->
+    <script>
+        firebase.auth().onAuthStateChanged(user => {
+            if (!user || !user.emailVerified) window.location.replace('../index.html');
+        });
+    </script>
+</head>
+<body>
+
+    <!-- TOAST NOTIFICACIÓN CORPORATIVA -->
+    <div id="toastCliente" class="toast-corp oculto gpu-accel">
+        <div class="toast-icon"><i class="fa-solid fa-check-circle"></i></div>
+        <div class="toast-content">
+            <div id="toastTitle" class="toast-title">Notificación</div>
+            <div id="toastMessage" class="toast-msg">Operación realizada con éxito.</div>
+        </div>
+    </div>
+
+    <!-- WRAPPER PRINCIPAL -->
+    <div class="layout-wrapper">
+        <main class="container">
+
+            <!-- BARRA SUPERIOR ESTANDARIZADA -->
+            <nav class="corp-top-nav">
+                <div style="width: 42px;"></div>
+                <div class="corp-nav-title">
+                    <i class="fa-solid fa-diagram-project corp-accent-color"></i> ESQUEMA UNIFILAR
+                </div>
+                <button type="button" class="corp-btn-icon danger" onclick="abrirModalConfirmarNuevoGlobal()" title="Nuevo Esquema">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+            </nav>
+
+            <!-- PASO 1: DATOS DEL PROYECTO -->
+            <section id="step-cliente" class="corp-card gpu-accel">
+                <h4 class="corp-card-title"><i class="fa-solid fa-user-tag corp-accent-color"></i> Datos del Proyecto</h4>
+                <div class="action-grid-main" style="margin-bottom: 15px;">
+                    <button type="button" class="corp-btn success-btn" onclick="abrirModalAgendaGlobal()"><i class="fa-solid fa-address-book"></i> Agenda</button>
+                    <button type="button" class="corp-btn primary-action" onclick="abrirModalBorradores()"><i class="fa-solid fa-cloud"></i> Borradores</button>
+                </div>
+
+                <div class="row-group">
+                    <label>Nombre del Cliente</label>
+                    <input type="text" id="cliNombre" class="corp-input" placeholder="Ej: Familia Gómez" oninput="marcarClienteManual()">
+                </div>
+
+                <div class="row-group-stretch">
+                    <div class="flex-1">
+                        <label>Dirección</label>
+                        <input type="text" id="cliDireccion" class="corp-input" placeholder="Ej: Francisco Zelada 2342">
+                    </div>
+                    <div class="flex-1">
+                        <label>Proyecto / Tablero</label>
+                        <input type="text" id="cliProyecto" class="corp-input" placeholder="Ej: Instalación Certificada">
+                    </div>
+                </div>
+
+                <button type="button" class="corp-btn primary-action" style="margin-top: 10px;" onclick="iniciarUnifilar()">
+                    <i class="fa-solid fa-play"></i> Comenzar Esquema Unifilar
+                </button>
+            </section>
+
+            <!-- PASO 2: ARMADO JERÁRQUICO TOP-DOWN -->
+            <section id="step-trabajo" class="oculto flex-column gap-15">
+
+                <!-- CABECERA ACTIVA DEL PROYECTO -->
+                <div class="pot-project-bar gpu-accel">
+                    <div class="pot-project-info">
+                        <div class="pot-project-name" id="ui-proyecto-cliente">Cliente</div>
+                        <div class="pot-project-sub" id="ui-proyecto-detalle">Sin detalles adicionales</div>
+                    </div>
+                    <div class="pot-project-actions">
+                        <span id="ui-cloud-badge" class="pres-cloud-pill ready">
+                            <i class="fa-solid fa-cloud"></i> Nube Lista
+                        </span>
+                        <button type="button" class="corp-btn-small pres-btn-edit-client" style="margin-top:0;" onclick="volverAEditarCliente()">
+                            <i class="fa-solid fa-pen"></i> Editar Datos
+                        </button>
+                    </div>
+                </div>
+
+                <!-- PLANTILLAS RÁPIDAS E IMPORTACIÓN DE POTENCIA -->
+                <div class="corp-card gpu-accel" style="padding: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span style="font-size:0.74rem; font-weight:700; color:var(--ngc-text-faded); text-transform:uppercase;">
+                            <i class="fa-solid fa-wand-magic-sparkles corp-accent-color"></i> Inicio Rápido / Precarga
+                        </span>
+                        <button type="button" class="corp-btn-small" onclick="abrirModalImportarPotencia()" style="background: rgba(245, 195, 59, 0.14); color: var(--ngc-warning); border: 1px solid rgba(245, 195, 59, 0.4);">
+                            <i class="fa-solid fa-bolt"></i> Importar de Potencia
+                        </button>
+                    </div>
+                    <div class="uni-presets-row">
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaUnifilar('mono_770')">
+                            <i class="fa-solid fa-house"></i> Vivienda Mono AEA 770
+                        </button>
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaUnifilar('trifa_770')">
+                            <i class="fa-solid fa-industry"></i> Suministro Trifásico
+                        </button>
+                        <button type="button" class="uni-preset-chip" onclick="aplicarPlantillaUnifilar('vacio')">
+                            <i class="fa-solid fa-eraser"></i> Estructura Base Limpia
+                        </button>
+                    </div>
+                </div>
+
+                <!-- AUDITORÍA NORMATIVA AEA EN VIVO -->
+                <div id="ui-aea-unifilar-status" class="pot-aea-banner ok">
+                    <i class="fa-solid fa-circle-check"></i> Verificación AEA 90364 lista.
+                </div>
+
+                <!-- ==================================================== -->
+                <!-- NIVEL 0: ACOMETIDA Y MEDICIÓN                        -->
+                <!-- ==================================================== -->
+                <div class="uni-level-card nivel-0 gpu-accel">
+                    <div class="uni-level-header">
+                        <div>
+                            <span class="uni-level-badge" style="color:var(--ngc-text-faded); background:var(--ngc-bg-input);">Nivel 0 • Acometida</span>
+                            <div class="uni-level-title"><i class="fa-solid fa-tower-broadcast"></i> Red y Medición</div>
+                        </div>
+                        <button type="button" class="corp-btn-small primary-action" onclick="abrirModalEditarNivel(0)">
+                            <i class="fa-solid fa-sliders"></i> Configurar
+                        </button>
+                    </div>
+                    <div id="ui-resumen-nivel-0" class="uni-spec-grid"></div>
+                </div>
+
+                <!-- ==================================================== -->
+                <!-- NIVEL 1: TABLERO PRINCIPAL (TP) Y LÍNEA SECCIONAL    -->
+                <!-- ==================================================== -->
+                <div class="uni-level-card nivel-1 gpu-accel">
+                    <div class="uni-level-header">
+                        <div>
+                            <span class="uni-level-badge" style="color:var(--ngc-warning); background:rgba(245,195,59,0.14);">Nivel 1 • Tablero Principal</span>
+                            <div class="uni-level-title" id="ui-titulo-tp"><i class="fa-solid fa-box"></i> TP (IP54)</div>
+                        </div>
+                        <button type="button" class="corp-btn-small" style="color:var(--ngc-warning); background:rgba(245,195,59,0.14);" onclick="abrirModalEditarNivel(1)">
+                            <i class="fa-solid fa-sliders"></i> Editar TP
+                        </button>
+                    </div>
+                    <div id="ui-resumen-nivel-1" class="uni-spec-grid"></div>
+                </div>
+
+                <!-- ==================================================== -->
+                <!-- NIVEL 2: TABLEROS Y SUBTABLEROS SECCIONALES (TS)     -->
+                <!-- ==================================================== -->
+                <div class="uni-level-card nivel-2 gpu-accel">
+                    <div class="uni-level-header">
+                        <div>
+                            <span class="uni-level-badge">Nivel 2 • Tableros Seccionales</span>
+                            <div class="uni-level-title" id="ui-titulo-ts"><i class="fa-solid fa-server"></i> Tableros Seccionales (1)</div>
+                        </div>
+                        <button type="button" class="corp-btn-small primary-action" onclick="abrirModalTS()">
+                            <i class="fa-solid fa-plus"></i> Agregar TS
+                        </button>
+                    </div>
+                    <div id="ui-lista-ts" style="display:flex; flex-direction:column; gap:8px;"></div>
+                </div>
+
+                <!-- ==================================================== -->
+                <!-- NIVEL 3: CIRCUITOS TERMINALES (COLAPSABLE)           -->
+                <!-- ==================================================== -->
+                <div class="uni-level-card nivel-3 gpu-accel">
+                    <div class="uni-level-header clickable" onclick="toggleNivel3Circuitos()">
+                        <div style="flex:1; min-width:0;">
+                            <span class="uni-level-badge" style="color:var(--success-green); background:rgba(49,162,76,0.14);">Nivel 3 • Salidas y Circuitos</span>
+                            <div class="uni-level-title">
+                                <i class="fa-solid fa-code-branch"></i> Circuitos (<span id="ui-cant-circuitos">0</span>)
+                                <i id="icon-toggle-nivel3" class="fa-solid fa-chevron-down acc-icon-indicator" style="font-size:0.85rem; margin-left:4px;"></i>
+                            </div>
+                        </div>
+                        <button type="button" class="corp-btn-small success-btn" onclick="event.stopPropagation(); abrirModalCircuito()">
+                            <i class="fa-solid fa-plus"></i> Agregar
+                        </button>
+                    </div>
+
+                    <!-- Barra resumen visible cuando Nivel 3 está colapsado -->
+                    <div id="ui-resumen-colapsado-n3" class="uni-collapsed-hint oculto" onclick="toggleNivel3Circuitos()">
+                        <span id="ui-texto-colapsado-n3">0 circuitos cargados</span>
+                        <span style="color:var(--ngc-neon); font-weight:700;">Ver lista <i class="fa-solid fa-chevron-down"></i></span>
+                    </div>
+
+                    <!-- Contenido desplegable de Nivel 3 -->
+                    <div id="ui-body-nivel-3">
+                        <div id="ui-filtro-ts-circuitos" class="uni-presets-row oculto" style="margin-bottom:8px;"></div>
+                        <div id="ui-lista-circuitos" class="uni-circ-list"></div>
+                    </div>
+                </div>
+
+                <!-- VISTA RÁPIDA DEL DIAGRAMA EN PANTALLA -->
+                <div class="capture-zone gpu-accel" style="padding: 12px 8px;">
+                    <header style="text-align: center; font-weight: 800; color: var(--ngc-neon); letter-spacing: 0.8px; border-bottom: 1px solid var(--ngc-privacy-border); padding-bottom: 8px; margin-bottom: 10px; font-size: 0.85rem;">
+                        ESQUEMA UNIFILAR GENERADO (VISTA PREVIA)
+                    </header>
+                    <div id="contenedorSvgPantalla" class="uni-svg-stage"></div>
+                </div>
+
+                <!-- MENÚ AGRUPADOR DE ACCIONES -->
+                <div class="acciones-dropdown-container" style="margin-top: 4px;">
+                    <button type="button" class="corp-btn" onclick="toggleAccionesMenu()" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 15px; background: rgba(35, 116, 225, 0.12); color: var(--ngc-neon); border: 1px solid var(--ngc-neon);">
+                        <i class="fa-solid fa-layer-group"></i> Acciones
+                    </button>
+
+                    <div id="accionesMenu" class="oculto" style="margin-top: 14px; border-top: 1px solid var(--ngc-privacy-border); padding-top: 14px;">
+                        <div class="action-grid-main" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <button type="button" id="btnVistaPreviaMobile" class="corp-btn" onclick="abrirVistaPrevia()" style="color: var(--ngc-text-main); background: var(--ngc-bg-input);">
+                                <i class="fa-solid fa-eye"></i> Vista Previa A4
+                            </button>
+                            <button type="button" class="corp-btn danger-btn" onclick="generarPDF()">
+                                <i class="fa-solid fa-file-pdf"></i> Generar PDF
+                            </button>
+                            <button type="button" class="corp-btn success-btn" style="grid-column: span 2;" onclick="prepararEnvioWhatsApp()">
+                                <i class="fa-brands fa-whatsapp"></i> Enviar por WhatsApp
+                            </button>
+                            <button type="button" class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
+                            </button>
+                            <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: #e91e63; background: rgba(233, 30, 99, 0.1);">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+
+        <!-- PANEL DERECHO: LÁMINA TÉCNICA PDF A4 -->
+        <aside class="preview-panel">
+            <div id="plantilla-pdf">
+                <div class="pdf-container" style="position: relative; background: #ffffff; color: #0f172a; width: 794px; height: 1115px; max-height: 1115px; overflow: hidden; padding: 10mm 13mm; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; display: flex; flex-direction: column; justify-content: space-between;">
+
+                    <!-- SELLO DE AGUA PROTECTOR -->
+                    <div id="marcaAguaPDF" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0.3; pointer-events: none; z-index: 10; width: 100%;">
+                        <img src="../img/negro1024.png" style="width: 70%; max-width: 450px;" alt="Logo Agua">
+                        <h1 style="font-size: 5rem; color: #000000; text-align: center; margin-top: 15px; font-weight: 900; font-family: 'Arial Black', sans-serif; line-height: 1.1; letter-spacing: 2px;">PLATAFORMA<br>VILLASER</h1>
+                    </div>
+
+                    <!-- BLOQUE SUPERIOR Y CENTRAL -->
+                    <div style="position: relative; z-index: 1;">
+
+                        <!-- ENCABEZADO CORPORATIVO -->
+                        <header class="pdf-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 12px;">
+                            <div class="pdf-info-box" style="text-align: left; flex: 1;">
+                                <div style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: 0.4px; text-transform: uppercase; margin: 0 0 2px 0;">
+                                    Esquema Unifilar de Tableros
+                                </div>
+                                <div style="font-size: 9.5px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;">
+                                    Documentación Técnica • Reglamentación AEA 90364 / IEC 60617
+                                </div>
+                                <div style="display: grid; grid-template-columns: 74px 1fr; row-gap: 3px; font-size: 10.5px; color: #1e293b;">
+                                    <b style="color: #475569;">Fecha:</b> <span id="pdf-fecha"></span>
+                                    <b style="color: #475569;">Cliente:</b> <span id="pdf-cliente" style="font-weight: 600;"></span>
+                                    <b id="lbl-pdf-dir" style="color: #475569;">Dirección:</b> <span id="pdf-dir"></span>
+                                    <b id="lbl-pdf-proyecto" style="color: #475569;">Proyecto:</b> <span id="pdf-proyecto"></span>
+                                </div>
+                            </div>
+
+                            <div class="pdf-logo-box" style="display: flex; flex-direction: column; align-items: flex-end; text-align: right; max-width: 260px;">
+                                <img id="pdf-img-logo" src="" alt="Logo Profesional" style="max-width: 195px; max-height: 65px; object-fit: contain; display: none; margin-bottom: 5px;">
+                                <div id="pdf-text-logo" style="color: #0f172a; font-size: 13.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px;"></div>
+                                <div id="pdf-header-contacto" style="font-size: 9px; color: #475569; line-height: 1.4;"></div>
+                            </div>
+                        </header>
+
+                        <!-- ÁREA DEL DIAGRAMA UNIFILAR VECTORIAL SVG -->
+                        <div style="border: 1.5px solid #cbd5e1; border-radius: 6px; padding: 6px; background: #ffffff; text-align: center; margin-bottom: 10px;">
+                            <div id="pdf-svg-container" style="width: 100%; text-align: center;"></div>
+                        </div>
+
+                        <!-- TABLA RESUMEN DE CIRCUITOS -->
+                        <div class="no-break" style="margin-bottom: 12px;">
+                            <div style="font-size: 9.5px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
+                                Planilla Resumen de Circuitos
+                            </div>
+                            <table id="pdf-tabla-circuitos" style="width: 100%; border-collapse: collapse; font-size: 9px; text-align: center;"></table>
+                        </div>
+
+                        <!-- CUADRO DE REFERENCIAS Y SIGLAS -->
+                        <div class="no-break" style="background: #f8fafc; border: 1px solid #cbd5e1; border-left: 3px solid #0f172a; border-radius: 4px; padding: 8px 10px;">
+                            <div style="font-size: 9px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px;">
+                                Referencias Técnicas y Simbología
+                            </div>
+                            <div id="pdf-referencias-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 16px; font-size: 8.5px; color: #334155;"></div>
+                        </div>
+
+                    </div>
+
+                    <!-- BLOQUE INFERIOR: FIRMA Y PIE CORPORATIVO -->
+                    <div class="no-break" style="position: relative; z-index: 1; margin-top: 16px;">
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+                            <div style="width: 225px; text-align: center; padding-top: 22px;">
+                                <div style="border-top: 1px solid #64748b; padding-top: 4px; font-size: 9px; font-weight: 700; color: #1e293b;">
+                                    Firma y Sello del Profesional
+                                </div>
+                                <div id="pdf-firma-sub" style="font-size: 8.5px; font-weight: 600; color: #475569; margin-top: 2px;"></div>
+                            </div>
+                        </div>
+
+                        <footer class="pdf-footer" style="border-top: 1.5px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; align-items: flex-end; gap: 15px;">
+                            <div style="font-size: 8px; color: #64748b; white-space: nowrap;">
+                                Documento técnico generado con <strong style="color: #334155;">Plataforma Villaser</strong> • villaser.com.ar
+                            </div>
+                            <div class="pdf-right-footer" style="text-align: right;">
+                                <div id="pdf-slogan" style="font-size: 10px; font-weight: 700; color: #0f172a; font-style: italic; margin-bottom: 1px;"></div>
+                                <div id="pdf-tel-footer" style="font-size: 8.5px; color: #475569;"></div>
+                            </div>
+                        </footer>
+                    </div>
+
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: CONFIGURAR NIVEL 0 (ACOMETIDA Y MEDICIÓN)             -->
+    <!-- ============================================================ -->
+    <div id="modalNivel0" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-width: 440px; width: 94%; max-height: 90vh; overflow-y: auto;">
+            <h3><i class="fa-solid fa-tower-broadcast" style="color: var(--ngc-neon);"></i> Nivel 0: Acometida</h3>
+            <p style="font-size: 0.82rem; margin-bottom: 14px;">Definí la red de distribución, línea de alimentación y medición.</p>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Suministro</label>
+                    <select id="n0Suministro" class="corp-input" onchange="precargarNivel0PorSuministro()">
+                        <option value="Monofásico 220V">Monofásico 220V</option>
+                        <option value="Trifásico 380/220V">Trifásico 380/220V</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Red Distribuidora</label>
+                    <input type="text" id="n0Rdd" class="corp-input" value="RDD (Aérea / Subt.)">
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Prot. Acometida (DPLA)</label>
+                    <select id="n0Dpla" class="corp-input">
+                        <option value="DPLA - Fusible NH / Aéreo">DPLA (Fusible Distribuidora)</option>
+                        <option value="DPLA - PIA 2x40A">DPLA - PIA 2x40A</option>
+                        <option value="DPLA - PIA 4x40A">DPLA - PIA 4x40A</option>
+                        <option value="Sin DPLA visible">Sin DPLA visible</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Medidor (M)</label>
+                    <select id="n0Medidor" class="corp-input">
+                        <option value="M - Monofásico 220V">M - Monofásico 220V</option>
+                        <option value="M - Trifásico 380V">M - Trifásico 380V</option>
+                        <option value="M - Bidireccional">M - Bidireccional</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <label>Línea de Alimentación / Principal (LP)</label>
+                <input type="text" id="n0LineaAlim" class="corp-input" placeholder="Ej: 2x6 mm² + PE 1x6 mm² (IRAM 247-3)">
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 15px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalNivel('modalNivel0')">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarNivel0()">Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: CONFIGURAR NIVEL 1 (TABLERO PRINCIPAL TP - SIN PAT)   -->
+    <!-- ============================================================ -->
+    <div id="modalNivel1" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-width: 450px; width: 94%; max-height: 90vh; overflow-y: auto;">
+            <h3><i class="fa-solid fa-box" style="color: var(--ngc-warning);"></i> Nivel 1: Tablero Principal</h3>
+            <p style="font-size: 0.82rem; margin-bottom: 14px;">Protección general en TP, aislación y línea seccional (sin PAT en TP).</p>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Denominación</label>
+                    <input type="text" id="n1Nombre" class="corp-input" value="TP">
+                </div>
+                <div class="flex-1">
+                    <label>Grado IP Envolvente</label>
+                    <select id="n1Ip" class="corp-input">
+                        <option value="IP54">IP54 (Intemperie)</option>
+                        <option value="IP65">IP65 (Estanco)</option>
+                        <option value="IP41">IP41 (Interior)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Casilla Doble Aislación Clase II -->
+            <div class="pago-opcion-box" style="margin-bottom: 12px;">
+                <label class="pago-check-label" style="font-size: 0.85rem;">
+                    <input type="checkbox" id="n1DobleAislacion" checked>
+                    <span>Doble Aislación (Clase II) • Símbolo <strong style="font-family:monospace; border:1px solid currentColor; padding:0 3px;">回</strong></span>
+                </label>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Dispositivo Cabecera</label>
+                    <select id="n1TipoDisp" class="corp-input">
+                        <option value="PIA">PIA (Termomagnética)</option>
+                        <option value="IS">Interruptor Seccionador</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Curva y Polos</label>
+                    <select id="n1CurvaPolos" class="corp-input">
+                        <option value="C 2x">Curva C • 2P (2x)</option>
+                        <option value="B 2x">Curva B • 2P (2x)</option>
+                        <option value="C 4x">Curva C • 4P (4x)</option>
+                        <option value="D 4x">Curva D • 4P (4x)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Calibre In (A)</label>
+                    <select id="n1In" class="corp-input">
+                        <option value="25">25 A</option>
+                        <option value="32" selected>32 A</option>
+                        <option value="40">40 A</option>
+                        <option value="50">50 A</option>
+                        <option value="63">63 A</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Poder Corte Pcc (A)</label>
+                    <select id="n1Pcc" class="corp-input">
+                        <option value="3000">3000 A (3 kA)</option>
+                        <option value="4500" selected>4500 A (4.5 kA)</option>
+                        <option value="6000">6000 A (6 kA)</option>
+                        <option value="10000">10000 A (10 kA)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <label>Descargador DPS</label>
+                <select id="n1Dps" class="corp-input">
+                    <option value="NO">Sin DPS en TP</option>
+                    <option value="SI">Incluir DPS Clase II (20kA)</option>
+                </select>
+            </div>
+
+            <div class="row-group">
+                <label>Línea Seccional Principal (LS hacia TS1)</label>
+                <input type="text" id="n1LineaSec" class="corp-input" placeholder="Ej: LS: 2x6 mm² + PE 1x6 mm²">
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 15px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalNivel('modalNivel1')">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarNivel1()">Aplicar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: AGREGAR / EDITAR TABLERO O SUBTABLERO SECCIONAL (TS)  -->
+    <!-- ============================================================ -->
+    <div id="modalNivel2" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-width: 455px; width: 94%; max-height: 92vh; overflow-y: auto;">
+            <h3 id="tituloModalTS"><i class="fa-solid fa-server" style="color: var(--ngc-neon);"></i> Tablero Seccional</h3>
+            <p style="font-size: 0.82rem; margin-bottom: 14px;">Configurá envolvente, cabecera diferencial y bornera PE / PAT externa.</p>
+
+            <div class="row-group-stretch">
+                <div style="flex: 0.8;">
+                    <label>Denominación</label>
+                    <input type="text" id="n2Nombre" class="corp-input" placeholder="Ej: TS1">
+                </div>
+                <div style="flex: 1.4;">
+                    <label>Sector / Ubicación</label>
+                    <input type="text" id="n2Ubicacion" class="corp-input" placeholder="Ej: Vivienda PB / 1° Piso / Taller">
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Grado IP Envolvente</label>
+                    <select id="n2Ip" class="corp-input">
+                        <option value="IP41" selected>IP41 (Interior)</option>
+                        <option value="IP54">IP54 (Semi-intemperie)</option>
+                        <option value="IP65">IP65 (Estanco)</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Alimentado desde</label>
+                    <select id="n2Origen" class="corp-input"></select>
+                </div>
+            </div>
+
+            <!-- Casilla Doble Aislación Clase II -->
+            <div class="pago-opcion-box" style="margin-bottom: 12px;">
+                <label class="pago-check-label" style="font-size: 0.85rem;">
+                    <input type="checkbox" id="n2DobleAislacion" checked>
+                    <span>Doble Aislación (Clase II) • Símbolo <strong style="font-family:monospace; border:1px solid currentColor; padding:0 3px;">回</strong></span>
+                </label>
+            </div>
+
+            <div class="row-group">
+                <label>Línea Seccional de Alimentación</label>
+                <input type="text" id="n2LineaAlim" class="corp-input" placeholder="Ej: LS: 2x6 mm² + PE 1x6 mm²">
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Cabecera TS</label>
+                    <select id="n2TipoCab" class="corp-input">
+                        <option value="ID Clase A">ID Clase A (Disyuntor)</option>
+                        <option value="ID Clase AC">ID Clase AC (Disyuntor)</option>
+                        <option value="PIA + ID Clase A">PIA General + ID Clase A</option>
+                        <option value="PIA Seccionadora">PIA Cabecera (Subtablero)</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Polos y Calibre In</label>
+                    <select id="n2In" class="corp-input">
+                        <option value="2x25A">2x25 A</option>
+                        <option value="2x40A" selected>2x40 A</option>
+                        <option value="2x63A">2x63 A</option>
+                        <option value="4x40A">4x40 A (Trifásico)</option>
+                        <option value="4x63A">4x63 A (Trifásico)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Sensibilidad IΔn</label>
+                    <select id="n2Sens" class="corp-input">
+                        <option value="30mA" selected>30 mA (Protección Personas)</option>
+                        <option value="10mA">10 mA (Alta Sensibilidad)</option>
+                        <option value="300mA">300 mA (Selectivo)</option>
+                        <option value="N/A">Sin Diferencial (Aguas abajo)</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Poder Corte Pcc</label>
+                    <select id="n2Pcc" class="corp-input">
+                        <option value="3000" selected>3000 A</option>
+                        <option value="4500">4500 A</option>
+                        <option value="6000">6000 A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <label>Puesta a Tierra (PAT externa desde Bornera PE)</label>
+                <input type="text" id="n2Pat" class="corp-input" value="PAT ≤ 40 Ω" placeholder="Ej: PAT ≤ 40 Ω">
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 15px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalNivel('modalNivel2')">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarTS()">Guardar TS</button>
+            </div>
+        </div>
+  </div>
+
+  <!-- ============================================================ -->
+    <!-- MODAL: AGREGAR / EDITAR CIRCUITO (NIVEL 3 - CON PRECARGA)    -->
+    <!-- ============================================================ -->
+    <div id="modalCircuito" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="max-width: 460px; width: 94%; max-height: 92vh; overflow-y: auto;">
+            <h3 id="tituloModalCircuito"><i class="fa-solid fa-code-branch" style="color: var(--success-green);"></i> Agregar Circuito</h3>
+            <p style="font-size: 0.8rem; margin-bottom: 12px;">Al elegir el tipo de circuito se precargan los parámetros normativos AEA.</p>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Tablero Asignado</label>
+                    <select id="cTableroId" class="corp-input"></select>
+                </div>
+                <div id="grupoFaseCircuito" class="flex-1 oculto">
+                    <label>Fase Usada (Trifásico)</label>
+                    <select id="cFase" class="corp-input">
+                        <option value="L1">Fase L1 (R - Marrón)</option>
+                        <option value="L2">Fase L2 (S - Negro)</option>
+                        <option value="L3">Fase L3 (T - Rojo)</option>
+                        <option value="L1-L2-L3">Trifásico L1-L2-L3</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div style="flex: 0.8;">
+                    <label>ID Circuito</label>
+                    <input type="text" id="cId" class="corp-input" placeholder="C1">
+                </div>
+                <div style="flex: 1.4;">
+                    <label>Tipo de Circuito (Precarga)</label>
+                    <select id="cTipo" class="corp-input" onchange="aplicarPrecargaCircuito()">
+                        <option value="IUG">IUG (Iluminación Uso General)</option>
+                        <option value="TUG">TUG (Tomas Uso General)</option>
+                        <option value="TUE">TUE (Tomas Uso Especial)</option>
+                        <option value="ACU">ACU (Alimentación Carga Única)</option>
+                        <option value="MBTF">MBTF (Muy Baja Tensión)</option>
+                        <option value="MOTOR">Motor / Bomba</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group">
+                <label>Descripción / Destino</label>
+                <input type="text" id="cDesc" class="corp-input" placeholder="Ej: Iluminación Vivienda / Aire Acondicionado">
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Prot. ID Código</label>
+                    <input type="text" id="cPiaCod" class="corp-input" placeholder="PIA1">
+                </div>
+                <div class="flex-1">
+                    <label>Curva y Polos</label>
+                    <select id="cCurvaPolos" class="corp-input" onchange="sincronizarFasePorPolos()">
+                        <option value="B 2x">Curva B • 2x</option>
+                        <option value="C 2x" selected>Curva C • 2x</option>
+                        <option value="D 2x">Curva D • 2x</option>
+                        <option value="C 4x">Curva C • 4x</option>
+                        <option value="D 4x">Curva D • 4x</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Calibre In (A)</label>
+                    <select id="cIn" class="corp-input">
+                        <option value="6">6 A</option>
+                        <option value="10">10 A</option>
+                        <option value="15">15 A</option>
+                        <option value="16" selected>16 A</option>
+                        <option value="20">20 A</option>
+                        <option value="25">25 A</option>
+                        <option value="32">32 A</option>
+                        <option value="40">40 A</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Pcc (A)</label>
+                    <select id="cPcc" class="corp-input">
+                        <option value="3000" selected>3000 A</option>
+                        <option value="4500">4500 A</option>
+                        <option value="6000">6000 A</option>
+                        <option value="10000">10000 A</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Tensión (V)</label>
+                    <select id="cTension" class="corp-input" onchange="sincronizarFasePorPolos()">
+                        <option value="220" selected>220 V</option>
+                        <option value="380">380 V</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Cable L;N (mm²)</label>
+                    <select id="cSecLN" class="corp-input">
+                        <option value="1.5">1,5 mm²</option>
+                        <option value="2.5" selected>2,5 mm²</option>
+                        <option value="4">4 mm²</option>
+                        <option value="6">6 mm²</option>
+                        <option value="10">10 mm²</option>
+                        <option value="16">16 mm²</option>
+                    </select>
+                </div>
+                <div class="flex-1">
+                    <label>Cable PE (mm²)</label>
+                    <select id="cSecPE" class="corp-input">
+                        <option value="2.5" selected>2,5 mm²</option>
+                        <option value="4">4 mm²</option>
+                        <option value="6">6 mm²</option>
+                        <option value="10">10 mm²</option>
+                        <option value="16">16 mm²</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row-group-stretch">
+                <div class="flex-1">
+                    <label>Cant. Bocas</label>
+                    <input type="number" id="cBocas" class="corp-input" min="0" value="1">
+                </div>
+                <div class="flex-1">
+                    <label>DPMS (VA)</label>
+                    <input type="number" id="cDpms" class="corp-input" min="0" value="2200">
+                </div>
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px; margin-top: 15px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalCircuito()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="guardarCircuito()">Guardar Circuito</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- MODAL: IMPORTAR DESDE MÓDULO POTENCIA                        -->
+    <!-- ============================================================ -->
+    <div id="modalImportarPotencia" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-bolt" style="color: var(--ngc-warning);"></i> Importar de Potencia</h3>
+            <p style="font-size: 0.84rem; margin-bottom: 12px;">Seleccioná un cálculo guardado de este cliente para generar el esquema unifilar automáticamente.</p>
+            <div id="listaBorradoresPotencia" class="modal-list-container"></div>
+            <button type="button" class="corp-btn" onclick="cerrarModalImportarPotencia()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <!-- MODALES CORPORATIVOS ESTANDARIZADOS (AGENDA, NUBE, WSP, PDF) -->
+    <div id="modalAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-users"></i> Contactos</h3>
+            <input type="text" id="buscadorAgenda" class="corp-input" placeholder="Buscar nombre o dirección..." oninput="filtrarAgendaGlobal()" style="margin-bottom: 10px;">
+            <div id="listaAgenda" class="modal-list-container"></div>
+            <button type="button" class="corp-btn" onclick="cerrarModalAgendaGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalBorradores" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <h3><i class="fa-solid fa-cloud-arrow-down"></i> Borradores en Nube</h3>
+            <div id="listaBorradores" class="modal-list-container"></div>
+            <button type="button" class="corp-btn" onclick="cerrarModalBorradoresGlobal()" style="margin-top: 15px;">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="modalGuardarBorrador" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-cloud-arrow-up corp-modal-icon" style="color: var(--ngc-neon);"></i>
+            <h3 style="margin-bottom: 10px; text-align: left; justify-content: flex-start;">Guardar Esquema</h3>
+            <p style="margin-bottom: 15px; text-align: left;">Verifica o edita el nombre del archivo:</p>
+            <input type="text" id="inputNombreBorrador" class="corp-input" style="margin-bottom: 20px; font-weight: 600; font-size: 1rem;">
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalGuardarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn success-btn" style="flex: 1;" onclick="ejecutarGuardarBorrador()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarEliminar" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-trash-can corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Eliminar Borrador</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de eliminar este esquema de la nube? Esta acción no se puede deshacer.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalEliminarBorrador()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarEliminarBorrador()">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarNuevo" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-rotate-right corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">Nuevo Esquema</h3>
+            <p style="margin-bottom: 20px;">¿Estás seguro de iniciar un nuevo esquema unifilar? Se borrarán los datos actuales no guardados.</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border); background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalConfirmarNuevoGlobal()">Cancelar</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarNuevoUnifilar()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAlertaCorp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-solid fa-circle-exclamation corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 id="modalAlertaTitulo" style="margin-bottom: 10px;">Atención</h3>
+            <p id="modalAlertaMensaje" style="margin-bottom: 20px;">Mensaje de alerta.</p>
+            <div class="corp-modal-actions">
+                <button type="button" class="corp-btn primary-action" onclick="cerrarModalAlertaCorp()">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalWhatsApp" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card">
+            <i class="fa-brands fa-whatsapp corp-modal-icon" style="color: #25D366; font-size: 3rem;"></i>
+            <h3 style="margin-bottom: 10px; text-transform: uppercase;">Enviar por WhatsApp</h3>
+            <p style="margin-bottom: 20px;">¿A quién deseas enviarle el detalle técnico?</p>
+
+            <div class="corp-modal-actions">
+                <button type="button" id="btnWspGuardado" class="corp-btn" style="background: #25D366; color: white; display: none;" onclick="enviarWspGuardadoGlobal()">
+                    <i class="fa-brands fa-whatsapp" style="color: white;"></i> Enviar al Cliente
+                </button>
+
+                <div style="display: flex; gap: 8px; margin-top: 5px; margin-bottom: 5px;">
+                    <input type="number" id="inputWspManual" class="corp-input" placeholder="Ej: 3512345678" style="flex: 1; text-align: center; font-size: 0.9rem;">
+                    <button type="button" class="corp-btn" style="background: #25D366; color: white; border: none; padding: 0 20px; width: auto;" onclick="enviarWspManualGlobal()">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+
+                <button type="button" class="corp-btn" style="background: transparent; color: #25D366; border: 1px solid #25D366;" onclick="buscarEnWspGlobal()">
+                    <i class="fa-solid fa-magnifying-glass"></i> Buscar en mis contactos
+                </button>
+
+                <button type="button" class="corp-btn danger-btn" style="margin-top: 10px; background: transparent; border: 1px solid var(--error-red);" onclick="cerrarModalWspGlobal()">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalAgendarCliente" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--ngc-warning);">
+            <i class="fa-solid fa-address-book corp-modal-icon" style="color: var(--ngc-warning);"></i>
+            <h3 style="margin-bottom: 10px;">Cliente no agendado</h3>
+            <p style="margin-bottom: 20px;">Este nombre fue escrito manualmente. Para mantener el orden y guardar en la nube, ¿qué deseas hacer?</p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button type="button" class="corp-btn" onclick="accionAgendarCliente()"><i class="fa-solid fa-user-plus"></i> Agendar Nuevo Contacto</button>
+                <button type="button" class="corp-btn" style="background: transparent; color: var(--ngc-neon); border: 1px solid var(--ngc-neon);" onclick="opcionBuscarAgenda()"><i class="fa-solid fa-magnifying-glass"></i> Buscar de mi Agenda</button>
+                <button type="button" class="corp-btn danger-btn" style="background: transparent; color: var(--error-red); border: 1px dashed var(--error-red);" onclick="opcionContinuarSinAgenda()">No por el momento</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalConfirmarSinAgenda" class="modal-overlay oculto gpu-accel">
+        <div class="corp-modal-card" style="border-left: 4px solid var(--error-red);">
+            <i class="fa-solid fa-triangle-exclamation corp-modal-icon" style="color: var(--error-red);"></i>
+            <h3 style="margin-bottom: 10px;">¿Continuar sin Nube?</h3>
+            <p style="margin-bottom: 20px;">Al no estar en tu agenda, este esquema NO se guardará en los borradores de la nube. ¿Deseas continuar de todos modos?</p>
+            <div class="corp-modal-actions" style="flex-direction: row; gap: 10px;">
+                <button type="button" class="corp-btn" style="flex: 1; border: 1px solid var(--ngc-privacy-border);" onclick="cerrarModalConfirmarSinAgenda()">Volver atrás</button>
+                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="ejecutarContinuarSinAgenda()">Continuar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESCARGAR PDF -->
+    <div id="modalDescargarPDF" class="modal-overlay oculto gpu-accel" style="z-index: 10000000;">
+        <div class="corp-modal-card" style="padding-top: 30px;">
+            <i class="fa-solid fa-file-pdf" style="font-size: 2.5rem; color: var(--error-red); margin-bottom: 15px; display: block; text-align: center;"></i>
+            <h3 style="margin-bottom: 5px; font-size: 1.3rem;">Generar PDF</h3>
+            <p style="font-size: 0.9rem; color: var(--ngc-text-faded); text-align: center; margin-bottom: 25px;">Confirma el nombre para guardar tu plano unifilar.</p>
+
+            <div style="position: relative; margin-bottom: 25px;">
+                <label style="position: absolute; top: -10px; left: 10px; background: var(--bg-body); padding: 0 5px; font-size: 0.75rem; color: var(--ngc-text-faded); z-index: 1;">Nombre del archivo</label>
+                <div style="display: flex; align-items: center; border: 1px solid var(--ngc-privacy-border); border-radius: 8px; overflow: hidden; background: var(--ngc-bg-input);">
+                    <input type="text" id="nombreArchivoPDF" class="corp-input" style="border: none; border-radius: 0; flex: 1; padding: 15px; outline: none; box-shadow: none;">
+                    <span style="padding: 0 15px; color: var(--ngc-text-faded); background: var(--ngc-bg-input);">.pdf</span>
+                </div>
+            </div>
+
+            <div class="corp-modal-actions" style="flex-direction: row; justify-content: flex-end; gap: 15px;">
+                <button type="button" class="corp-btn" style="width: auto; background: transparent; color: var(--ngc-text-main);" onclick="cerrarModalPDF()">Cancelar</button>
+                <button type="button" id="btnConfirmarDescargaPDF" class="corp-btn danger-btn" style="width: auto; font-weight: bold; padding: 10px 20px; border-radius: 20px;" onclick="ejecutarDescargaPDF()">Descargar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FULLSCREEN VISTA PREVIA A4 (MÓVIL CON PINCH-TO-ZOOM) -->
+    <div id="modalVistaPrevia" class="oculto gpu-accel" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #525659; z-index: 999999; display: flex; flex-direction: column; overflow: hidden;">
+        <div style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #323639; z-index: 9999999; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <button type="button" class="corp-btn" onclick="cerrarVistaPrevia()" style="width: auto; background: transparent; color: white; border: 1px solid white; padding: 8px 15px;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </button>
+            <button type="button" class="corp-btn danger-btn" onclick="generarPDF()" style="width: auto; padding: 8px 15px; font-weight: bold;">
+                <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+        </div>
+        <div id="previewWrapper" style="flex: 1; width: 100%; overflow: auto; -webkit-overflow-scrolling: touch; padding: 12px; box-sizing: border-box; text-align: center; touch-action: pan-x pan-y;">
+        </div>
+    </div>
+
+    <!-- BARRA DE NAVEGACIÓN INFERIOR -->
+    <nav class="corp-bottom-nav">
+        <div class="corp-scroll-container" id="corpFooterMenu"></div>
+    </nav>
+
+    <script src="../global.js"></script>
+    <script src="script.js"></script>
+</body>
+  </html>
+  
