@@ -1125,6 +1125,15 @@ function renderizarTodo() {
 // ==========================================
 // MOTOR VECTORIAL SVG (SIMBOLOGÍA IEC 60617 / AEA)
 // ==========================================
+function dibujarSimboloPAT(x, y) {
+    return `
+        <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 16}" stroke="#15803d" stroke-width="1.8"/>
+        <line x1="${x - 10}" y1="${y + 16}" x2="${x + 10}" y2="${y + 16}" stroke="#15803d" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="${x - 6.5}" y1="${y + 20.5}" x2="${x + 6.5}" y2="${y + 20.5}" stroke="#15803d" stroke-width="1.8" stroke-linecap="round"/>
+        <line x1="${x - 3}" y1="${y + 25}" x2="${x + 3}" y2="${y + 25}" stroke="#15803d" stroke-width="1.8" stroke-linecap="round"/>
+    `;
+}
+    
 function dibujarSimboloDobleAislacion(x, y, size = 11) {
     const pad = 2.8;
     return `
