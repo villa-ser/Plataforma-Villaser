@@ -284,16 +284,18 @@
         
     </div>
 
+        <!-- ================================================== -->
+    <!-- MODAL FULL-SCREEN MÓVIL: REDACCIÓN Y TABLAS        -->
     <!-- ================================================== -->
-    <!-- MODAL FLOTANTE (BOTTOM SHEET): REDACCIÓN Y TABLAS  -->
-    <!-- ================================================== -->
-    <div id="modalRedaccionBloque" class="modal-overlay oculto gpu-accel" style="z-index: 10000;">
-        <div class="ap-sheet-shell">
-            <div class="ap-sheet-header">
-                <h4 id="titulo-form-bloque" style="margin: 0; font-size: 1rem; font-weight: 700; color: var(--ngc-text-main); display: flex; align-items: center; gap: 8px;">
+    <div id="modalRedaccionBloque" class="modal-overlay inf-editor-modal oculto gpu-accel" style="z-index: 10000;">
+        <div class="corp-modal-card inf-editor-shell">
+            
+            <!-- 1. CABECERA FIJA -->
+            <div class="inf-editor-header">
+                <h4 id="titulo-form-bloque" class="inf-editor-header-title">
                     <i class="fa-solid fa-pen-to-square corp-accent-color"></i> Redacción de Bloque
                 </h4>
-                <div style="display: flex; align-items: center; gap: 6px;">
+                <div class="inf-editor-header-actions">
                     <button type="button" class="corp-btn-icon" style="width: 34px; height: 34px; color: var(--ngc-warning);" onclick="abrirModalCalculadora()" title="Abrir Calculadora">
                         <i class="fa-solid fa-calculator"></i>
                     </button>
@@ -303,56 +305,56 @@
                 </div>
             </div>
 
-            <div id="bodyModalRedaccion" class="ap-sheet-body" style="padding: 16px 16px 115px 16px;">
-                <!-- Banner de modo edición in-place -->
-                <div id="bannerEdicionBloque" class="oculto" style="display: flex; justify-content: space-between; align-items: center; background: rgba(245, 195, 59, 0.14); border: 1px solid rgba(245, 195, 59, 0.45); color: var(--ngc-warning); border-radius: 8px; padding: 8px 10px; margin-bottom: 12px; font-size: 0.8rem; font-weight: 700;">
-                    <span id="textoBannerEdicion"><i class="fa-solid fa-pen"></i> Editando bloque</span>
-                    <span style="font-size: 0.72rem; opacity: 0.9;">Modificá y guardá abajo</span>
+            <!-- 2. CUERPO FLEXIBLE -->
+            <div id="bodyModalRedaccion" class="inf-editor-body">
+                <!-- Referencia invisible para compatibilidad con script.js sin quitar altura útil -->
+                <div id="bannerEdicionBloque" class="oculto" style="display: none;">
+                    <span id="textoBannerEdicion"></span>
                 </div>
 
                 <!-- Selector de Tipo de Bloque -->
-                <div class="row-group" style="margin-bottom: 12px;">
+                <div class="row-group" style="margin-bottom: 0; flex-shrink: 0;">
                     <label style="margin-bottom: 6px;">Tipo de Elemento</label>
-                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-                        <button type="button" id="tipoBloqueBtn-parrafo" class="corp-btn success-btn" style="padding: 9px 4px; font-size: 0.78rem;" onclick="seleccionarTipoBloqueModal('parrafo')">
+                    <div class="inf-tipo-grid">
+                        <button type="button" id="tipoBloqueBtn-parrafo" class="corp-btn success-btn" onclick="seleccionarTipoBloqueModal('parrafo')">
                             <i class="fa-solid fa-paragraph"></i> Párrafo
                         </button>
-                        <button type="button" id="tipoBloqueBtn-titulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12); padding: 9px 4px; font-size: 0.78rem;" onclick="seleccionarTipoBloqueModal('titulo')">
+                        <button type="button" id="tipoBloqueBtn-titulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('titulo')">
                             <i class="fa-solid fa-heading"></i> Título
                         </button>
-                        <button type="button" id="tipoBloqueBtn-subtitulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12); padding: 9px 4px; font-size: 0.78rem;" onclick="seleccionarTipoBloqueModal('subtitulo')">
+                        <button type="button" id="tipoBloqueBtn-subtitulo" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('subtitulo')">
                             <i class="fa-solid fa-t"></i> Subtít.
                         </button>
-                        <button type="button" id="tipoBloqueBtn-tabla" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12); padding: 9px 4px; font-size: 0.78rem;" onclick="seleccionarTipoBloqueModal('tabla')">
+                        <button type="button" id="tipoBloqueBtn-tabla" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.12);" onclick="seleccionarTipoBloqueModal('tabla')">
                             <i class="fa-solid fa-table"></i> Tabla
                         </button>
                     </div>
                 </div>
 
-                <!-- Cuadro de texto estándar -->
-                <div id="contenedorTextoInforme" class="row-group" style="margin-bottom: 8px;">
-                    <textarea id="textoInforme" class="corp-input" placeholder="Redactar contenido aquí..." style="height: 150px; resize: vertical;" oninput="actualizarContadorRedaccion()"></textarea>
-                    <div id="contadorTextoRedaccion" style="text-align: right; font-size: 0.72rem; color: var(--ngc-text-faded); margin-top: 4px;">0 pal. · 0 car.</div>
+                <!-- Cuadro de texto estándar (crece para ocupar todo el alto disponible) -->
+                <div id="contenedorTextoInforme" class="row-group" style="display: flex; flex-direction: column; flex: 1; min-height: 0; margin-bottom: 0;">
+                    <textarea id="textoInforme" class="corp-input inf-editor-textarea" placeholder="Redactar contenido aquí..." oninput="actualizarContadorRedaccion()"></textarea>
+                    <div id="contadorTextoRedaccion" class="inf-editor-counter" style="margin-top: 4px;">0 pal. · 0 car.</div>
                 </div>
 
                 <!-- Herramientas de formato sobre el texto -->
-                <div id="barraFormatoTexto" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 6px;">
-                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.78rem;" onclick="aplicarFormatoSeleccion('**')">
+                <div id="barraFormatoTexto" class="inf-format-grid">
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarFormatoSeleccion('**')">
                         <i class="fa-solid fa-bold"></i> Negrita
                     </button>
-                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.78rem;" onclick="aplicarFormatoSeleccion('*')">
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarFormatoSeleccion('*')">
                         <i class="fa-solid fa-italic"></i> Cursiva
                     </button>
-                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12); padding: 10px 4px; font-size: 0.78rem;" onclick="aplicarVinetasSeleccion()">
+                    <button type="button" class="corp-btn" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.12);" onclick="aplicarVinetasSeleccion()">
                         <i class="fa-solid fa-list-ul"></i> Viñetas
                     </button>
-                    <button type="button" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.14); padding: 10px 4px; font-size: 0.78rem;" onclick="abrirModalLibreria()">
+                    <button type="button" class="corp-btn" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.14);" onclick="abrirModalLibreria()">
                         <i class="fa-solid fa-book-bookmark"></i> Librería
                     </button>
                 </div>
 
-                <!-- Editor visual de Tabla integrado en el sheet -->
-                <div id="editorTablaContainer" class="row-group oculto" style="margin-bottom: 0;">
+                <!-- Editor visual de Tabla -->
+                <div id="editorTablaContainer" class="row-group oculto" style="flex: 1; min-height: 0; margin-bottom: 0;">
                     <div class="tabla-editor-box">
                         <!-- Controles de filas y columnas en vivo -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
@@ -385,16 +387,19 @@
                 </div>
             </div>
 
-            <div class="ap-sheet-footer">
-                <button type="button" class="corp-btn danger-btn" style="flex: 1;" onclick="cerrarModalRedaccion()">
+            <!-- 3. PIE FIJO -->
+            <div class="inf-editor-footer">
+                <button type="button" class="corp-btn danger-btn" onclick="cerrarModalRedaccion()">
                     <i class="fa-solid fa-xmark"></i> Cancelar
                 </button>
-                <button type="button" id="btnConfirmarBloqueModal" class="corp-btn success-btn" style="flex: 1.4;" onclick="confirmarBloqueDesdeModal()">
+                <button type="button" id="btnConfirmarBloqueModal" class="corp-btn success-btn" onclick="confirmarBloqueDesdeModal()">
                     <i class="fa-solid fa-plus"></i> Agregar Párrafo
                 </button>
             </div>
+
         </div>
     </div>
+    
 
     <!-- ================================================== -->
     <!-- MODAL: VISTA PREVIA MÓVIL A PANTALLA COMPLETA      -->
