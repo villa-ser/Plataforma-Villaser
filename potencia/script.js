@@ -1824,20 +1824,76 @@ function cambiarSuministro(valor, texto) {
     if (typeof renderTabla === 'function') renderTabla();
 }
 
-// Delegación global de eventos para cerrar acordeones estáticos y dinámicos
+// ==========================================
+// GESTIÓN FLOTANTE Y CIERRE DE ACORDEONES (ANTI-CLIPPING)
+// ==========================================
+function limpiarPosicionSelect(det) {
+    const list = det.querySelector('.corp-select-list');
+    if (!list) return;
+    list.classList.remove('is-floating');
+    list.style.top = '';
+    list.style.bottom = '';
+    list.style.left = '';
+    list.style.width = '';
+    list.style.maxHeight = '';
+}
+
+function posicionarSelectFlotante(det) {
+    const summary = det.querySelector('summary');
+    const list = det.querySelector('.corp-select-list');
+    if (!summary || !list) return;
+
+    const rect = summary.getBoundingClientRect();
+    const margen = 12;
+    const espacioAbajo = window.innerHeight - rect.bottom - margen;
+    const espacioArriba = rect.top - margen;
+
+    list.classList.add('is-floating');
+    list.style.left = `${rect.left}px`;
+    list.style.width = `${rect.width}px`;
+
+    if (espacioAbajo >= 170 || espacioAbajo >= espacioArriba) {
+        list.style.top = `${rect.bottom + 4}px`;
+        list.style.bottom = 'auto';
+        list.style.maxHeight = `${Math.min(250, Math.max(110, espacioAbajo))}px`;
+    } else {
+        list.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+        list.style.top = 'auto';
+        list.style.maxHeight = `${Math.min(250, Math.max(110, espacioArriba))}px`;
+    }
+}
+
+// Cerrar acordeones al tocar fuera
 document.addEventListener('click', (event) => {
-    const details = document.querySelectorAll('details.corp-custom-select');
-    details.forEach(det => {
-        if (det.open && !det.contains(event.target)) det.removeAttribute('open');
+    document.querySelectorAll('details.corp-custom-select').forEach(det => {
+        if (det.open && !det.contains(event.target)) {
+            det.removeAttribute('open');
+        }
     });
 });
 
+// Posicionar como capa fija al abrir y limpiar al cerrar
 document.addEventListener('toggle', (event) => {
     const target = event.target;
-    if (target && target.matches && target.matches('details.corp-custom-select') && target.open) {
+    if (!target || !target.matches || !target.matches('details.corp-custom-select')) return;
+
+    if (target.open) {
         document.querySelectorAll('details.corp-custom-select').forEach(other => {
-            if (other !== target) other.removeAttribute('open');
+            if (other !== target && other.open) {
+                other.removeAttribute('open');
+            }
         });
+        posicionarSelectFlotante(target);
+    } else {
+        limpiarPosicionSelect(target);
     }
 }, true);
 
+// Cerrar el desplegable si se hace scroll en el modal de fondo
+document.addEventListener('scroll', (event) => {
+    const abierto = document.querySelector('details.corp-custom-select[open]');
+    if (!abierto) return;
+    const list = abierto.querySelector('.corp-select-list');
+    if (list && (event.target === list || list.contains(event.target))) return;
+    abierto.removeAttribute('open');
+}, true);
