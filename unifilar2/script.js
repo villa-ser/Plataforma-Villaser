@@ -2295,3 +2295,55 @@ async function ejecutarEliminarBorrador() {
         mostrarAlertaCorp("Error", "No se pudo eliminar el borrador.");
     }
             }
+
+// ==========================================
+// MENÚ INFERIOR SCROLL (13 MÓDULOS GLOBALES)
+// ==========================================
+function generarMenuInferior() {
+    const footer = document.getElementById('corpFooterMenu');
+    if (!footer) return;
+
+    const modulos = [
+        { nombre: 'Inicio', icon: 'fa-house', url: '../index.html' },
+        { nombre: 'Presupuestos', icon: 'fa-file-invoice-dollar', url: '../presupuesto/index.html' },
+        { nombre: 'Materiales', icon: 'fa-boxes-stacked', url: '../materiales/index.html' },
+        { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
+        { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
+        { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '#', active: true },
+        { nombre: 'Topografico', icon: 'fa-table-cells', url: '../topografico/index.html' },
+        { nombre: 'Croquis', icon: 'fa-compass-drafting', url: '../croquis/index.html' },
+        { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
+        { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
+        { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
+        { nombre: 'Proveedores', icon: 'fa-truck-fast', url: '../proveedores/index.html' },
+        { nombre: 'Catalogos', icon: 'fa-book-open', url: '../catalogos/index.html' }
+    ];
+
+    footer.innerHTML = '';
+
+    modulos.forEach(mod => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `corp-nav-item ${mod.active ? 'active' : ''}`;
+        btn.innerHTML = `<i class="fa-solid ${mod.icon}"></i><span>${mod.nombre}</span>`;
+        btn.onclick = () => {
+            if (!mod.active) window.location.replace(mod.url);
+        };
+        footer.appendChild(btn);
+    });
+
+    requestAnimationFrame(() => {
+        const btnActivo = footer.querySelector('.corp-nav-item.active');
+        if (btnActivo) {
+            const footerRect = footer.getBoundingClientRect();
+            const btnRect = btnActivo.getBoundingClientRect();
+            footer.scrollLeft += (btnRect.left - footerRect.left) - (footerRect.width / 2) + (btnRect.width / 2);
+        }
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', generarMenuInferior);
+} else {
+    generarMenuInferior();
+}
