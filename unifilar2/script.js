@@ -13,6 +13,40 @@ let editandoTSIndex = null;
 let filtroTSCircuitos = 'TODOS';
 let nivel3Colapsado = false;
 
+// ==========================================
+// PRECARGA DE SÍMBOLOS SVG EXTERNOS
+// ==========================================
+let cacheSimboloPIA = null;
+
+async function precargarSimbolosExternos() {
+    try {
+        const resp = await fetch('simbolos/Termomagnetica.svg');
+        if (!resp.ok) return;
+        const xmlText = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlText, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+        if (!svgEl) return;
+
+        // Toma dimensiones reales del archivo Termomagnetica.svg
+        const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+        const w = (vb.length === 4 && vb[2] > 0) ? vb[2] : (parseFloat(svgEl.getAttribute('width')) || 120);
+        const h = (vb.length === 4 && vb[3] > 0) ? vb[3] : (parseFloat(svgEl.getAttribute('height')) || 180);
+
+        cacheSimboloPIA = {
+            inner: svgEl.innerHTML,
+            w: w,
+            h: h
+        };
+
+        // Si ya estamos en la pantalla de trabajo, redibuja el plano con el símbolo nuevo
+        if (!document.getElementById('step-trabajo').classList.contains('oculto')) {
+            renderizarTodo();
+        }
+    } catch (err) {
+        console.warn('No se pudo cargar simbolos/Termomagnetica.svg, se usa respaldo:', err);
+    }
+}
 // Mapa de admisibilidad térmica AEA 90364 (Cu en cañería embutida)
 const MAPA_IZ_AEA = { "1.5": 15, "2.5": 21, "4": 28, "6": 36, "10": 50, "16": 66 };
 
@@ -182,6 +216,7 @@ function arrancarModulo() {
     } catch (e) {
         console.warn("Aviso: Firebase no pudo iniciar.", e);
     }
+    precargarSimbolosExternos();
     generarMenuInferior();
     actualizarPDFHeaders();
 }
