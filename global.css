@@ -3405,10 +3405,7 @@ html.modo-modal-embebido main.container {
 }
 
 @media (min-width: 992px) {
-    #modalListaMateriales #btnVistaPreviaMobile {
-        display: none !important;
-    }
-    #modalListaMateriales .mat-drawer-actions-row.primary-exports {
+    .mat-drawer-actions-row.primary-exports {
         grid-template-columns: 1fr 1fr;
     }
 }
