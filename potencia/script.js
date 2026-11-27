@@ -516,8 +516,21 @@ function actualizarSelectoresEnFormulario() {
     document.querySelectorAll('.esp-item').forEach(item => poblarAcordeonCircuitoElement(item));
 }
 
+const AMBIENTES_SEMICUBIERTOS = ["Balcón", "Galería", "Porche", "Cochera", "Exterior"];
+
 function esCargaPuntual(tipo) {
+    if (!tipo) return false;
     return tipo.includes("Acondicionado") || tipo.includes("Motor");
+}
+
+function esAmbienteSemicubierto(tipo) {
+    if (!tipo) return false;
+    return tipo.includes("Semi") || AMBIENTES_SEMICUBIERTOS.some(s => tipo.toLowerCase().includes(s.toLowerCase()));
+}
+
+function normalizarNombreAmbiente(tipo) {
+    if (!tipo) return "";
+    return tipo.replace(/\s*\(Semi\)/gi, "").trim();
 }
 
 function actualizarEstadoDimensionesUI(tipo) {
@@ -575,7 +588,7 @@ function cerrarModalCargaAmbiente() {
 }
 
 function guardarAmbiente() {
-    const tipoBase = document.getElementById('selAmbiente').value;
+    const tipoBase = normalizarNombreAmbiente(document.getElementById('selAmbiente').value);
     const identificador = document.getElementById('inputIdentificador').value.trim();
     const ancho = parseFloat(document.getElementById('inputAncho').value.replace(',', '.')) || 0;
     const largo = parseFloat(document.getElementById('inputLargo').value.replace(',', '.')) || 0;
@@ -627,7 +640,7 @@ function guardarAmbiente() {
     }
 
     let areaCalculada = puntual ? 0 : (ancho * largo);
-    if (!puntual && (tipoBase.includes("Semi") || tipoBase.includes("Balcón") || tipoBase.includes("Exterior"))) {
+    if (!puntual && esAmbienteSemicubierto(tipoBase)) {
         areaCalculada = areaCalculada / 2;
     }
 
@@ -682,6 +695,7 @@ function editarAmbiente(id) {
             identificador = match[2];
         }
     }
+    tipoBase = normalizarNombreAmbiente(tipoBase);
 
     document.getElementById('selAmbiente').value = tipoBase;
     document.getElementById('sumAmbiente').innerText = tipoBase || "-- Seleccione --";
@@ -715,6 +729,60 @@ function editarAmbiente(id) {
 
     actualizarSelectoresEnFormulario();
     abrirModalCargaAmbiente(true);
+}
+
+function actualizarEstadoDimensionesUI(tipo) {
+    const grupoDim = document.getElementById('grupoDimensiones');
+    const avisoPuntual = document.getElementById('avisoCargaPuntual');
+    if (!grupoDim || !avisoPuntual) return;
+
+    if (tipo && esCargaPuntual(tipo)) {
+        grupoDim.classList.add('oculto');
+        avisoPuntual.classList.remove('oculto');
+    } else {
+        grupoDim.classList.remove('oculto');
+        avisoPuntual.classList.add('oculto');
+    }
+}
+
+function limpiarFormularioAmbiente() {
+    document.getElementById('selAmbiente').value = "";
+    document.getElementById('sumAmbiente').innerText = "-- Seleccione --";
+    document.getElementById('inputIdentificador').value = "";
+    document.getElementById('inputAncho').value = "";
+    document.getElementById('inputLargo').value = "";
+    actualizarEstadoDimensionesUI("");
+
+    document.getElementById('bocasIUG').value = "0";
+    document.getElementById('circuitoIUG').value = "";
+    document.getElementById('sumCircuitoIUG').innerText = "-- Circ --";
+
+    document.getElementById('bocasTUG').value = "0";
+    document.getElementById('circuitoTUG').value = "";
+    document.getElementById('sumCircuitoTUG').innerText = "-- Circ --";
+
+    document.getElementById('contenedor-esps').innerHTML = crearFilaEspHTML(0, '', '', false);
+    actualizarSelectoresEnFormulario();
+}
+
+function abrirModalCargaAmbiente(modoEdicion = false) {
+    if (!modoEdicion) {
+        cancelarEdicion();
+        limpiarFormularioAmbiente();
+    }
+    const modal = document.getElementById('modalCargaAmbiente');
+    const body = document.getElementById('bodyModalAmbiente');
+    if (modal) modal.classList.remove('oculto');
+    if (body) body.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalCargaAmbiente() {
+    const modal = document.getElementById('modalCargaAmbiente');
+    if (modal) modal.classList.add('oculto');
+    document.body.style.overflow = '';
+    cancelarEdicion();
+    limpiarFormularioAmbiente();
 }
 
 function cancelarEdicion() {
