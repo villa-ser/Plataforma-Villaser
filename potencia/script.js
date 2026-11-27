@@ -341,10 +341,28 @@ function autoAjustarCircuitos(grado) {
     actualizarGestorCircuitos();
 }
 
+function abrirModalCircuitos() {
+    actualizarGestorCircuitos();
+    const modal = document.getElementById('modalGestionCircuitos');
+    if (modal) modal.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+}
+
+function cerrarModalCircuitos() {
+    const modal = document.getElementById('modalGestionCircuitos');
+    if (modal) modal.classList.add('oculto');
+    const modalAmb = document.getElementById('modalCargaAmbiente');
+    if (!modalAmb || modalAmb.classList.contains('oculto')) {
+        document.body.style.overflow = '';
+    }
+}
+
 function actualizarGestorCircuitos(totalesBocas = null) {
     const container = document.getElementById('listaConfigCircuitos');
     const countLbl = document.getElementById('ui-circuitos-count');
-    if (countLbl) countLbl.innerText = `${circuitos.length} circuitos`;
+    const modalCountLbl = document.getElementById('ui-modal-circuitos-count');
+    if (countLbl) countLbl.innerText = circuitos.length;
+    if (modalCountLbl) modalCountLbl.innerText = `${circuitos.length} activos`;
     if (!container) return;
 
     container.innerHTML = '';
@@ -397,7 +415,20 @@ function agregarCircuitoManual() {
         in: ''
     });
     calcularGradoYRenderizar();
+    const container = document.getElementById('listaConfigCircuitos');
+    if (container) container.scrollTop = container.scrollHeight;
     mostrarToast("Circuito Añadido", `Se creó C${num} (ACU).`);
+}
+
+
+function cambiarTipoCircuito(index, nuevoTipo) {
+    circuitos[index].tipo = nuevoTipo;
+    if (!circuitos[index].userEditedDpms) {
+        if (nuevoTipo === 'TUG') circuitos[index].dpms = 2200;
+        else if (nuevoTipo === 'TUE') circuitos[index].dpms = 3300;
+        else circuitos[index].dpms = 0;
+    }
+    calcularGradoYRenderizar();
 }
 
 function eliminarCircuito(index) {
