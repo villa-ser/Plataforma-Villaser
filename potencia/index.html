@@ -169,30 +169,26 @@
                     </div>
                 </div>
 
-                <!-- MENÚ AGRUPADOR DE ACCIONES -->
-                <div class="acciones-dropdown-container" style="margin-top: 6px;">
-                    <button class="corp-btn" onclick="toggleAccionesMenu()" style="width: 100%; justify-content: center; font-size: 1.05rem; padding: 15px; background: rgba(35, 116, 225, 0.12); color: var(--ngc-neon); border: 1px solid var(--ngc-neon);">
-                        <i class="fa-solid fa-layer-group"></i> Acciones
-                    </button>
-                    
-                    <div id="accionesMenu" class="oculto" style="margin-top: 14px; border-top: 1px solid var(--ngc-privacy-border); padding-top: 14px;">
-                        <div class="action-grid-main" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <button class="corp-btn" onclick="abrirVistaPrevia()" style="color: var(--ngc-text-main); background: var(--ngc-bg-input);">
-                                <i class="fa-solid fa-eye"></i> Vista Previa
-                            </button>
-                            <button class="corp-btn danger-btn" onclick="generarPDF()">
-                                <i class="fa-solid fa-file-pdf"></i> PDF
-                            </button>
-                            <button class="corp-btn success-btn" style="grid-column: span 2;" onclick="prepararEnvioWhatsApp()">
-                                <i class="fa-brands fa-whatsapp"></i> WhatsApp
-                            </button>
-                            <button class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
-                            </button>
-                            <button class="corp-btn" onclick="abrirModalBorradores()" style="color: #e91e63; background: rgba(233, 30, 99, 0.1);">
-                                <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
-                            </button>
-                        </div>
+                <!-- BOTONES DE ACCIÓN COMPACTOS (ESTILO MATERIALES) -->
+                <div class="mat-drawer-footer-grid" style="margin-top: 4px;">
+                    <div class="mat-drawer-actions-row primary-exports">
+                        <button type="button" id="btnVistaPreviaMobile" class="corp-btn" onclick="abrirVistaPrevia()">
+                            <i class="fa-solid fa-eye"></i> Vista Previa
+                        </button>
+                        <button type="button" class="corp-btn danger-btn" onclick="generarPDF()">
+                            <i class="fa-solid fa-file-pdf"></i> PDF
+                        </button>
+                        <button type="button" class="corp-btn success-btn" onclick="prepararEnvioWhatsApp()">
+                            <i class="fa-brands fa-whatsapp"></i> WhatsApp
+                        </button>
+                    </div>
+                    <div class="mat-drawer-actions-row two-cols">
+                        <button type="button" class="corp-btn" onclick="guardarBorradorFirebase(true)" style="color: var(--ngc-warning); background: rgba(245, 195, 59, 0.1);">
+                            <i class="fa-solid fa-cloud-arrow-up"></i> Guardar Nube
+                        </button>
+                        <button type="button" class="corp-btn" onclick="abrirModalBorradores()" style="color: var(--ngc-neon); background: rgba(35, 116, 225, 0.1);">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> Abrir Nube
+                        </button>
                     </div>
                 </div>
                 
