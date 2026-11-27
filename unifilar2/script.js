@@ -1124,23 +1124,23 @@ function dibujarSimboloDobleAislacion(x, y, size = 11) {
 function dibujarSimboloPIA(x, y, polosStr) {
     const es4P = String(polosStr || '').includes('4x');
     const marcasPolos = es4P
-        ? `<line x1="${x - 6}" y1="${y + 22}" x2="${x + 6}" y2="${y + 18}" stroke="#0f172a" stroke-width="1.4"/>
-           <line x1="${x - 6}" y1="${y + 26}" x2="${x + 6}" y2="${y + 22}" stroke="#0f172a" stroke-width="1.4"/>
-           <line x1="${x - 6}" y1="${y + 30}" x2="${x + 6}" y2="${y + 26}" stroke="#0f172a" stroke-width="1.4"/>
-           <line x1="${x - 6}" y1="${y + 34}" x2="${x + 6}" y2="${y + 30}" stroke="#0f172a" stroke-width="1.4"/>`
-        : `<line x1="${x - 6}" y1="${y + 24}" x2="${x + 6}" y2="${y + 19}" stroke="#0f172a" stroke-width="1.5"/>
-           <line x1="${x - 6}" y1="${y + 29}" x2="${x + 6}" y2="${y + 24}" stroke="#0f172a" stroke-width="1.5"/>`;
+        ? `<line x1="${x - 5.5}" y1="${y + 33}" x2="${x + 5.5}" y2="${y + 29.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
+           <line x1="${x - 5.5}" y1="${y + 36.5}" x2="${x + 5.5}" y2="${y + 33}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
+           <line x1="${x - 5.5}" y1="${y + 40}" x2="${x + 5.5}" y2="${y + 36.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
+           <line x1="${x - 5.5}" y1="${y + 43.5}" x2="${x + 5.5}" y2="${y + 40}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>`
+        : `<line x1="${x - 5.5}" y1="${y + 37.5}" x2="${x + 5.5}" y2="${y + 33.5}" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round"/>
+           <line x1="${x - 5.5}" y1="${y + 42}" x2="${x + 5.5}" y2="${y + 38}" stroke="#0f172a" stroke-width="1.7" stroke-linecap="round"/>`;
 
-    // Si Termomagnetica.svg ya cargó, lo inserta escalado a 46px de alto y alineado al eje X
+    // Inserta Termomagnetica.svg alineado al eje X y empalmado de y a y+46
     if (cacheSimboloPIA) {
-        const altoDestino = 46;
+        const altoDestino = 48;
         const escala = altoDestino / cacheSimboloPIA.h;
         const anchoEscalado = cacheSimboloPIA.w * escala;
-        const offsetX = x - (anchoEscalado * 0.68);
-        const offsetY = y - 4;
+        const offsetX = x - (anchoEscalado * 0.515);
+        const offsetY = y - 1;
 
         return `
-            <g transform="translate(${offsetX.toFixed(2)}, ${offsetY}) scale(${escala.toFixed(4)})" style="stroke-width: 2.2;">
+            <g transform="translate(${offsetX.toFixed(2)}, ${offsetY}) scale(${escala.toFixed(4)})">
                 ${cacheSimboloPIA.inner}
             </g>
             ${marcasPolos}
@@ -1152,13 +1152,14 @@ function dibujarSimboloPIA(x, y, polosStr) {
         <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 10}" stroke="#0f172a" stroke-width="1.8"/>
         <line x1="${x - 4}" y1="${y + 6}" x2="${x + 4}" y2="${y + 14}" stroke="#0f172a" stroke-width="1.6"/>
         <line x1="${x + 4}" y1="${y + 6}" x2="${x - 4}" y2="${y + 14}" stroke="#0f172a" stroke-width="1.6"/>
-        <line x1="${x}" y1="${y + 36}" x2="${x - 10}" y2="${y + 12}" stroke="#0f172a" stroke-width="2"/>
-        <polyline points="${x - 5},${y + 22} ${x - 14},${y + 22} ${x - 14},${y + 28} ${x - 5},${y + 28}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
-        <path d="M ${x - 14} ${y + 28} A 4 4 0 0 0 ${x - 14} ${y + 35}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
+        <line x1="${x}" y1="${y + 32}" x2="${x - 10}" y2="${y + 12}" stroke="#0f172a" stroke-width="2"/>
+        <polyline points="${x - 5},${y + 20} ${x - 14},${y + 20} ${x - 14},${y + 26} ${x - 5},${y + 26}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
+        <path d="M ${x - 14} ${y + 26} A 4 4 0 0 0 ${x - 14} ${y + 33}" fill="none" stroke="#0f172a" stroke-width="1.3"/>
         ${marcasPolos}
-        <line x1="${x}" y1="${y + 36}" x2="${x}" y2="${y + 46}" stroke="#0f172a" stroke-width="1.8"/>
+        <line x1="${x}" y1="${y + 32}" x2="${x}" y2="${y + 46}" stroke="#0f172a" stroke-width="1.8"/>
     `;
 }
+
 
 function dibujarSimboloID(x, y) {
     return `
@@ -1246,11 +1247,12 @@ function generarSVGUnifilar() {
         <text x="${tpX + 8}" y="${tpY + 27}" font-size="9" font-weight="700" fill="#475569">${escaparXML(esquema.nivel1.ip)}${esquema.nivel1.dobleAislacion ? ' • Clase II' : ''}</text>
     `;
 
-    // Protección General TP
+    // Protección General TP (con tramo superior conectado al borde del tablero)
+    svg += `<line x1="${cx}" y1="${tpY}" x2="${cx}" y2="${tpY + 18}" stroke="#0f172a" stroke-width="1.8"/>`;
     svg += dibujarSimboloPIA(cx, tpY + 18, esquema.nivel1.curvaPolos);
     svg += `
-        <text x="${cx + 14}" y="${tpY + 34}" font-size="10" font-weight="800" fill="#0f172a">${escaparXML(esquema.nivel1.tipoDisp)} ${escaparXML(esquema.nivel1.curvaPolos)}${escaparXML(esquema.nivel1.in)}A</text>
-        <text x="${cx + 14}" y="${tpY + 46}" font-size="9" font-weight="600" fill="#334155">Pcc ${escaparXML(esquema.nivel1.pcc)}A • ${escaparXML(esquema.nivel1.tension)}V</text>
+        <text x="${cx + 16}" y="${tpY + 34}" font-size="10" font-weight="800" fill="#0f172a">${escaparXML(esquema.nivel1.tipoDisp)} ${escaparXML(esquema.nivel1.curvaPolos)}${escaparXML(esquema.nivel1.in)}A</text>
+        <text x="${cx + 16}" y="${tpY + 46}" font-size="9" font-weight="600" fill="#334155">Pcc ${escaparXML(esquema.nivel1.pcc)}A • ${escaparXML(esquema.nivel1.tension)}V</text>
     `;
 
     // DPS opcional en TP
@@ -1305,9 +1307,14 @@ function generarSVGUnifilar() {
             ${ts.ubicacion ? `<text x="${tsX + 10}" y="${tsY + 42}" font-size="8" font-weight="600" fill="#64748b">${escaparXML(ts.ubicacion.slice(0, 34))}</text>` : ''}
         `;
 
-        // Cabecera TS (ID o PIA)
+        // Cabecera TS (ID o PIA con tramo superior conectado al borde del TS)
         const esCabPIA = String(ts.tipoCab || '').startsWith('PIA Seccionadora');
-        svg += esCabPIA ? dibujarSimboloPIA(tsCx, tsY + 14, ts.in) : dibujarSimboloID(tsCx, tsY + 12);
+        if (esCabPIA) {
+            svg += `<line x1="${tsCx}" y1="${tsY}" x2="${tsCx}" y2="${tsY + 18}" stroke="#0f172a" stroke-width="1.8"/>`;
+            svg += dibujarSimboloPIA(tsCx, tsY + 18, ts.in);
+        } else {
+            svg += dibujarSimboloID(tsCx, tsY + 12);
+        }
         svg += `
             <text x="${tsCx + 16}" y="${tsY + 28}" font-size="10.5" font-weight="800" fill="#0f172a">${escaparXML(ts.tipoCab)} ${escaparXML(ts.in)}</text>
             <text x="${tsCx + 16}" y="${tsY + 40}" font-size="9" font-weight="600" fill="#334155">${ts.sens !== 'N/A' ? `IΔn ${escaparXML(ts.sens)} • ` : ''}Pcc ${escaparXML(ts.pcc)}A</text>
@@ -1379,9 +1386,9 @@ function generarSVGUnifilar() {
 
                 // Etiquetas técnicas de la protección PIA en 3 líneas compactas sin pisar el símbolo
                 svg += `
-                    <text x="${rx + 12}" y="${busY + 30}" font-size="9.5" font-weight="800" fill="#0f172a">${escaparXML(c.piaCod)}</text>
-                    <text x="${rx + 12}" y="${busY + 41}" font-size="9" font-weight="700" fill="#1e293b">${escaparXML(c.curvaPolos)}${escaparXML(c.in)}A</text>
-                    <text x="${rx + 12}" y="${busY + 51}" font-size="7.8" fill="#475569">Pcc ${escaparXML(c.pcc)}A • ${escaparXML(c.tension)}V</text>
+                    <text x="${rx + 14}" y="${busY + 30}" font-size="9.5" font-weight="800" fill="#0f172a">${escaparXML(c.piaCod)}</text>
+                    <text x="${rx + 14}" y="${busY + 41}" font-size="9" font-weight="700" fill="#1e293b">${escaparXML(c.curvaPolos)}${escaparXML(c.in)}A</text>
+                    <text x="${rx + 14}" y="${busY + 51}" font-size="7.8" fill="#475569">Pcc ${escaparXML(c.pcc)}A • ${escaparXML(c.tension)}V</text>
                 `;
 
                 // Línea de salida del circuito hasta la caja terminal
@@ -1421,7 +1428,8 @@ function generarSVGUnifilar() {
 
     svg += `</svg>`;
     return svg;
-}
+        }
+                              
 
 // ==========================================
 // SINCRONIZACIÓN LÁMINA A4 Y MEMBRETE
