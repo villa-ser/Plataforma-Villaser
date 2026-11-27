@@ -17,36 +17,48 @@ let nivel3Colapsado = false;
 // PRECARGA DE SÍMBOLOS SVG EXTERNOS
 // ==========================================
 let cacheSimboloPIA = null;
+let cacheSimboloID = null;
+
+async function cargarArchivoSVG(ruta) {
+    const resp = await fetch(ruta);
+    if (!resp.ok) return null;
+    const xmlText = await resp.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xmlText, 'image/svg+xml');
+    const svgEl = doc.querySelector('svg');
+    if (!svgEl) return null;
+
+    const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+    const w = (vb.length === 4 && vb[2] > 0) ? vb[2] : (parseFloat(svgEl.getAttribute('width')) || 120);
+    const h = (vb.length === 4 && vb[3] > 0) ? vb[3] : (parseFloat(svgEl.getAttribute('height')) || 180);
+
+    return {
+        inner: svgEl.innerHTML,
+        w: w,
+        h: h
+    };
+}
 
 async function precargarSimbolosExternos() {
     try {
-        const resp = await fetch('simbolos/Termomagnetica.svg');
-        if (!resp.ok) return;
-        const xmlText = await resp.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(xmlText, 'image/svg+xml');
-        const svgEl = doc.querySelector('svg');
-        if (!svgEl) return;
+        const [pia, id] = await Promise.all([
+            cargarArchivoSVG('simbolos/Termomagnetica.svg').catch(() => null),
+            cargarArchivoSVG('simbolos/Diferencial.svg').catch(() => null)
+        ]);
 
-        // Toma dimensiones reales del archivo Termomagnetica.svg
-        const vb = (svgEl.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-        const w = (vb.length === 4 && vb[2] > 0) ? vb[2] : (parseFloat(svgEl.getAttribute('width')) || 120);
-        const h = (vb.length === 4 && vb[3] > 0) ? vb[3] : (parseFloat(svgEl.getAttribute('height')) || 180);
+        if (pia) cacheSimboloPIA = pia;
+        if (id) cacheSimboloID = id;
 
-        cacheSimboloPIA = {
-            inner: svgEl.innerHTML,
-            w: w,
-            h: h
-        };
-
-        // Si ya estamos en la pantalla de trabajo, redibuja el plano con el símbolo nuevo
-        if (!document.getElementById('step-trabajo').classList.contains('oculto')) {
+        // Si ya estamos en la pantalla de trabajo, redibuja el plano con los símbolos cargados
+        const stepTrabajo = document.getElementById('step-trabajo');
+        if (stepTrabajo && !stepTrabajo.classList.contains('oculto')) {
             renderizarTodo();
         }
     } catch (err) {
-        console.warn('No se pudo cargar simbolos/Termomagnetica.svg, se usa respaldo:', err);
+        console.warn('No se pudieron cargar los símbolos SVG externos, se usa respaldo:', err);
     }
 }
+
 // Mapa de admisibilidad térmica AEA 90364 (Cu en cañería embutida)
 const MAPA_IZ_AEA = { "1.5": 15, "2.5": 21, "4": 28, "6": 36, "10": 50, "16": 66 };
 
@@ -1161,16 +1173,49 @@ function dibujarSimboloPIA(x, y, polosStr) {
 }
 
 
-function dibujarSimboloID(x, y) {
+function dibujarSimboloID(x, y, polosStr = '') {
+    const strPolos = String(polosStr || '');
+    const es4P = strPolos.includes('4x');
+    const es2P = strPolos.includes('2x');
+
+    const marcasPolos = es4P
+        ? `<line x1="${x - 5}" y1="${y + 45.5}" x2="${x + 5}" y2="${y + 43}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
+           <line x1="${x - 5}" y1="${y + 47.5}" x2="${x + 5}" y2="${y + 45}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
+           <line x1="${x - 5}" y1="${y + 49.5}" x2="${x + 5}" y2="${y + 47}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>
+           <line x1="${x - 5}" y1="${y + 51.5}" x2="${x + 5}" y2="${y + 49}" stroke="#0f172a" stroke-width="1.5" stroke-linecap="round"/>`
+        : (es2P
+            ? `<line x1="${x - 5}" y1="${y + 47.5}" x2="${x + 5}" y2="${y + 44.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
+               <line x1="${x - 5}" y1="${y + 50.5}" x2="${x + 5}" y2="${y + 47.5}" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>`
+            : '');
+
+    // Inserta Diferencial.svg alineado al eje X y empalmado de y a y+52
+    if (cacheSimboloID) {
+        const altoDestino = 52;
+        const escala = altoDestino / cacheSimboloID.h;
+        const anchoEscalado = cacheSimboloID.w * escala;
+        const offsetX = x - (anchoEscalado * 0.56);
+        const offsetY = y;
+
+        return `
+            <g transform="translate(${offsetX.toFixed(2)}, ${offsetY}) scale(${escala.toFixed(4)})">
+                ${cacheSimboloID.inner}
+            </g>
+            ${marcasPolos}
+        `;
+    }
+
+    // Respaldo vectorial instantáneo mientras termina el fetch
     return `
         <line x1="${x}" y1="${y}" x2="${x}" y2="${y + 10}" stroke="#0f172a" stroke-width="1.8"/>
         <circle cx="${x}" cy="${y + 10}" r="2.2" fill="#0f172a"/>
         <line x1="${x}" y1="${y + 36}" x2="${x - 10}" y2="${y + 12}" stroke="#0f172a" stroke-width="2"/>
         <ellipse cx="${x}" cy="${y + 42}" rx="8" ry="3.2" fill="none" stroke="#0f172a" stroke-width="1.4"/>
         <polyline points="${x - 8},${y + 42} ${x - 14},${y + 42} ${x - 14},${y + 24} ${x - 5},${y + 24}" fill="none" stroke="#0f172a" stroke-width="1.2" stroke-dasharray="2,2"/>
+        ${marcasPolos}
         <line x1="${x}" y1="${y + 36}" x2="${x}" y2="${y + 52}" stroke="#0f172a" stroke-width="1.8"/>
     `;
 }
+
 
 function dibujarSimboloPAT(x, y) {
     return `
@@ -1191,7 +1236,7 @@ function generarSVGUnifilar() {
     const bloquesTS = esquema.tablerosSeccionales.map(ts => {
         const circs = esquema.circuitos.filter(c => c.tableroId === ts.id);
         const nC = Math.max(1, circs.length);
-        const w = Math.max(250, nC * colW + 46);
+        const w = Math.max(280, nC * colW + 46);
         return { ts, circs, w };
     });
 
@@ -1313,7 +1358,8 @@ function generarSVGUnifilar() {
             svg += `<line x1="${tsCx}" y1="${tsY}" x2="${tsCx}" y2="${tsY + 18}" stroke="#0f172a" stroke-width="1.8"/>`;
             svg += dibujarSimboloPIA(tsCx, tsY + 18, ts.in);
         } else {
-            svg += dibujarSimboloID(tsCx, tsY + 12);
+            svg += `<line x1="${tsCx}" y1="${tsY}" x2="${tsCx}" y2="${tsY + 12}" stroke="#0f172a" stroke-width="1.8"/>`;
+            svg += dibujarSimboloID(tsCx, tsY + 12, ts.in);
         }
         svg += `
             <text x="${tsCx + 16}" y="${tsY + 28}" font-size="10.5" font-weight="800" fill="#0f172a">${escaparXML(ts.tipoCab)} ${escaparXML(ts.in)}</text>
@@ -1428,8 +1474,8 @@ function generarSVGUnifilar() {
 
     svg += `</svg>`;
     return svg;
-        }
-                              
+                      }
+                      
 
 // ==========================================
 // SINCRONIZACIÓN LÁMINA A4 Y MEMBRETE
