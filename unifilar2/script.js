@@ -1232,7 +1232,7 @@ function generarSVGUnifilar() {
         <text x="${cx + 10}" y="146" text-anchor="start" font-size="9" font-weight="600" fill="#475569">${escaparXML(esquema.nivel0.lineaAlim)}</text>
     `;
 
-    // --- NIVEL 1: TABLERO PRINCIPAL (TP) - LÍNEA ENTrecortada DE OTRO COLOR, SIN PAT, CON [回] ---
+    // --- NIVEL 1: TABLERO PRINCIPAL (TP) - LÍNEA ENTRECORTADA DE OTRO COLOR, SIN PAT, CON [回] ---
     const tpW = 250;
     const tpX = cx - tpW / 2;
     const tpY = 156;
@@ -1302,7 +1302,7 @@ function generarSVGUnifilar() {
             <text x="${tsX + 10}" y="${tsY + 18}" font-size="12" font-weight="800" fill="#0f172a">${escaparXML(ts.nombre)}</text>
             ${ts.dobleAislacion ? dibujarSimboloDobleAislacion(tsX + 14 + tsNombreAnchoAprox, tsY + 8, 11) : ''}
             <text x="${tsX + 10}" y="${tsY + 31}" font-size="9.5" font-weight="700" fill="#475569">${escaparXML(ts.ip)}${ts.dobleAislacion ? ' • Clase II' : ''}</text>
-            ${ts.ubicacion ? `<text x="${tsX + 10}" y="${tsY + 42}" font-size="8" font-weight="600" fill="#64748b">${escaparXML(ts.ubicacion.slice(0, 24))}</text>` : ''}
+            ${ts.ubicacion ? `<text x="${tsX + 10}" y="${tsY + 42}" font-size="8" font-weight="600" fill="#64748b">${escaparXML(ts.ubicacion.slice(0, 34))}</text>` : ''}
         `;
 
         // Cabecera TS (ID o PIA)
@@ -1377,12 +1377,11 @@ function generarSVGUnifilar() {
                 // Símbolo PIA del circuito
                 svg += dibujarSimboloPIA(rx, busY + 16, c.curvaPolos);
 
-                // Etiquetas técnicas de la protección PIA
+                // Etiquetas técnicas de la protección PIA en 3 líneas compactas sin pisar el símbolo
                 svg += `
                     <text x="${rx + 12}" y="${busY + 30}" font-size="9.5" font-weight="800" fill="#0f172a">${escaparXML(c.piaCod)}</text>
                     <text x="${rx + 12}" y="${busY + 41}" font-size="9" font-weight="700" fill="#1e293b">${escaparXML(c.curvaPolos)}${escaparXML(c.in)}A</text>
-                    <text x="${rx + 12}" y="${busY + 51}" font-size="8" fill="#475569">Pcc ${escaparXML(c.pcc)}A</text>
-                    <text x="${rx + 12}" y="${busY + 60}" font-size="8" fill="#475569">${escaparXML(c.tension)}V</text>
+                    <text x="${rx + 12}" y="${busY + 51}" font-size="7.8" fill="#475569">Pcc ${escaparXML(c.pcc)}A • ${escaparXML(c.tension)}V</text>
                 `;
 
                 // Línea de salida del circuito hasta la caja terminal
@@ -1408,11 +1407,12 @@ function generarSVGUnifilar() {
                 const boxW = 124;
                 const boxX = rx - boxW / 2;
                 const boxY = salidaBottom;
+                const labelBocas = Number(c.bocas) === 1 ? '1 boca' : `${c.bocas} bocas`;
                 svg += `
                     <rect x="${boxX}" y="${boxY}" width="${boxW}" height="58" rx="5" fill="#f8fafc" stroke="#0f172a" stroke-width="1.4"/>
                     <text x="${rx}" y="${boxY + 15}" text-anchor="middle" font-size="11" font-weight="800" fill="#0f172a">${escaparXML(c.id)} • ${escaparXML(c.tipo)}</text>
                     <text x="${rx}" y="${boxY + 28}" text-anchor="middle" font-size="8.5" font-weight="600" fill="#334155">${escaparXML(c.desc.slice(0, 22))}</text>
-                    <text x="${rx}" y="${boxY + 41}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#0f172a">${c.bocas} bocas • ${c.dpms} VA</text>
+                    <text x="${rx}" y="${boxY + 41}" text-anchor="middle" font-size="8.5" font-weight="700" fill="#0f172a">${labelBocas} • ${c.dpms} VA</text>
                     <text x="${rx}" y="${boxY + 53}" text-anchor="middle" font-size="8" font-weight="700" fill="#2374E1">Ib = ${ib.toFixed(2)} A${esTrifa ? ` • ${escaparXML(c.fase)}` : ''}</text>
                 `;
             });
@@ -1421,7 +1421,7 @@ function generarSVGUnifilar() {
 
     svg += `</svg>`;
     return svg;
-  }
+}
 
 // ==========================================
 // SINCRONIZACIÓN LÁMINA A4 Y MEMBRETE
