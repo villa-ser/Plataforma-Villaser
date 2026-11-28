@@ -1,1550 +1,124 @@
-// ============================================================================
-// MÓDULO TABLERO TOPOGRÁFICO (RIEL DIN + IRAM 2183 + OFFLINE-FIRST)
-// ============================================================================
+// ==========================================================================
+// MÓDULO ESQUEMA TOPOGRÁFICO ELÉCTRICO (DISPOSICIÓN FÍSICA DIN) - VILLASER
+// ==========================================================================
+let db = null;
+let uidSeguro = null;
+let clienteDesdeAgenda = false;
+let permiteGuardarNube = true;
+let nombreBorradorActual = null;
+let borradorPendienteEliminar = null;
+let telefonoClienteActual = "";
+let mostrarPolosIRAM = true;
 
-const db = firebase.firestore();
 const STORAGE_KEY_TOPO = 'topografico_estado_actual';
-const VIEWPORT_LOCKED = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-const VIEWPORT_ZOOM = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
 
-// Mapas de polaridad reglamentarios IRAM 2183
+// Catálogo de precarga normativa por tipo de dispositivo DIN
+const PRESETS_DISPOSITIVOS = {
+    ID:   { modulos: 2, tag: 'ID1',  calibre: '2x40A • 30mA Clase AC', color: 'azul',    polaridad: 'L1_N',    peine: 'NONE', destino: 'Protección Diferencial General', cable: '2x6 + PE mm² Cu',     conexionado: 'Entrada Línea → Salida Peine' },
+    PIA:  { modulos: 2, tag: 'C1',   calibre: '2x16A Curva C 4.5kA',   color: 'azul',    polaridad: 'L1_N',    peine: 'SUP',  destino: 'TUG - Tomas de Uso General',     cable: '2x2.5 + PE mm² Cu',   conexionado: 'Alim: Peine ID1 → Salida Bornera' },
+    DPS:  { modulos: 2, tag: 'DPS1', calibre: 'Clase II • 20kA / 275V',color: 'naranja', polaridad: 'L1_N_PE', peine: 'NONE', destino: 'Protección Sobretensiones',       cable: '2x6 + PE(10) mm²',    conexionado: 'Paralelo Cabecera → Barra PE' },
+    PT:   { modulos: 2, tag: 'PT1',  calibre: '2x40A • 175V-245V',     color: 'naranja', polaridad: 'L1_N',    peine: 'NONE', destino: 'Protector Alta/Baja Tensión',     cable: '2x6 mm² Cu',          conexionado: 'Serie aguas arriba de ID1' },
+    SEC:  { modulos: 2, tag: 'IG',   calibre: '2x40A Corte General',   color: 'rojo',    polaridad: 'L1_N',    peine: 'NONE', destino: 'Interruptor Cabecera Tablero',    cable: '2x6 + PE mm² Cu',     conexionado: 'Acometida LP → Aguas abajo ID1' },
+    CONT: { modulos: 2, tag: 'KM1',  calibre: '25A AC-1 Bobina 220V',  color: 'negro',   polaridad: 'L1_N',    peine: 'NONE', destino: 'Comando / Automatismo',           cable: '2x2.5 + PE mm² Cu',   conexionado: 'Bobina A1/A2 → Salida Carga' },
+    MED:  { modulos: 1, tag: 'PL1',  calibre: '220VCA LED Verde',      color: 'gris',    polaridad: 'L1',      peine: 'NONE', destino: 'Señalización Presencia Tensión',  cable: '1x1.5 mm² Cu',        conexionado: 'Toma Fase L1 + Barra N' },
+    BORN: { modulos: 2, tag: 'BR1',  calibre: 'Tetra/Bipolar 80A',     color: 'gris',    polaridad: 'L1_N',    peine: 'NONE', destino: 'Repartidor Modular',              cable: '2x6 mm² Cu',          conexionado: 'Distribución a subcircuitos' },
+    RES:  { modulos: 1, tag: 'RES',  calibre: 'Tapa Ciega DIN 18mm',   color: 'gris',    polaridad: 'NONE',    peine: 'NONE', destino: 'Reserva Térmica AEA 90364',       cable: '-',                   conexionado: 'Espacio disponible ampliación' }
+};
+
+// Mapas de polaridad por polo (Colores reglamentarios IRAM 2183)
 const MAPAS_POLARIDAD = {
-    'L1+N': ['L1', 'N'],
-    'L2+N': ['L2', 'N'],
-    'L3+N': ['L3', 'N'],
-    'N+L1': ['N', 'L1'],
-    'L1-L2-L3-N': ['L1', 'L2', 'L3', 'N'],
-    'N-L1-L2-L3': ['N', 'L1', 'L2', 'L3'],
-    'L1-L2-L3': ['L1', 'L2', 'L3'],
-    'L1': ['L1'],
-    'L2': ['L2'],
-    'L3': ['L3'],
-    'NONE': []
+    L1_N:          { label: 'L1 + N',       polos: ['L1', 'N'],             fases: ['L1'],             salidaPE: false },
+    L2_N:          { label: 'L2 + N',       polos: ['L2', 'N'],             fases: ['L2'],             salidaPE: false },
+    L3_N:          { label: 'L3 + N',       polos: ['L3', 'N'],             fases: ['L3'],             salidaPE: false },
+    N_L1:          { label: 'N + L1',       polos: ['N', 'L1'],             fases: ['L1'],             salidaPE: false },
+    L1_L2_L3_N:    { label: 'L1-L2-L3-N',   polos: ['L1', 'L2', 'L3', 'N'], fases: ['L1', 'L2', 'L3'], salidaPE: false },
+    N_L1_L2_L3:    { label: 'N-L1-L2-L3',   polos: ['N', 'L1', 'L2', 'L3'], fases: ['L1', 'L2', 'L3'], salidaPE: false },
+    L1_L2_L3:      { label: 'L1-L2-L3',     polos: ['L1', 'L2', 'L3'],      fases: ['L1', 'L2', 'L3'], salidaPE: false },
+    L1:            { label: 'L1',           polos: ['L1'],                  fases: ['L1'],             salidaPE: false },
+    L2:            { label: 'L2',           polos: ['L2'],                  fases: ['L2'],             salidaPE: false },
+    L3:            { label: 'L3',           polos: ['L3'],                  fases: ['L3'],             salidaPE: false },
+    N:             { label: 'N',            polos: ['N'],                   fases: [],                 salidaPE: false },
+    L1_N_PE:       { label: 'L1+N → PE',    polos: ['L1', 'N'],             fases: ['L1'],             salidaPE: true  },
+    L1_L2_L3_N_PE: { label: 'R-S-T-N → PE', polos: ['L1', 'L2', 'L3', 'N'], fases: ['L1', 'L2', 'L3'], salidaPE: true  },
+    NONE:          { label: '-',            polos: [],                      fases: [],                 salidaPE: false }
 };
 
-const COLORES_IRAM = {
-    'L1': { hex: '#78350f', texto: '#ffffff', label: 'L1' },
-    'L2': { hex: '#1e293b', texto: '#ffffff', label: 'L2' },
-    'L3': { hex: '#dc2626', texto: '#ffffff', label: 'L3' },
-    'N':  { hex: '#0284c7', texto: '#ffffff', label: 'N' },
-    'PE': { hex: '#16a34a', texto: '#ffffff', label: 'PE' }
+const ESTILOS_CONDUCTOR_IRAM = {
+    L1: { stroke: '#92400e', text: '#78350f', bg: '#fef3c7' }, // Marrón
+    L2: { stroke: '#1e293b', text: '#0f172a', bg: '#e2e8f0' }, // Negro
+    L3: { stroke: '#dc2626', text: '#991b1b', bg: '#fee2e2' }, // Rojo
+    N:  { stroke: '#0284c7', text: '#075985', bg: '#e0f2fe' }, // Celeste
+    PE: { stroke: '#16a34a', text: '#14532d', bg: '#dcfce7' }  // Verde / Amarillo
 };
 
-const PRECARGAS_TOPO = {
-    'id_2p_40': { codigo: 'ID1', nombre: 'Interruptor Diferencial 40A 30mA', modulos: 2, polos: 'L1+N', calibre: '40A • 30mA AC', tipo: 'ID', bornera: 'Peine / Barras TS' },
-    'id_4p_40': { codigo: 'ID1', nombre: 'Interruptor Diferencial Tetrapolar 40A', modulos: 4, polos: 'L1-L2-L3-N', calibre: '40A • 30mA AC', tipo: 'ID', bornera: 'Peine 3F+N' },
-    'pia_2p_c10': { codigo: 'C1', nombre: 'PIA Bipolar C10 - Iluminación (IUG)', modulos: 2, polos: 'L1+N', calibre: 'C10A • 4.5kA', tipo: 'PIA', bornera: '2x1.5mm² + PE' },
-    'pia_2p_c16': { codigo: 'C2', nombre: 'PIA Bipolar C16 - Tomacorrientes (TUG)', modulos: 2, polos: 'L1+N', calibre: 'C16A • 4.5kA', tipo: 'PIA', bornera: '2x2.5mm² + PE' },
-    'pia_2p_c20': { codigo: 'C3', nombre: 'PIA Bipolar C20 - Especiales (TUE/ACU)', modulos: 2, polos: 'L2+N', calibre: 'C20A • 4.5kA', tipo: 'PIA', bornera: '2x2.5mm² + PE' },
-    'pia_2p_c25': { codigo: 'IG', nombre: 'PIA Bipolar C25 - Cabecera General', modulos: 2, polos: 'L1+N', calibre: 'C25A • 6kA', tipo: 'PIA', bornera: '2x4mm² + PE' },
-    'pia_2p_c32': { codigo: 'IG', nombre: 'PIA Bipolar C32 - Cabecera General', modulos: 2, polos: 'L1+N', calibre: 'C32A • 6kA', tipo: 'PIA', bornera: '2x6mm² + PE' },
-    'pia_4p_c25': { codigo: 'IG', nombre: 'PIA Tetrapolar C25 - Cabecera Trifásica', modulos: 4, polos: 'L1-L2-L3-N', calibre: 'C25A • 6kA', tipo: 'PIA', bornera: '4x4mm² + PE' },
-    'pia_4p_c32': { codigo: 'IG', nombre: 'PIA Tetrapolar C32 - Cabecera Trifásica', modulos: 4, polos: 'L1-L2-L3-N', calibre: 'C32A • 6kA', tipo: 'PIA', bornera: '4x6mm² + PE' },
-    'dps_2p': { codigo: 'DPS', nombre: 'Descargador Sobretensiones Tipo 2 (1P+N)', modulos: 2, polos: 'L1+N', calibre: 'In 20kA • Uc 275V', tipo: 'DPS', bornera: 'Cable 6mm² a Bornera PE' },
-    'dps_4p': { codigo: 'DPS', nombre: 'Descargador Sobretensiones Tipo 2 (3P+N)', modulos: 4, polos: 'L1-L2-L3-N', calibre: 'In 20kA • Uc 275V', tipo: 'DPS', bornera: 'Cable 6mm² a Bornera PE' },
-    'relevador_1m': { codigo: 'PT1', nombre: 'Protector de Alta y Baja Tensión DIN', modulos: 2, polos: 'L1+N', calibre: '40A • Corte Auto', tipo: 'CONT', bornera: 'Entrada / Salida Cabecera' },
-    'piloto_1m': { codigo: 'LP1', nombre: 'Luz Piloto LED Señalización Presencia', modulos: 1, polos: 'L1', calibre: '230V AC • LED', tipo: 'PILOTO', bornera: '1.5mm² + N' },
-    'reserva_1m': { codigo: 'RES', nombre: 'Espacio Reserva / Tapa Ciega DIN', modulos: 1, polos: 'NONE', calibre: 'Reserva AEA', tipo: 'RESERVA', bornera: 'Libre' }
+// Estado principal del gabinete topográfico
+let estadoGabinete = {
+    nombre: 'TS1',
+    ip: 'IP41 • PVC Autoextinguible',
+    montaje: 'De Embutir',
+    filasCount: 1,
+    modulosPorFila: 12,
+    borneras: 'PE',
+    filas: [
+        [
+            { tipo: 'ID',  modulos: 2, tag: 'ID1', calibre: '2x40A • 30mA AC', color: 'azul', polaridad: 'L1_N', peine: 'NONE', destino: 'Cabecera Diferencial TS1', cable: '2x6 + PE mm²',   conexionado: 'Entrada Línea → Salida Peine' },
+            { tipo: 'PIA', modulos: 2, tag: 'C1',  calibre: '2x10A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'IUG - Iluminación General', cable: '2x1.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C1' },
+            { tipo: 'PIA', modulos: 2, tag: 'C2',  calibre: '2x16A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'TUG - Tomas Uso General',   cable: '2x2.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C2' },
+            { tipo: 'PIA', modulos: 2, tag: 'C3',  calibre: '2x20A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'ACU - Aire Acondicionado',  cable: '2x4 + PE mm²',   conexionado: 'Alim: Peine ID1 → Salida C3' }
+        ]
+    ]
 };
 
-let estadoTopo = {
-    cliente: {
-        nombre: '',
-        direccion: '',
-        proyecto: '',
-        telefono: '',
-        agendado: false,
-        contactoId: ''
-    },
-    gabinetes: [
-        {
-            id: 'gab_1',
-            codigo: 'TS1',
-            nombre: 'Tablero Seccional Principal',
-            modulos: 12,
-            ip: 'IP41 • PVC Autoextinguible',
-            montaje: 'Embutir',
-            borneras: 'PE + Neutro',
-            peineActivo: true,
-            dispositivos: []
-        }
-    ],
-    gabineteActivoId: 'gab_1',
-    mostrarPolos: true,
-    observaciones: '',
-    borradorId: null
-};
-
-let agendaCacheTopo = [];
-let borradoresCacheTopo = [];
-let timerAutoNube = null;
-
-// ============================================================================
-// UTILIDADES Y SEGURIDAD
-// ============================================================================
-function escapeHtml(str) {
-    if (str === null || str === undefined) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-
+// ==========================================================================
+// INICIALIZACIÓN Y SESIÓN FIREBASE (COLECCIÓN OFICIAL: perfiles/{uid})
+// ==========================================================================
 function obtenerUid() {
-    const u = firebase.auth().currentUser;
-    return u ? u.uid : null;
-}
-
-function mostrarAlertaCorp(titulo, mensaje, tipo = 'info') {
-    const modal = document.getElementById('modalAlertaCorp');
-    const ico = document.getElementById('alertaCorpIcono');
-    document.getElementById('alertaCorpTitulo').textContent = titulo;
-    document.getElementById('alertaCorpMensaje').textContent = mensaje;
-    if (tipo === 'error') {
-        ico.className = 'fa-solid fa-triangle-exclamation';
-        ico.style.color = 'var(--error-red)';
-    } else if (tipo === 'success') {
-        ico.className = 'fa-solid fa-circle-check';
-        ico.style.color = 'var(--success-green)';
-    } else {
-        ico.className = 'fa-solid fa-circle-info';
-        ico.style.color = 'var(--ngc-neon)';
+    if (uidSeguro) return uidSeguro;
+    if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        uidSeguro = firebase.auth().currentUser.uid;
+        return uidSeguro;
     }
-    modal.classList.remove('oculto');
+    return null;
 }
+function obtenerUidSeguro() { return obtenerUid(); }
 
-function cerrarAlertaCorp() {
-    document.getElementById('modalAlertaCorp').classList.add('oculto');
-}
-
-function obtenerGabineteActivo() {
-    let gab = estadoTopo.gabinetes.find(g => g.id === estadoTopo.gabineteActivoId);
-    if (!gab && estadoTopo.gabinetes.length > 0) {
-        gab = estadoTopo.gabinetes[0];
-        estadoTopo.gabineteActivoId = gab.id;
-    }
-    return gab;
-}
-
-// ============================================================================
-// ARRANQUE Y PERSISTENCIA OFFLINE-FIRST
-// ============================================================================
-firebase.auth().onAuthStateChanged(async (user) => {
-    if (!user) return;
+document.addEventListener('DOMContentLoaded', () => {
     try {
-        await inicializarModuloTopografico();
-    } finally {
-        const loader = document.getElementById('loading');
-        if (loader) loader.style.display = 'none';
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            db = firebase.firestore();
+            firebase.auth().onAuthStateChanged(user => {
+                if (user) {
+                    uidSeguro = user.uid;
+                    actualizarBadgeNube();
+                    verificarBorradorPendienteDesdeAgenda();
+                }
+            });
+        }
+    } catch (e) {
+        console.warn('Aviso Firebase Topográfico:', e);
     }
+
+    generarMenuInferiorLocal();
+    cargarEstadoInicial();
 });
 
-async function inicializarModuloTopografico() {
-    generarMenuInferior();
-
-    // 1. Verificar si venimos desde Agenda abriendo un borrador específico
+function verificarBorradorPendienteDesdeAgenda() {
     const pendienteRaw = localStorage.getItem('villaser_abrir_borrador_pendiente');
-    if (pendienteRaw) {
-        try {
-            const pend = JSON.parse(pendienteRaw);
-            if (pend && pend.modulo === 'topografico' && pend.id) {
-                localStorage.removeItem('villaser_abrir_borrador_pendiente');
-                const uid = obtenerUid();
-                if (uid) {
-                    const doc = await db.collection('usuarios').doc(uid).collection('borradores_topografico').doc(pend.id).get();
-                    if (doc.exists) {
-                        aplicarDatosBorradorTopo(doc.id, doc.data());
-                        entrarAPantallaTrabajo();
-                        return;
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn('No se pudo abrir borrador pendiente:', e);
-        }
-    }
-
-    // 2. Restaurar estado local si existe
-    const guardado = localStorage.getItem(STORAGE_KEY_TOPO);
-    if (guardado) {
-        try {
-            const parsed = JSON.parse(guardado);
-            if (parsed && parsed.cliente) {
-                estadoTopo = Object.assign({}, estadoTopo, parsed);
-                if (!Array.isArray(estadoTopo.gabinetes) || estadoTopo.gabinetes.length === 0) {
-                    estadoTopo.gabinetes = [{
-                        id: 'gab_1', codigo: 'TS1', nombre: 'Tablero Seccional Principal',
-                        modulos: 12, ip: 'IP41 • PVC Autoextinguible', montaje: 'Embutir',
-                        borneras: 'PE + Neutro', peineActivo: true, dispositivos: []
-                    }];
-                    estadoTopo.gabineteActivoId = 'gab_1';
-                }
-                poblarCamposClienteDesdeEstado();
-                if (estadoTopo.cliente.nombre && estadoTopo.cliente.direccion && estadoTopo.cliente.proyecto) {
-                    entrarAPantallaTrabajo();
-                    return;
-                }
-            }
-        } catch (e) {
-            console.warn('Error leyendo caché local topográfico:', e);
-        }
-    }
-
-    // 3. Si no hay trabajo activo, revisar cliente global compartido entre módulos
-    const cliGlobalRaw = localStorage.getItem('villaser_cliente_global');
-    if (cliGlobalRaw) {
-        try {
-            const cg = JSON.parse(cliGlobalRaw);
-            if (cg && cg.nombre) {
-                estadoTopo.cliente.nombre = cg.nombre || '';
-                estadoTopo.cliente.direccion = cg.direccion || '';
-                estadoTopo.cliente.proyecto = cg.proyecto || '';
-                estadoTopo.cliente.telefono = cg.telefono || '';
-                estadoTopo.cliente.agendado = Boolean(cg.agendado || cg.id);
-                estadoTopo.cliente.contactoId = cg.id || cg.contactoId || '';
-                poblarCamposClienteDesdeEstado();
-            }
-        } catch (e) {}
-    }
-}
-
-function poblarCamposClienteDesdeEstado() {
-    document.getElementById('cliNombre').value = estadoTopo.cliente.nombre || '';
-    document.getElementById('cliDireccion').value = estadoTopo.cliente.direccion || '';
-    document.getElementById('cliProyecto').value = estadoTopo.cliente.proyecto || '';
-    document.getElementById('cliTelefono').value = estadoTopo.cliente.telefono || '';
-    const obsEl = document.getElementById('obsGeneralesTopo');
-    if (obsEl) obsEl.value = estadoTopo.observaciones || '';
-}
-
-function guardarEstadoLocalTopo() {
-    estadoTopo.cliente.nombre = document.getElementById('cliNombre').value.trim();
-    estadoTopo.cliente.direccion = document.getElementById('cliDireccion').value.trim();
-    estadoTopo.cliente.proyecto = document.getElementById('cliProyecto').value.trim();
-    estadoTopo.cliente.telefono = document.getElementById('cliTelefono').value.trim();
-
+    if (!pendienteRaw) return;
     try {
-        localStorage.setItem(STORAGE_KEY_TOPO, JSON.stringify(estadoTopo));
-        if (estadoTopo.cliente.nombre) {
-            localStorage.setItem('villaser_cliente_global', JSON.stringify({
-                nombre: estadoTopo.cliente.nombre,
-                direccion: estadoTopo.cliente.direccion,
-                proyecto: estadoTopo.cliente.proyecto,
-                telefono: estadoTopo.cliente.telefono,
-                agendado: estadoTopo.cliente.agendado,
-                id: estadoTopo.cliente.contactoId
-            }));
+        const pend = JSON.parse(pendienteRaw);
+        if (pend && pend.modulo === 'topografico' && pend.id) {
+            localStorage.removeItem('villaser_abrir_borrador_pendiente');
+            cargarBorradorTopografico(pend.id);
         }
     } catch (e) {
-        console.warn('Error guardando localStorage:', e);
+        console.warn('Error leyendo borrador pendiente:', e);
     }
 }
 
-function programarAutoNube() {
-    if (!estadoTopo.cliente.agendado) return;
-    clearTimeout(timerAutoNube);
-    timerAutoNube = setTimeout(() => {
-        guardarBorradorFirebase(false, true);
-    }, 2500);
-}
-
-// ============================================================================
-// FLUJO PASO 1 -> PASO 2 Y AGENDA
-// ============================================================================
-async function iniciarTopografico() {
-    guardarEstadoLocalTopo();
-    const { nombre, direccion, proyecto } = estadoTopo.cliente;
-    if (!nombre || !direccion || !proyecto) {
-        mostrarAlertaCorp('Datos Incompletos', 'Completá Cliente, Dirección y Proyecto para iniciar el tablero.', 'error');
-        return;
-    }
-
-    if (estadoTopo.cliente.agendado) {
-        entrarAPantallaTrabajo();
-        return;
-    }
-
-    const uid = obtenerUid();
-    if (!uid || !navigator.onLine) {
-        entrarAPantallaTrabajo();
-        return;
-    }
-
-    try {
-        const snap = await db.collection('usuarios').doc(uid).collection('contactos')
-            .where('nombre', '==', nombre).limit(1).get();
-        if (!snap.empty) {
-            const doc = snap.docs[0];
-            estadoTopo.cliente.agendado = true;
-            estadoTopo.cliente.contactoId = doc.id;
-            if (!estadoTopo.cliente.telefono && doc.data().telefono) {
-                estadoTopo.cliente.telefono = doc.data().telefono;
-            }
-            guardarEstadoLocalTopo();
-            entrarAPantallaTrabajo();
-        } else {
-            document.getElementById('modalConfirmarSinAgenda').classList.remove('oculto');
-        }
-    } catch (e) {
-        entrarAPantallaTrabajo();
-    }
-}
-
-function continuarSinAgendarTopo() {
-    document.getElementById('modalConfirmarSinAgenda').classList.add('oculto');
-    estadoTopo.cliente.agendado = false;
-    guardarEstadoLocalTopo();
-    entrarAPantallaTrabajo();
-}
-
-async function agendarYContinuarTopo() {
-    document.getElementById('modalConfirmarSinAgenda').classList.add('oculto');
-    const uid = obtenerUid();
-    if (uid) {
-        try {
-            const ref = await db.collection('usuarios').doc(uid).collection('contactos').add({
-                nombre: estadoTopo.cliente.nombre,
-                direccion: estadoTopo.cliente.direccion,
-                telefono: estadoTopo.cliente.telefono || '',
-                notas: 'Creado desde Tablero Topográfico',
-                fechaCreacion: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            estadoTopo.cliente.agendado = true;
-            estadoTopo.cliente.contactoId = ref.id;
-            guardarEstadoLocalTopo();
-        } catch (e) {
-            console.warn('Error agendando contacto:', e);
-        }
-    }
-    entrarAPantallaTrabajo();
-}
-
-function entrarAPantallaTrabajo() {
-    document.getElementById('step-cliente').classList.add('oculto');
-    document.getElementById('step-trabajo').classList.remove('oculto');
-    document.getElementById('dockTopograficoFlotante').classList.remove('oculto');
-
-    document.getElementById('ui-cli-nombre').textContent = estadoTopo.cliente.nombre;
-    document.getElementById('ui-cli-sub').textContent = `${estadoTopo.cliente.direccion} • ${estadoTopo.cliente.proyecto}`;
-    document.getElementById('obsGeneralesTopo').value = estadoTopo.observaciones || '';
-
-    actualizarBadgeNube(estadoTopo.cliente.agendado ? 'synced' : 'local');
-    renderizarTodoTopografico();
-}
-
-function volverAEditarCliente() {
-    document.getElementById('step-trabajo').classList.add('oculto');
-    document.getElementById('dockTopograficoFlotante').classList.add('oculto');
-    document.getElementById('step-cliente').classList.remove('oculto');
-    poblarCamposClienteDesdeEstado();
-}
-
-function actualizarBadgeNube(estado) {
-    const badge = document.getElementById('ui-cloud-badge');
-    if (!badge) return;
-    if (estado === 'saving') {
-        badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando';
-        badge.style.color = '#f59e0b';
-    } else if (estado === 'synced') {
-        badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Nube OK';
-        badge.style.color = 'var(--success-green)';
-    } else if (estado === 'error') {
-        badge.innerHTML = '<i class="fa-solid fa-cloud-exclamation"></i> Sin Nube';
-        badge.style.color = 'var(--error-red)';
-    } else {
-        badge.innerHTML = '<i class="fa-solid fa-hard-drive"></i> Local';
-        badge.style.color = 'var(--ngc-text-faded)';
-    }
-}
-
-// ============================================================================
-// AGENDA GLOBAL
-// ============================================================================
-async function abrirModalAgendaGlobal() {
-    const modal = document.getElementById('modalAgenda');
-    const lista = document.getElementById('listaAgendaGlobal');
-    document.getElementById('buscadorAgendaInput').value = '';
-    lista.innerHTML = '<div style="text-align:center; padding:20px; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando clientes...</div>';
-    modal.classList.remove('oculto');
-
-    const uid = obtenerUid();
-    if (!uid) {
-        lista.innerHTML = '<div style="text-align:center; padding:16px; color:var(--error-red);">Sesión no iniciada.</div>';
-        return;
-    }
-    try {
-        const snap = await db.collection('usuarios').doc(uid).collection('contactos').orderBy('nombre').get();
-        agendaCacheTopo = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderizarListaAgenda(agendaCacheTopo);
-    } catch (e) {
-        lista.innerHTML = '<div style="text-align:center; padding:16px; color:var(--error-red);">Error al leer Agenda.</div>';
-    }
-}
-
-function filtrarAgendaGlobal() {
-    const q = document.getElementById('buscadorAgendaInput').value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const filtrados = agendaCacheTopo.filter(c => {
-        const nom = (c.nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const dir = (c.direccion || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return nom.includes(q) || dir.includes(q);
-    });
-    renderizarListaAgenda(filtrados);
-}
-
-function renderizarListaAgenda(listaClientes) {
-    const cont = document.getElementById('listaAgendaGlobal');
-    if (!listaClientes.length) {
-        cont.innerHTML = '<div style="text-align:center; padding:16px; color:var(--ngc-text-faded);">Sin clientes coincidentes.</div>';
-        return;
-    }
-    cont.innerHTML = listaClientes.map(c => `
-        <div class="modal-list-item" style="cursor:pointer;" onclick="seleccionarContacto('${escapeHtml(c.id)}')">
-            <div style="font-weight:800; color:var(--ngc-text-main);">${escapeHtml(c.nombre)}</div>
-            <div style="font-size:0.78rem; color:var(--ngc-text-faded);">${escapeHtml(c.direccion || 'Sin dirección')} ${c.telefono ? '• ' + escapeHtml(c.telefono) : ''}</div>
-        </div>
-    `).join('');
-}
-
-function seleccionarContacto(id) {
-    const c = agendaCacheTopo.find(item => item.id === id);
-    if (!c) return;
-    estadoTopo.cliente.nombre = c.nombre || '';
-    estadoTopo.cliente.direccion = c.direccion || '';
-    estadoTopo.cliente.telefono = c.telefono || '';
-    estadoTopo.cliente.agendado = true;
-    estadoTopo.cliente.contactoId = c.id;
-    poblarCamposClienteDesdeEstado();
-    guardarEstadoLocalTopo();
-    cerrarModalAgendaGlobal();
-}
-
-function cerrarModalAgendaGlobal() {
-    document.getElementById('modalAgenda').classList.add('oculto');
-}
-
-// ============================================================================
-// GESTIÓN DE GABINETES
-// ============================================================================
-function abrirModalGabinete(gabId) {
-    const modal = document.getElementById('modalGabinete');
-    if (gabId) {
-        const gab = estadoTopo.gabinetes.find(g => g.id === gabId);
-        if (!gab) return;
-        document.getElementById('tituloModalGabinete').innerHTML = '<i class="fa-solid fa-pen"></i> Editar Gabinete';
-        document.getElementById('editGabId').value = gab.id;
-        document.getElementById('gabCodigo').value = gab.codigo;
-        document.getElementById('gabNombre').value = gab.nombre;
-        document.getElementById('gabModulos').value = String(gab.modulos);
-        document.getElementById('gabIP').value = gab.ip;
-        document.getElementById('gabMontaje').value = gab.montaje;
-        document.getElementById('gabBorneras').value = gab.borneras;
-    } else {
-        const n = estadoTopo.gabinetes.length + 1;
-        document.getElementById('tituloModalGabinete').innerHTML = '<i class="fa-solid fa-plus"></i> Nuevo Gabinete';
-        document.getElementById('editGabId').value = '';
-        document.getElementById('gabCodigo').value = `TS${n}`;
-        document.getElementById('gabNombre').value = `Tablero Seccional ${n}`;
-        document.getElementById('gabModulos').value = '12';
-        document.getElementById('gabIP').value = 'IP41 • PVC Autoextinguible';
-        document.getElementById('gabMontaje').value = 'Embutir';
-        document.getElementById('gabBorneras').value = 'PE + Neutro';
-    }
-    modal.classList.remove('oculto');
-}
-
-function cerrarModalGabinete() {
-    document.getElementById('modalGabinete').classList.add('oculto');
-}
-
-function guardarGabinete() {
-    const editId = document.getElementById('editGabId').value;
-    const codigo = document.getElementById('gabCodigo').value.trim() || 'TS1';
-    const nombre = document.getElementById('gabNombre').value.trim() || 'Tablero Seccional';
-    const modulos = parseInt(document.getElementById('gabModulos').value, 10) || 12;
-    const ip = document.getElementById('gabIP').value;
-    const montaje = document.getElementById('gabMontaje').value;
-    const borneras = document.getElementById('gabBorneras').value;
-
-    if (editId) {
-        const gab = estadoTopo.gabinetes.find(g => g.id === editId);
-        if (gab) {
-            gab.codigo = codigo;
-            gab.nombre = nombre;
-            gab.modulos = modulos;
-            gab.ip = ip;
-            gab.montaje = montaje;
-            gab.borneras = borneras;
-        }
-    } else {
-        const nuevoId = 'gab_' + Date.now();
-        estadoTopo.gabinetes.push({
-            id: nuevoId,
-            codigo,
-            nombre,
-            modulos,
-            ip,
-            montaje,
-            borneras,
-            peineActivo: true,
-            dispositivos: []
-        });
-        estadoTopo.gabineteActivoId = nuevoId;
-    }
-
-    cerrarModalGabinete();
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function seleccionarGabineteActivo(gabId) {
-    estadoTopo.gabineteActivoId = gabId;
-    guardarEstadoLocalTopo();
-    renderizarTodoTopografico();
-}
-
-function eliminarGabinete(gabId) {
-    if (estadoTopo.gabinetes.length <= 1) {
-        mostrarAlertaCorp('Acción no permitida', 'Debe existir al menos un gabinete en el proyecto.', 'error');
-        return;
-    }
-    estadoTopo.gabinetes = estadoTopo.gabinetes.filter(g => g.id !== gabId);
-    estadoTopo.gabineteActivoId = estadoTopo.gabinetes[0].id;
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-// ============================================================================
-// GESTIÓN DE DISPOSITIVOS EN RIEL DIN (ALTA, EDICIÓN, DUPLICADO, REORDEN)
-// ============================================================================
-function aplicarPrecargaDispositivo() {
-    const key = document.getElementById('devPrecarga').value;
-    const p = PRECARGAS_TOPO[key];
-    if (!p) return;
-    document.getElementById('devCodigo').value = p.codigo;
-    document.getElementById('devNombre').value = p.nombre;
-    document.getElementById('devModulos').value = String(p.modulos);
-    document.getElementById('devPolos').value = p.polos;
-    document.getElementById('devCalibre').value = p.calibre;
-    document.getElementById('devTipo').value = p.tipo;
-    document.getElementById('devBornera').value = p.bornera;
-}
-
-function sincronizarPolosConModulos() {
-    const mods = parseInt(document.getElementById('devModulos').value, 10);
-    const polosEl = document.getElementById('devPolos');
-    if (mods === 1 && polosEl.value.includes('+')) polosEl.value = 'L1';
-    if (mods === 2 && !polosEl.value.includes('+')) polosEl.value = 'L1+N';
-    if (mods === 3) polosEl.value = 'L1-L2-L3';
-    if (mods === 4) polosEl.value = 'L1-L2-L3-N';
-}
-
-function abrirModalDispositivo(devId) {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    const modal = document.getElementById('modalDispositivoTopo');
-
-    if (devId) {
-        const dev = gab.dispositivos.find(d => d.id === devId);
-        if (!dev) return;
-        document.getElementById('tituloModalDispositivo').innerHTML = '<i class="fa-solid fa-pen"></i> Editar Dispositivo DIN';
-        document.getElementById('editDevId').value = dev.id;
-        document.getElementById('devPrecarga').value = '';
-        document.getElementById('devCodigo').value = dev.codigo;
-        document.getElementById('devNombre').value = dev.nombre;
-        document.getElementById('devModulos').value = String(dev.modulos);
-        document.getElementById('devPolos').value = dev.polos;
-        document.getElementById('devCalibre').value = dev.calibre;
-        document.getElementById('devTipo').value = dev.tipo;
-        document.getElementById('devBornera').value = dev.bornera;
-    } else {
-        const nextNum = gab.dispositivos.filter(d => d.tipo === 'PIA').length + 1;
-        document.getElementById('tituloModalDispositivo').innerHTML = '<i class="fa-solid fa-plus-circle"></i> Agregar Dispositivo DIN';
-        document.getElementById('editDevId').value = '';
-        document.getElementById('devPrecarga').value = '';
-        document.getElementById('devCodigo').value = `C${nextNum}`;
-        document.getElementById('devNombre').value = `PIA Bipolar C16 - Circuito ${nextNum}`;
-        document.getElementById('devModulos').value = '2';
-        document.getElementById('devPolos').value = 'L1+N';
-        document.getElementById('devCalibre').value = 'C16A • 4.5kA';
-        document.getElementById('devTipo').value = 'PIA';
-        document.getElementById('devBornera').value = '2x2.5mm² + PE';
-    }
-    modal.classList.remove('oculto');
-}
-
-function cerrarModalDispositivo() {
-    document.getElementById('modalDispositivoTopo').classList.add('oculto');
-}
-
-function guardarDispositivoTopo() {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-
-    const editId = document.getElementById('editDevId').value;
-    const codigo = document.getElementById('devCodigo').value.trim() || 'C1';
-    const nombre = document.getElementById('devNombre').value.trim() || 'Dispositivo DIN';
-    const modulos = parseInt(document.getElementById('devModulos').value, 10) || 2;
-    const polos = document.getElementById('devPolos').value;
-    const calibre = document.getElementById('devCalibre').value.trim();
-    const tipo = document.getElementById('devTipo').value;
-    const bornera = document.getElementById('devBornera').value.trim();
-
-    if (editId) {
-        const dev = gab.dispositivos.find(d => d.id === editId);
-        if (dev) {
-            Object.assign(dev, { codigo, nombre, modulos, polos, calibre, tipo, bornera });
-        }
-    } else {
-        gab.dispositivos.push({
-            id: 'dev_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-            codigo,
-            nombre,
-            modulos,
-            polos,
-            calibre,
-            tipo,
-            bornera
-        });
-    }
-
-    cerrarModalDispositivo();
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function duplicarDispositivoTopo(devId) {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    const idx = gab.dispositivos.findIndex(d => d.id === devId);
-    if (idx === -1) return;
-    const orig = gab.dispositivos[idx];
-
-    // Incrementar código automáticamente si termina en número (ej: C1 -> C2)
-    let nuevoCodigo = orig.codigo;
-    const match = orig.codigo.match(/^([A-Za-z]+)(\d+)$/);
-    if (match) {
-        nuevoCodigo = `${match[1]}${parseInt(match[2], 10) + 1}`;
-    }
-
-    const copia = {
-        ...orig,
-        id: 'dev_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
-        codigo: nuevoCodigo
-    };
-
-    gab.dispositivos.splice(idx + 1, 0, copia);
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function moverDispositivoTopo(devId, delta) {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    const idx = gab.dispositivos.findIndex(d => d.id === devId);
-    const destino = idx + delta;
-    if (idx === -1 || destino < 0 || destino >= gab.dispositivos.length) return;
-    const temp = gab.dispositivos[idx];
-    gab.dispositivos[idx] = gab.dispositivos[destino];
-    gab.dispositivos[destino] = temp;
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function eliminarDispositivoTopo(devId) {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    gab.dispositivos = gab.dispositivos.filter(d => d.id !== devId);
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function toggleMostrarPolos() {
-    estadoTopo.mostrarPolos = !estadoTopo.mostrarPolos;
-    guardarEstadoLocalTopo();
-    renderizarTodoTopografico();
-}
-
-function togglePeineGabineteActivo() {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    gab.peineActivo = !gab.peineActivo;
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-}
-
-function actualizarObservacionesTopo() {
-    estadoTopo.observaciones = document.getElementById('obsGeneralesTopo').value;
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarVistaPreviaA4();
-        }
-
-// ============================================================================
-// CÁLCULO DE MÉTRICAS, EQUILIBRIO DE FASES Y RENDERIZADO UNIFICADO
-// ============================================================================
-function calcularMetricasGabinete(gab) {
-    let modulosOcupados = 0;
-    const fases = { L1: 0, L2: 0, L3: 0 };
-
-    gab.dispositivos.forEach(d => {
-        modulosOcupados += (parseInt(d.modulos, 10) || 1);
-        const listaPolos = MAPAS_POLARIDAD[d.polos] || [];
-        // Contabilizar circuitos terminales / cargas en fases
-        if (d.tipo !== 'ID' && d.tipo !== 'DPS' && d.tipo !== 'RESERVA') {
-            if (listaPolos.includes('L1')) fases.L1++;
-            if (listaPolos.includes('L2')) fases.L2++;
-            if (listaPolos.includes('L3')) fases.L3++;
-        }
-    });
-
-    const modulosLibres = Math.max(0, gab.modulos - modulosOcupados);
-    const excedido = modulosOcupados > gab.modulos;
-    const porcentaje = Math.min(100, Math.round((modulosOcupados / gab.modulos) * 100));
-
-    return { modulosOcupados, modulosLibres, excedido, porcentaje, fases };
-}
-
-function renderizarTodoTopografico() {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    const metricas = calcularMetricasGabinete(gab);
-
-    // 1. Tabs de Gabinetes
-    const tabsCont = document.getElementById('tabsGabinetesTopo');
-    tabsCont.innerHTML = estadoTopo.gabinetes.map(g => {
-        const m = calcularMetricasGabinete(g);
-        const activo = g.id === gab.id ? 'active' : '';
-        return `
-            <button type="button" class="topo-gab-chip ${activo}" onclick="seleccionarGabineteActivo('${escapeHtml(g.id)}')">
-                <i class="fa-solid fa-server"></i> ${escapeHtml(g.codigo)} (${m.modulosOcupados}/${g.modulos})
-            </button>
-        `;
-    }).join('');
-
-    // 2. Detalle del Gabinete Activo
-    document.getElementById('detalleGabineteActivo').innerHTML = `
-        <div style="background: var(--ngc-bg-input); border: 1px solid var(--ngc-privacy-border); border-radius: 9px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-            <div style="min-width: 0;">
-                <div style="font-size: 0.86rem; font-weight: 800; color: var(--ngc-text-main);">${escapeHtml(gab.codigo)} — ${escapeHtml(gab.nombre)}</div>
-                <div style="font-size: 0.74rem; color: var(--ngc-text-faded); margin-top: 2px;">${gab.modulos} mód. DIN • ${escapeHtml(gab.ip)} • ${escapeHtml(gab.montaje)}</div>
-            </div>
-            <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                <button type="button" class="topo-mini-btn" onclick="abrirModalGabinete('${escapeHtml(gab.id)}')" title="Editar gabinete"><i class="fa-solid fa-pen"></i></button>
-                ${estadoTopo.gabinetes.length > 1 ? `<button type="button" class="topo-mini-btn danger" onclick="eliminarGabinete('${escapeHtml(gab.id)}')" title="Eliminar gabinete"><i class="fa-solid fa-trash"></i></button>` : ''}
-            </div>
-        </div>
-    `;
-
-    // 3. Subtítulo y Barra de Ocupación DIN
-    const subRiel = document.getElementById('subtituloRielActivo');
-    subRiel.textContent = `${metricas.modulosOcupados} / ${gab.modulos} módulos ocupados (${metricas.modulosLibres} libres)`;
-    subRiel.style.color = metricas.excedido ? 'var(--error-red)' : 'var(--ngc-text-faded)';
-
-    document.getElementById('txtPorcentajeRiel').textContent = `${metricas.porcentaje}%`;
-    const barra = document.getElementById('barraOcupacionTopo');
-    barra.style.width = `${metricas.porcentaje}%`;
-    barra.style.background = metricas.excedido ? 'var(--error-red)' : (metricas.porcentaje > 85 ? '#f59e0b' : 'var(--ngc-neon)');
-
-    const btnPolos = document.getElementById('btnTogglePolos');
-    btnPolos.className = `topo-mini-btn ${estadoTopo.mostrarPolos ? 'accent' : ''}`;
-    btnPolos.innerHTML = `<i class="fa-solid fa-plug"></i> Polaridad IRAM: ${estadoTopo.mostrarPolos ? 'ON' : 'OFF'}`;
-
-    const btnPeine = document.getElementById('btnTogglePeine');
-    btnPeine.className = `topo-mini-btn ${gab.peineActivo ? 'accent' : ''}`;
-    btnPeine.innerHTML = `<i class="fa-solid fa-grip-lines"></i> Peine DIN: ${gab.peineActivo ? 'ON' : 'OFF'}`;
-
-    // 4. Listado Compacto de Dispositivos en Riel DIN
-    const listaCont = document.getElementById('listaDispositivosTopo');
-    if (!gab.dispositivos.length) {
-        listaCont.innerHTML = `
-            <div style="text-align: center; padding: 22px 12px; border: 1px dashed var(--ngc-privacy-border); border-radius: 10px; color: var(--ngc-text-faded); font-size: 0.82rem;">
-                <i class="fa-solid fa-microchip" style="font-size: 1.5rem; margin-bottom: 6px; display: block; color: var(--ngc-neon);"></i>
-                Todavía no hay dispositivos en <strong>${escapeHtml(gab.codigo)}</strong>.<br>Tocá <strong>+ Dispositivo</strong> o importá desde Unifilar / Potencia.
-            </div>
-        `;
-    } else {
-        let posActual = 1;
-        listaCont.innerHTML = gab.dispositivos.map((d, index) => {
-            const mods = parseInt(d.modulos, 10) || 1;
-            const posFin = posActual + mods - 1;
-            const rangoTxt = mods === 1 ? `M${posActual}` : `M${posActual}–M${posFin}`;
-            posActual = posFin + 1;
-
-            const polosArr = MAPAS_POLARIDAD[d.polos] || [];
-            const polosHtml = polosArr.map(p => `<span class="topo-fase-pill fase-${p}">${p}</span>`).join(' ');
-
-            return `
-                <div class="topo-dev-row">
-                    <div class="topo-dev-top">
-                        <div style="min-width: 0; flex: 1;">
-                            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                                <span style="background: rgba(var(--ngc-neon-rgb), 0.16); color: var(--ngc-neon); font-size: 0.7rem; font-weight: 800; padding: 2px 7px; border-radius: 5px;">${rangoTxt} (${mods}M)</span>
-                                <span style="font-weight: 900; font-size: 0.82rem; color: var(--ngc-text-main);">${escapeHtml(d.codigo)}</span>
-                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--ngc-text-main);">${escapeHtml(d.nombre)}</span>
-                            </div>
-                            <div style="font-size: 0.74rem; color: var(--ngc-text-faded); margin-top: 4px;">
-                                ${escapeHtml(d.calibre || d.tipo)} ${d.bornera ? '• ' + escapeHtml(d.bornera) : ''}
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 3px; flex-shrink: 0;">${polosHtml}</div>
-                    </div>
-                    <div class="topo-dev-actions">
-                        <button type="button" class="topo-mini-btn" onclick="moverDispositivoTopo('${escapeHtml(d.id)}', -1)" ${index === 0 ? 'disabled style="opacity:0.4;"' : ''} title="Mover izquierda"><i class="fa-solid fa-arrow-up"></i></button>
-                        <button type="button" class="topo-mini-btn" onclick="moverDispositivoTopo('${escapeHtml(d.id)}', 1)" ${index === gab.dispositivos.length - 1 ? 'disabled style="opacity:0.4;"' : ''} title="Mover derecha"><i class="fa-solid fa-arrow-down"></i></button>
-                        <button type="button" class="topo-mini-btn accent" onclick="duplicarDispositivoTopo('${escapeHtml(d.id)}')" title="Duplicar dispositivo"><i class="fa-solid fa-copy"></i> Duplicar</button>
-                        <button type="button" class="topo-mini-btn" onclick="abrirModalDispositivo('${escapeHtml(d.id)}')" title="Editar"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" class="topo-mini-btn danger" onclick="eliminarDispositivoTopo('${escapeHtml(d.id)}')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    // 5. Actualizar Dock Flotante y KPIs del Cajón
-    document.getElementById('dockTopoResumen').textContent =
-        `${gab.codigo} • ${metricas.modulosOcupados}/${gab.modulos} mód. • ${gab.dispositivos.length} disp.`;
-
-    const dockAlerta = document.getElementById('dockTopoAlerta');
-    if (metricas.excedido) {
-        dockAlerta.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> +${metricas.modulosOcupados - gab.modulos} mód.`;
-        dockAlerta.style.color = 'var(--error-red)';
-    } else {
-        dockAlerta.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${metricas.modulosLibres} libres`;
-        dockAlerta.style.color = 'var(--success-green)';
-    }
-
-    document.getElementById('kpiTopoOcupados').textContent = `${metricas.modulosOcupados} / ${gab.modulos}`;
-    document.getElementById('kpiTopoLibres').textContent = metricas.excedido ? `-${metricas.modulosOcupados - gab.modulos}` : `${metricas.modulosLibres}`;
-    document.getElementById('kpiTopoLibres').style.color = metricas.excedido ? 'var(--error-red)' : 'var(--success-green)';
-    document.getElementById('kpiTopoDispositivos').textContent = `${gab.dispositivos.length}`;
-
-    document.getElementById('kpiFaseL1').textContent = `${metricas.fases.L1} circ.`;
-    document.getElementById('kpiFaseL2').textContent = `${metricas.fases.L2} circ.`;
-    document.getElementById('kpiFaseL3').textContent = `${metricas.fases.L3} circ.`;
-
-    const boxAuditoria = document.getElementById('boxAlertaAuditoriaTopo');
-    if (metricas.excedido) {
-        boxAuditoria.style.background = 'rgba(239, 68, 68, 0.14)';
-        boxAuditoria.style.color = '#ef4444';
-        boxAuditoria.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-        boxAuditoria.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <strong>Capacidad excedida:</strong> Los dispositivos ocupan ${metricas.modulosOcupados} módulos en un gabinete de ${gab.modulos}. Ampliá el gabinete o quitá elementos.`;
-    } else if (metricas.modulosLibres < Math.ceil(gab.modulos * 0.2)) {
-        boxAuditoria.style.background = 'rgba(245, 158, 11, 0.14)';
-        boxAuditoria.style.color = '#f59e0b';
-        boxAuditoria.style.borderColor = 'rgba(245, 158, 11, 0.35)';
-        boxAuditoria.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <strong>Reserva AEA 90364-7-770:</strong> Te quedan ${metricas.modulosLibres} módulos libres (se recomienda al menos 20% de reserva física).`;
-    } else {
-        boxAuditoria.style.background = 'rgba(40, 167, 69, 0.12)';
-        boxAuditoria.style.color = 'var(--success-green)';
-        boxAuditoria.style.borderColor = 'rgba(40, 167, 69, 0.3)';
-        boxAuditoria.innerHTML = `<i class="fa-solid fa-circle-check"></i> Gabinete conforme: ${metricas.modulosLibres} módulos disponibles (${Math.round((metricas.modulosLibres / gab.modulos) * 100)}% reserva).`;
-    }
-
-    // 6. Actualizar Lámina A4
-    renderizarVistaPreviaA4();
-}
-
-// ============================================================================
-// MOTOR GRÁFICO SVG PARAMÉTRICO DE TABLERO TOPOGRÁFICO
-// ============================================================================
-function generarSVGTopografico(gab) {
-    const totalMods = Math.max(4, parseInt(gab.modulos, 10) || 12);
-    const modW = totalMods <= 8 ? 44 : (totalMods <= 16 ? 34 : 26);
-    const rielAncho = totalMods * modW;
-    const margenX = 56;
-    const svgW = Math.max(540, rielAncho + margenX * 2);
-    const inicioRielX = (svgW - rielAncho) / 2;
-    const svgH = 340;
-    const rielY = 128;
-    const devH = 96;
-
-    const metricas = calcularMetricasGabinete(gab);
-
-    let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="720" height="335" style="max-width:100%; height:auto; font-family: Arial, Helvetica, sans-serif;">`;
-
-    // Fondo y Gabinete Exterior
-    svg += `<rect x="14" y="12" width="${svgW - 28}" height="${svgH - 24}" rx="12" fill="#e2e8f0" stroke="#334155" stroke-width="2.5"/>`;
-    svg += `<rect x="24" y="22" width="${svgW - 48}" height="${svgH - 44}" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>`;
-
-    // Placa Identificatoria Superior
-    const placaW = Math.min(340, svgW - 90);
-    const placaX = (svgW - placaW) / 2;
-    svg += `<rect x="${placaX}" y="28" width="${placaW}" height="34" rx="5" fill="#0f172a"/>`;
-    svg += `<text x="${svgW / 2}" y="43" fill="#ffffff" font-size="11.5" font-weight="bold" text-anchor="middle">${escapeHtml(gab.codigo)} - ${escapeHtml(gab.nombre).slice(0, 34)}</text>`;
-    svg += `<text x="${svgW / 2}" y="56" fill="#93c5fd" font-size="9" font-weight="bold" text-anchor="middle">${gab.modulos} MÓDULOS DIN • ${escapeHtml(gab.ip)} • ${escapeHtml(gab.montaje).toUpperCase()}</text>`;
-
-    // Riel DIN Metálico 35mm
-    svg += `<rect x="${inicioRielX - 10}" y="${rielY + 34}" width="${rielAncho + 20}" height="28" rx="2" fill="#cbd5e1" stroke="#475569" stroke-width="1.2"/>`;
-    svg += `<line x1="${inicioRielX - 10}" y1="${rielY + 41}" x2="${inicioRielX + rielAncho + 10}" y2="${rielY + 41}" stroke="#64748b" stroke-width="1"/>`;
-    svg += `<line x1="${inicioRielX - 10}" y1="${rielY + 55}" x2="${inicioRielX + rielAncho + 10}" y2="${rielY + 55}" stroke="#64748b" stroke-width="1"/>`;
-
-    // Grilla de Slots Vacíos y Numeración de Módulos
-    for (let i = 0; i < totalMods; i++) {
-        const sx = inicioRielX + i * modW;
-        svg += `<rect x="${sx}" y="${rielY}" width="${modW}" height="${devH}" fill="none" stroke="#cbd5e1" stroke-dasharray="3,2" stroke-width="1"/>`;
-        svg += `<text x="${sx + modW / 2}" y="${rielY - 6}" fill="#64748b" font-size="8.5" font-weight="bold" text-anchor="middle">${i + 1}</text>`;
-    }
-
-    // Dibujo de Dispositivos Instalados
-    let cursorX = inicioRielX;
-    let cursorMod = 0;
-    const centrosPeine = [];
-
-    gab.dispositivos.forEach((d) => {
-        const mods = parseInt(d.modulos, 10) || 1;
-        const w = mods * modW;
-        const x = cursorX;
-        const y = rielY;
-        const excede = (cursorMod + mods) > totalMods;
-
-        const cuerpoFill = d.tipo === 'RESERVA' ? '#e2e8f0' : '#ffffff';
-        const bordeStroke = excede ? '#dc2626' : '#1e293b';
-
-        // Carcasa del dispositivo
-        svg += `<rect x="${x + 1}" y="${y}" width="${w - 2}" height="${devH}" rx="3" fill="${cuerpoFill}" stroke="${bordeStroke}" stroke-width="1.8"/>`;
-
-        // Franja superior de identificación
-        const headerColor = d.tipo === 'ID' ? '#1d4ed8' : (d.tipo === 'DPS' ? '#b45309' : (d.tipo === 'RESERVA' ? '#64748b' : '#0f172a'));
-        svg += `<rect x="${x + 1}" y="${y}" width="${w - 2}" height="18" rx="2" fill="${headerColor}"/>`;
-        svg += `<text x="${x + w / 2}" y="${y + 12.5}" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${escapeHtml(d.codigo)}</text>`;
-
-        // Bornes superiores e inferiores + Puntas IRAM 2183
-        const polosArr = MAPAS_POLARIDAD[d.polos] || [];
-        if (d.tipo !== 'RESERVA') {
-            const cantPolos = Math.max(1, polosArr.length || mods);
-            const pasoPolo = w / cantPolos;
-
-            for (let p = 0; p < cantPolos; p++) {
-                const px = x + pasoPolo * p + pasoPolo / 2;
-                // Tornillo superior e inferior
-                svg += `<circle cx="${px}" cy="${y + 24}" r="3.2" fill="#94a3b8" stroke="#334155" stroke-width="1"/>`;
-                svg += `<circle cx="${px}" cy="${y + devH - 8}" r="3.2" fill="#94a3b8" stroke="#334155" stroke-width="1"/>`;
-
-                if (estadoTopo.mostrarPolos && polosArr[p]) {
-                    const faseKey = polosArr[p];
-                    const col = COLORES_IRAM[faseKey] || COLORES_IRAM['L1'];
-                    // Cable superior corto
-                    svg += `<line x1="${px}" y1="${y - 16}" x2="${px}" y2="${y}" stroke="${col.hex}" stroke-width="3.2" stroke-linecap="round"/>`;
-                    svg += `<rect x="${px - 7}" y="${y - 28}" width="14" height="11" rx="2" fill="${col.hex}"/>`;
-                    svg += `<text x="${px}" y="${y - 20}" fill="${col.texto}" font-size="7.5" font-weight="bold" text-anchor="middle">${col.label}</text>`;
-
-                    // Cable inferior de salida
-                    svg += `<line x1="${px}" y1="${y + devH}" x2="${px}" y2="${y + devH + 14}" stroke="${col.hex}" stroke-width="3" stroke-linecap="round"/>`;
-
-                    if (gab.peineActivo && d.tipo !== 'DPS') {
-                        centrosPeine.push({ x: px, color: col.hex });
-                    }
-                }
-            }
-
-            // Palanca / Actuador central
-            if (d.tipo === 'PIA' || d.tipo === 'ID') {
-                const palancaFill = d.tipo === 'ID' ? '#2563eb' : '#0f172a';
-                svg += `<rect x="${x + 6}" y="${y + 42}" width="${w - 12}" height="12" rx="2" fill="${palancaFill}"/>`;
-                if (d.tipo === 'ID') {
-                    // Botón Test "T"
-                    svg += `<rect x="${x + w - 15}" y="${y + 29}" width="9" height="9" rx="1.5" fill="#facc15" stroke="#854d0e" stroke-width="0.8"/>`;
-                    svg += `<text x="${x + w - 10.5}" y="${y + 36}" fill="#0f172a" font-size="7" font-weight="bold" text-anchor="middle">T</text>`;
-                }
-            } else if (d.tipo === 'DPS') {
-                svg += `<rect x="${x + 6}" y="${y + 38}" width="${w - 12}" height="20" rx="2" fill="#16a34a"/>`;
-                svg += `<text x="${x + w / 2}" y="${y + 51}" fill="#ffffff" font-size="8" font-weight="bold" text-anchor="middle">OK</text>`;
-            }
-
-            // Calibre impreso en el frente
-            svg += `<text x="${x + w / 2}" y="${y + 68}" fill="#0f172a" font-size="8.2" font-weight="bold" text-anchor="middle">${escapeHtml((d.calibre || '').split('•')[0].trim()).slice(0, 10)}</text>`;
-        } else {
-            svg += `<text x="${x + w / 2}" y="${y + 52}" fill="#64748b" font-size="8" font-weight="bold" text-anchor="middle">RES</text>`;
-        }
-
-        cursorX += w;
-        cursorMod += mods;
-    });
-
-    // Peine de distribución superior si está activo y hay al menos 2 puntos
-    if (gab.peineActivo && centrosPeine.length >= 2) {
-        const x1 = centrosPeine[0].x;
-        const x2 = centrosPeine[centrosPeine.length - 1].x;
-        svg += `<rect x="${x1 - 4}" y="${rielY - 12}" width="${(x2 - x1) + 8}" height="6" rx="2" fill="#f59e0b" stroke="#92400e" stroke-width="1"/>`;
-    }
-
-    // Borneras Inferiores (PE y Neutro)
-    if (gab.borneras !== 'Sin Bornera') {
-        const bornY = 266;
-        svg += `<rect x="44" y="${bornY}" width="190" height="24" rx="4" fill="#dcfce7" stroke="#16a34a" stroke-width="1.4"/>`;
-        svg += `<text x="139" y="${bornY + 15}" fill="#15803d" font-size="9" font-weight="bold" text-anchor="middle">BORNERA TIERRA (PE) • IRAM 2183</text>`;
-
-        if (gab.borneras === 'PE + Neutro') {
-            svg += `<rect x="${svgW - 234}" y="${bornY}" width="190" height="24" rx="4" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.4"/>`;
-            svg += `<text x="${svgW - 139}" y="${bornY + 15}" fill="#0369a1" font-size="9" font-weight="bold" text-anchor="middle">BORNERA NEUTRO (N) • CELESTE</text>`;
-        }
-    }
-
-    // Pie resumen dentro del gabinete
-    svg += `<text x="${svgW / 2}" y="${svgH - 22}" fill="#334155" font-size="9" font-weight="bold" text-anchor="middle">OCUPACIÓN: ${metricas.modulosOcupados}/${gab.modulos} MÓD. (${metricas.modulosLibres} LIBRES) • EQUILIBRIO: L1:${metricas.fases.L1} | L2:${metricas.fases.L2} | L3:${metricas.fases.L3}</text>`;
-
-    svg += `</svg>`;
-    return svg;
-}
-
-function renderizarVistaPreviaA4() {
-    const gab = obtenerGabineteActivo();
-    if (!gab) return;
-    const metricas = calcularMetricasGabinete(gab);
-
-    // Credenciales del profesional guardadas en Configuración
-    const empNombre = localStorage.getItem('villaser_conf_empresa') || 'PLATAFORMA VILLASER';
-    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'Instalador Electricista Habilitado';
-    const profMat = localStorage.getItem('villaser_conf_matricula') || '';
-    const profTel = localStorage.getItem('villaser_conf_telefono') || '';
-    const logoBase64 = localStorage.getItem('villaser_conf_logo') || '';
-
-    document.getElementById('pdf-empresa-nombre').textContent = empNombre.toUpperCase();
-    const logoImg = document.getElementById('pdf-img-logo');
-    if (logoBase64 && logoBase64.startsWith('data:image')) {
-        logoImg.src = logoBase64;
-        logoImg.style.display = 'inline-block';
-    } else {
-        logoImg.removeAttribute('src');
-        logoImg.style.display = 'none';
-    }
-
-    const hoy = new Date().toLocaleDateString('es-AR');
-    document.getElementById('pdf-fecha').textContent = `Fecha: ${hoy}`;
-    document.getElementById('pdf-cliente').textContent = estadoTopo.cliente.nombre || '-';
-    document.getElementById('pdf-proyecto').textContent = estadoTopo.cliente.proyecto || '-';
-    document.getElementById('pdf-direccion').textContent = estadoTopo.cliente.direccion || '-';
-    document.getElementById('pdf-gabinete-info').textContent = `${gab.codigo} (${gab.modulos} mód. • ${gab.ip})`;
-
-    document.getElementById('svgTopoRenderTarget').innerHTML = generarSVGTopografico(gab);
-    document.getElementById('pdf-resumen-fases').textContent = `Equilibrio: L1: ${metricas.fases.L1} | L2: ${metricas.fases.L2} | L3: ${metricas.fases.L3}`;
-
-    const tbody = document.getElementById('pdf-tbody-dispositivos');
-    if (!gab.dispositivos.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="padding:10px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Sin dispositivos cargados en ${escapeHtml(gab.codigo)}.</td></tr>`;
-    } else {
-        let pos = 1;
-        tbody.innerHTML = gab.dispositivos.map(d => {
-            const mods = parseInt(d.modulos, 10) || 1;
-            const rango = mods === 1 ? `M${pos}` : `M${pos}-M${pos + mods - 1}`;
-            pos += mods;
-            return `
-                <tr>
-                    <td style="padding:4px 5px; border:1px solid #cbd5e1; text-align:center; font-weight:bold;">${rango}</td>
-                    <td style="padding:4px 5px; border:1px solid #cbd5e1; text-align:center; font-weight:bold;">${escapeHtml(d.codigo)}</td>
-                    <td style="padding:4px 6px; border:1px solid #cbd5e1;">${escapeHtml(d.nombre)}</td>
-                    <td style="padding:4px 5px; border:1px solid #cbd5e1; text-align:center;">${escapeHtml(d.calibre || '-')}</td>
-                    <td style="padding:4px 5px; border:1px solid #cbd5e1; text-align:center; font-weight:bold;">${escapeHtml(d.polos || '-')}</td>
-                    <td style="padding:4px 6px; border:1px solid #cbd5e1;">${escapeHtml(d.bornera || '-')}</td>
-                </tr>
-            `;
-        }).join('');
-    }
-
-    const obsBox = document.getElementById('pdf-bloque-obs');
-    if (estadoTopo.observaciones && estadoTopo.observaciones.trim()) {
-        obsBox.style.display = 'block';
-        document.getElementById('pdf-obs-texto').textContent = estadoTopo.observaciones.trim();
-    } else {
-        obsBox.style.display = 'none';
-    }
-
-    const firmaExtra = [profMat ? `Mat.: ${profMat}` : '', profTel ? `Tel.: ${profTel}` : ''].filter(Boolean).join(' • ');
-    document.getElementById('pdf-profesional-firma').textContent = profNombre;
-    document.getElementById('pdf-profesional-extra').textContent = firmaExtra || 'Generado con Plataforma Villaser';
-}
-
-// ============================================================================
-// CAJÓN FULLSCREEN Y VISTA PREVIA MÓVIL CON ZOOM TÁCTIL
-// ============================================================================
-function abrirCajonTopografico() {
-    renderizarTodoTopografico();
-    const gab = obtenerGabineteActivo();
-    document.getElementById('cajonTopoTitulo').innerHTML = `<i class="fa-solid fa-table-cells"></i> Resumen ${escapeHtml(gab ? gab.codigo : 'Tablero')}`;
-    document.getElementById('modalListaTopografico').classList.remove('oculto');
-}
-
-function cerrarCajonTopografico() {
-    document.getElementById('modalListaTopografico').classList.add('oculto');
-}
-
-function abrirVistaPreviaMovil() {
-    renderizarVistaPreviaA4();
-    const original = document.getElementById('plantilla-pdf');
-    const target = document.getElementById('mobilePreviewTarget');
-    target.innerHTML = '';
-    const clon = original.cloneNode(true);
-    clon.id = 'plantilla-pdf-clon-movil';
-    clon.style.transformOrigin = 'top left';
-    target.appendChild(clon);
-
-    const vp = document.querySelector('meta[name="viewport"]');
-    if (vp) vp.setAttribute('content', VIEWPORT_ZOOM);
-
-    document.getElementById('modalVistaPreviaMovil').classList.remove('oculto');
-}
-
-function cerrarVistaPreviaMovil() {
-    document.getElementById('modalVistaPreviaMovil').classList.add('oculto');
-    document.getElementById('mobilePreviewTarget').innerHTML = '';
-    const vp = document.querySelector('meta[name="viewport"]');
-    if (vp) vp.setAttribute('content', VIEWPORT_LOCKED);
-}
-
-// ============================================================================
-// EXPORTACIÓN PDF BLINDADA (SIN BLOQUEOS EN CHROME ANDROID)
-// ============================================================================
-function generarPDF() {
-    cerrarCajonTopografico();
-    document.getElementById('modalDescargarPDF').classList.remove('oculto');
-}
-
-function cerrarModalPDF() {
-    document.getElementById('modalDescargarPDF').classList.add('oculto');
-}
-
-async function convertirSvgTopoAImagen(contenedorClonado) {
-    const svgEl = contenedorClonado.querySelector('svg');
-    if (!svgEl) return;
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const dataUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgData);
-
-    const img = new Image();
-    img.src = dataUrl;
-    if (img.decode) {
-        await img.decode();
-    } else {
-        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 1440;
-    canvas.height = 670;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    const pngImg = document.createElement('img');
-    pngImg.src = canvas.toDataURL('image/png');
-    pngImg.style.width = '100%';
-    pngImg.style.height = 'auto';
-    pngImg.style.display = 'block';
-
-    const target = contenedorClonado.querySelector('#svgTopoRenderTarget');
-    if (target) {
-        target.innerHTML = '';
-        target.appendChild(pngImg);
-    }
-}
-
-async function ejecutarDescargaPDF() {
-    const btnConfirmar = document.getElementById('btnConfirmarPDF');
-    const textoOrig = btnConfirmar.innerHTML;
-    btnConfirmar.disabled = true;
-    btnConfirmar.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
-
-    let sandbox = null;
-    try {
-        renderizarVistaPreviaA4();
-        const original = document.getElementById('plantilla-pdf');
-        const clon = original.cloneNode(true);
-        clon.id = 'plantilla-pdf-export';
-
-        // Ocultar sello de agua en el PDF exportado
-        const marca = clon.querySelector('#marcaAguaPDF');
-        if (marca) marca.style.display = 'none';
-
-        sandbox = document.createElement('div');
-        sandbox.style.position = 'absolute';
-        sandbox.style.left = '-9999px';
-        sandbox.style.top = '0';
-        sandbox.style.width = '794px';
-        sandbox.style.background = '#ffffff';
-        sandbox.appendChild(clon);
-        document.body.appendChild(sandbox);
-
-        await convertirSvgTopoAImagen(clon);
-
-        const gab = obtenerGabineteActivo();
-        const cliLimpio = (estadoTopo.cliente.nombre || 'Cliente').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const sufijo = Math.floor(1000 + Math.random() * 9000);
-        const nombreArchivo = `Topografico_${gab ? gab.codigo : 'TS1'}_${cliLimpio}_${sufijo}.pdf`;
-
-        const opt = {
-            margin: 0,
-            filename: nombreArchivo,
-            image: { type: 'jpeg', quality: 0.96 },
-            html2canvas: {
-                scale: 2,
-                useCORS: false,
-                windowWidth: 794,
-                windowHeight: 1115,
-                ignoreElements: (el) => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !el.getAttribute('src'))
-            },
-            jsPDF: { unit: 'px', format: [794, 1122], orientation: 'portrait' }
-        };
-
-        const promesaPdf = html2pdf().set(opt).from(clon).save();
-        const timeoutPdf = new Promise((_, reject) => setTimeout(() => reject(new Error('Tiempo agotado generando PDF')), 18000));
-        await Promise.race([promesaPdf, timeoutPdf]);
-
-        cerrarModalPDF();
-        if (estadoTopo.cliente.agendado) {
-            guardarBorradorFirebase(false, true);
-        }
-    } catch (err) {
-        console.error('Error generando PDF topográfico:', err);
-        mostrarAlertaCorp('Error al exportar PDF', 'No se pudo generar el archivo en este intento. Verificá que haya dispositivos cargados e intentá nuevamente.', 'error');
-    } finally {
-        if (sandbox && sandbox.parentNode) sandbox.parentNode.removeChild(sandbox);
-        btnConfirmar.disabled = false;
-        btnConfirmar.innerHTML = textoOrig;
-    }
-}
-
-// ============================================================================
-// WHATSAPP DIRECTO
-// ============================================================================
-function abrirModalWhatsApp() {
-    cerrarCajonTopografico();
-    const gab = obtenerGabineteActivo();
-    const metricas = calcularMetricasGabinete(gab);
-    document.getElementById('waTelefono').value = estadoTopo.cliente.telefono || '';
-
-    const lineasDisp = gab.dispositivos.map((d, i) => `${i + 1}. [${d.codigo}] ${d.nombre} (${d.calibre || d.tipo} • ${d.polos})`).join('\n');
-    const msg = `*PLANO TOPOGRÁFICO DE TABLERO - VILLASER*\n` +
-        `👤 *Cliente:* ${estadoTopo.cliente.nombre}\n` +
-        `📍 *Obra:* ${estadoTopo.cliente.direccion}\n` +
-        `⚡ *Gabinete:* ${gab.codigo} - ${gab.nombre} (${gab.modulos} mód. DIN)\n` +
-        `📊 *Ocupación:* ${metricas.modulosOcupados}/${gab.modulos} mód. (${metricas.modulosLibres} libres)\n` +
-        `⚖️ *Equilibrio Fases:* L1: ${metricas.fases.L1} | L2: ${metricas.fases.L2} | L3: ${metricas.fases.L3}\n\n` +
-        `*Dispositivos:*\n${lineasDisp || 'Sin dispositivos cargados'}`;
-
-    document.getElementById('waMensaje').value = msg;
-    document.getElementById('modalWhatsApp').classList.remove('oculto');
-}
-
-function cerrarModalWhatsApp() {
-    document.getElementById('modalWhatsApp').classList.add('oculto');
-}
-
-function enviarWhatsAppDirecto() {
-    const tel = document.getElementById('waTelefono').value.replace(/\D/g, '');
-    const texto = encodeURIComponent(document.getElementById('waMensaje').value);
-    const url = tel ? `https://wa.me/${tel}?text=${texto}` : `https://wa.me/?text=${texto}`;
-    cerrarModalWhatsApp();
-    window.open(url, '_blank');
-}
-
-// ============================================================================
-// IMPORTACIÓN DESDE UNIFILAR Y POTENCIA
-// ============================================================================
-async function abrirModalImportarFuente(tipo) {
-    const modal = document.getElementById('modalImportarFuente');
-    const lista = document.getElementById('listaFuentesImportables');
-    document.getElementById('tituloModalImportar').innerHTML = tipo === 'unifilar'
-        ? '<i class="fa-solid fa-diagram-project"></i> Importar desde Unifilar'
-        : '<i class="fa-solid fa-bolt"></i> Importar desde Potencia';
-
-    lista.innerHTML = '<div style="text-align:center; padding:18px; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando proyectos...</div>';
-    modal.classList.remove('oculto');
-
-    const uid = obtenerUid();
-    const coleccion = tipo === 'unifilar' ? 'borradores_unifilar' : 'borradores_potencia';
-
-    // Incluir también borrador local activo de ese módulo si existe
-    const items = [];
-    const localKey = tipo === 'unifilar' ? 'unifilar_estado_actual' : 'potencia_estado_actual';
-    const localRaw = localStorage.getItem(localKey);
-    if (localRaw) {
-        try {
-            const loc = JSON.parse(localRaw);
-            if (loc && loc.cliente && loc.cliente.nombre) {
-                items.push({ id: 'LOCAL', titulo: `[Local en curso] ${loc.cliente.nombre} - ${loc.cliente.proyecto || ''}`, data: loc });
-            }
-        } catch (e) {}
-    }
-
-    if (uid && navigator.onLine) {
-        try {
-            const snap = await db.collection('usuarios').doc(uid).collection(coleccion).orderBy('fechaActualizacion', 'desc').limit(20).get();
-            snap.docs.forEach(d => {
-                const data = d.data();
-                const nomCli = data.cliente ? data.cliente.nombre : (data.cliNombre || 'Sin nombre');
-                const proy = data.cliente ? data.cliente.proyecto : (data.cliProyecto || '');
-                items.push({ id: d.id, titulo: `${nomCli} — ${proy}`, data });
-            });
-        } catch (e) {
-            console.warn('Error leyendo colección para importar:', e);
-        }
-    }
-
-    if (!items.length) {
-        lista.innerHTML = '<div style="text-align:center; padding:16px; color:var(--ngc-text-faded);">No se encontraron borradores disponibles.</div>';
-        return;
-    }
-
-    window._fuentesImportablesCache = items;
-    lista.innerHTML = items.map((it, idx) => `
-        <div class="modal-list-item" style="cursor:pointer;" onclick="ejecutarImportacionFuente('${tipo}', ${idx})">
-            <div style="font-weight:800; color:var(--ngc-text-main);">${escapeHtml(it.titulo)}</div>
-            <div style="font-size:0.75rem; color:var(--ngc-neon); margin-top:3px;"><i class="fa-solid fa-file-import"></i> Tocar para volcar al tablero activo</div>
-        </div>
-    `).join('');
-}
-
-function cerrarModalImportarFuente() {
-    document.getElementById('modalImportarFuente').classList.add('oculto');
-}
-
-function ejecutarImportacionFuente(tipo, idx) {
-    const item = (window._fuentesImportablesCache || [])[idx];
-    const gab = obtenerGabineteActivo();
-    if (!item || !gab) return;
-
-    const data = item.data;
-    const fasesCiclo = ['L1+N', 'L2+N', 'L3+N'];
-    let faseIdx = 0;
-
-    if (tipo === 'unifilar') {
-        const circuitos = data.circuitos || [];
-        if (!circuitos.length) {
-            mostrarAlertaCorp('Sin circuitos', 'El borrador de Unifilar seleccionado no tiene circuitos cargados.', 'error');
-            return;
-        }
-        // Agregar cabecera ID si existe en nivel2
-        const ts = (data.tablerosSeccionales && data.tablerosSeccionales[0]) || null;
-        if (ts) {
-            gab.dispositivos.push({
-                id: 'dev_' + Date.now() + '_id',
-                codigo: 'ID1',
-                nombre: `Interruptor Diferencial ${ts.in || '40A'}`,
-                modulos: ts.polos === '4x' ? 4 : 2,
-                polos: ts.polos === '4x' ? 'L1-L2-L3-N' : 'L1+N',
-                calibre: `${ts.in || '40A'} • 30mA`,
-                tipo: 'ID',
-                bornera: 'Cabecera TS'
-            });
-        }
-        circuitos.forEach((c, i) => {
-            const pol = c.polos === '4x' ? 'L1-L2-L3-N' : fasesCiclo[faseIdx++ % 3];
-            gab.dispositivos.push({
-                id: 'dev_' + Date.now() + '_' + i,
-                codigo: c.codigo || `C${i + 1}`,
-                nombre: `PIA ${c.curva || 'C'}${c.in || '16'} - ${c.destino || 'Circuito'}`,
-                modulos: c.polos === '4x' ? 4 : 2,
-                polos: pol,
-                calibre: `${c.curva || 'C'}${c.in || '16'}A • ${c.pcc || '4.5kA'}`,
-                tipo: 'PIA',
-                bornera: `${c.seccionFase || '2.5mm²'} + PE`
-            });
-        });
-    } else {
-        const circuitos = data.circuitos || [];
-        if (!circuitos.length) {
-            mostrarAlertaCorp('Sin circuitos', 'El borrador de Potencia seleccionado no tiene circuitos.', 'error');
-            return;
-        }
-        circuitos.forEach((c, i) => {
-            const esTrif = String(c.tension || '').includes('380');
-            const pol = esTrif ? 'L1-L2-L3-N' : fasesCiclo[faseIdx++ % 3];
-            gab.dispositivos.push({
-                id: 'dev_' + Date.now() + '_' + i,
-                codigo: c.id || c.codigo || `C${i + 1}`,
-                nombre: `PIA ${c.proteccion || 'C16'} - ${c.tipo || c.descripcion || 'Circuito'}`,
-                modulos: esTrif ? 4 : 2,
-                polos: pol,
-                calibre: `${c.proteccion || 'C16A'} • 4.5kA`,
-                tipo: 'PIA',
-                bornera: `${c.seccion || '2.5mm²'} + PE`
-            });
-        });
-    }
-
-    cerrarModalImportarFuente();
-    guardarEstadoLocalTopo();
-    programarAutoNube();
-    renderizarTodoTopografico();
-    mostrarAlertaCorp('Importación Exitosa', `Se agregaron los dispositivos al gabinete ${gab.codigo}.`, 'success');
-}
-
-// ============================================================================
-// FIREBASE FIRESTORE (GUARDAR Y ABRIR BORRADORES)
-// ============================================================================
-async function guardarBorradorFirebase(mostrarFeedback = true, silencioso = false) {
-    const uid = obtenerUid();
-    if (!uid) {
-        if (!silencioso) mostrarAlertaCorp('Sin sesión', 'Iniciá sesión para guardar en la nube.', 'error');
-        return;
-    }
-    if (!navigator.onLine) {
-        actualizarBadgeNube('error');
-        if (!silencioso) mostrarAlertaCorp('Sin conexión', 'Los cambios quedaron guardados localmente en tu dispositivo.', 'info');
-        return;
-    }
-
-    actualizarBadgeNube('saving');
-    try {
-        const colRef = db.collection('usuarios').doc(uid).collection('borradores_topografico');
-        const docId = estadoTopo.borradorId || `topo_${Date.now()}`;
-        const payload = {
-            ...estadoTopo,
-            borradorId: docId,
-            tituloResumen: `${estadoTopo.cliente.nombre || 'Cliente'} - ${estadoTopo.cliente.proyecto || 'Tablero'}`,
-            fechaActualizacion: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        const promesaSave = colRef.doc(docId).set(payload, { merge: true });
-        const timeoutSave = new Promise((_, rej) => setTimeout(() => rej(new Error('Timeout Firestore')), 10000));
-        await Promise.race([promesaSave, timeoutSave]);
-
-        estadoTopo.borradorId = docId;
-        guardarEstadoLocalTopo();
-        actualizarBadgeNube('synced');
-
-        if (mostrarFeedback && !silencioso) {
-            mostrarAlertaCorp('Guardado en la Nube', 'El plano topográfico quedó respaldado en Firebase.', 'success');
-        }
-    } catch (e) {
-        console.warn('Error guardando borrador topográfico:', e);
-        actualizarBadgeNube('error');
-        if (!silencioso) {
-            mostrarAlertaCorp('Error de sincronización', 'No se pudo guardar en la nube ahora, pero tus datos siguen seguros en memoria local.', 'error');
-        }
-    }
-}
-
-async function abrirModalBorradores() {
-    cerrarCajonTopografico();
-    const modal = document.getElementById('modalBorradores');
-    const cont = document.getElementById('listaBorradoresContainer');
-    document.getElementById('filtroBorradoresInput').value = '';
-    cont.innerHTML = '<div style="text-align:center; padding:18px; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando borradores...</div>';
-    modal.classList.remove('oculto');
-
-    const uid = obtenerUid();
-    if (!uid) {
-        cont.innerHTML = '<div style="text-align:center; padding:16px; color:var(--error-red);">Iniciá sesión para ver tus borradores.</div>';
-        return;
-    }
-    try {
-        const snap = await db.collection('usuarios').doc(uid).collection('borradores_topografico')
-            .orderBy('fechaActualizacion', 'desc').limit(30).get();
-        borradoresCacheTopo = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderizarListaBorradores(borradoresCacheTopo);
-    } catch (e) {
-        cont.innerHTML = '<div style="text-align:center; padding:16px; color:var(--error-red);">Error al consultar la nube.</div>';
-    }
-}
-
-function filtrarListaBorradores() {
-    const q = document.getElementById('filtroBorradoresInput').value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const filtrados = borradoresCacheTopo.filter(b => {
-        const nom = (b.cliente?.nombre || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const proy = (b.cliente?.proyecto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        return nom.includes(q) || proy.includes(q);
-    });
-    renderizarListaBorradores(filtrados);
-}
-
-function renderizarListaBorradores(lista) {
-    const cont = document.getElementById('listaBorradoresContainer');
-    if (!lista.length) {
-        cont.innerHTML = '<div style="text-align:center; padding:16px; color:var(--ngc-text-faded);">No hay borradores guardados.</div>';
-        return;
-    }
-    cont.innerHTML = lista.map(b => {
-        const cli = b.cliente?.nombre || 'Sin cliente';
-        const proy = b.cliente?.proyecto || 'Sin proyecto';
-        const cantGab = Array.isArray(b.gabinetes) ? b.gabinetes.length : 1;
-        return `
-            <div class="modal-list-item" style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                <div style="min-width:0; flex:1; cursor:pointer;" onclick="cargarBorradorTopo('${escapeHtml(b.id)}')">
-                    <div style="font-weight:800; color:var(--ngc-text-main);">${escapeHtml(cli)}</div>
-                    <div style="font-size:0.76rem; color:var(--ngc-text-faded);">${escapeHtml(proy)} • ${cantGab} gabinete(s)</div>
-                </div>
-                <button type="button" class="topo-mini-btn accent" onclick="cargarBorradorTopo('${escapeHtml(b.id)}')">Abrir</button>
-            </div>
-        `;
-    }).join('');
-}
-
-function cargarBorradorTopo(id) {
-    const b = borradoresCacheTopo.find(item => item.id === id);
-    if (!b) return;
-    aplicarDatosBorradorTopo(id, b);
-    cerrarModalBorradores();
-    entrarAPantallaTrabajo();
-}
-
-function aplicarDatosBorradorTopo(id, data) {
-    estadoTopo = {
-        cliente: data.cliente || { nombre: '', direccion: '', proyecto: '', telefono: '', agendado: true, contactoId: '' },
-        gabinetes: Array.isArray(data.gabinetes) && data.gabinetes.length ? data.gabinetes : [{
-            id: 'gab_1', codigo: 'TS1', nombre: 'Tablero Seccional Principal',
-            modulos: 12, ip: 'IP41 • PVC Autoextinguible', montaje: 'Embutir',
-            borneras: 'PE + Neutro', peineActivo: true, dispositivos: []
-        }],
-        gabineteActivoId: data.gabineteActivoId || (data.gabinetes && data.gabinetes[0]?.id) || 'gab_1',
-        mostrarPolos: data.mostrarPolos !== undefined ? data.mostrarPolos : true,
-        observaciones: data.observaciones || '',
-        borradorId: id
-    };
-    poblarCamposClienteDesdeEstado();
-    guardarEstadoLocalTopo();
-}
-
-function cerrarModalBorradores() {
-    document.getElementById('modalBorradores').classList.add('oculto');
-}
-
-// ============================================================================
-// REINICIAR TABLERO
-// ============================================================================
-function confirmarNuevoTopografico() {
-    document.getElementById('modalConfirmarNuevo').classList.remove('oculto');
-}
-
-function cerrarModalConfirmarNuevo() {
-    document.getElementById('modalConfirmarNuevo').classList.add('oculto');
-}
-
-function ejecutarNuevoTopografico() {
-    cerrarModalConfirmarNuevo();
-    cerrarCajonTopografico();
-    localStorage.removeItem(STORAGE_KEY_TOPO);
-    estadoTopo = {
-        cliente: { nombre: '', direccion: '', proyecto: '', telefono: '', agendado: false, contactoId: '' },
-        gabinetes: [{
-            id: 'gab_1', codigo: 'TS1', nombre: 'Tablero Seccional Principal',
-            modulos: 12, ip: 'IP41 • PVC Autoextinguible', montaje: 'Embutir',
-            borneras: 'PE + Neutro', peineActivo: true, dispositivos: []
-        }],
-        gabineteActivoId: 'gab_1',
-        mostrarPolos: true,
-        observaciones: '',
-        borradorId: null
-    };
-    poblarCamposClienteDesdeEstado();
-    volverAEditarCliente();
-}
-
-// ============================================================================
-// MENÚ INFERIOR SCROLL (13 MÓDULOS GLOBALES)
-// ============================================================================
-function generarMenuInferior() {
+function generarMenuInferiorLocal() {
     const footer = document.getElementById('corpFooterMenu');
-    if (!footer) return;
+    if (!footer || footer.children.length > 0) return;
 
     const modulos = [
         { nombre: 'Inicio', icon: 'fa-house', url: '../index.html' },
@@ -1553,34 +127,1779 @@ function generarMenuInferior() {
         { nombre: 'Informes', icon: 'fa-clipboard-check', url: '../informes/index.html' },
         { nombre: 'Potencia', icon: 'fa-bolt', url: '../potencia/index.html' },
         { nombre: 'Unifilar', icon: 'fa-diagram-project', url: '../unifilar/index.html' },
-        { nombre: 'Topografico', icon: 'fa-table-cells', url: '#', active: true },
+        { nombre: 'Topográfico', icon: 'fa-table-cells', url: '#', active: true },
         { nombre: 'Croquis', icon: 'fa-compass-drafting', url: '../croquis/index.html' },
         { nombre: 'Agenda', icon: 'fa-address-book', url: '../agenda/index.html' },
         { nombre: 'Mano de Obra', icon: 'fa-hand-holding-dollar', url: '../costos/index.html' },
         { nombre: 'Calculadora', icon: 'fa-calculator', url: '../leyescalc/index.html' },
         { nombre: 'Proveedores', icon: 'fa-truck-fast', url: '../proveedores/index.html' },
-        { nombre: 'Catalogos', icon: 'fa-book-open', url: '../catalogos/index.html' }
+        { nombre: 'Catálogos', icon: 'fa-book-open', url: '../catalogos/index.html' }
     ];
-
-    footer.innerHTML = '';
 
     modulos.forEach(mod => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = `corp-nav-item ${mod.active ? 'active' : ''}`;
         btn.innerHTML = `<i class="fa-solid ${mod.icon}"></i><span>${mod.nombre}</span>`;
-        btn.onclick = () => {
-            if (!mod.active) window.location.replace(mod.url);
-        };
+        btn.onclick = () => { if (!mod.active) window.location.replace(mod.url); };
         footer.appendChild(btn);
     });
 
     requestAnimationFrame(() => {
         const btnActivo = footer.querySelector('.corp-nav-item.active');
         if (btnActivo) {
-            const footerRect = footer.getBoundingClientRect();
-            const btnRect = btnActivo.getBoundingClientRect();
-            footer.scrollLeft += (btnRect.left - footerRect.left) - (footerRect.width / 2) + (btnRect.width / 2);
+            const fRect = footer.getBoundingClientRect();
+            const bRect = btnActivo.getBoundingClientRect();
+            footer.scrollLeft += (bRect.left - fRect.left) - (fRect.width / 2) + (bRect.width / 2);
         }
     });
 }
+
+// ==========================================================================
+// MEMORIA GLOBAL DE CLIENTE Y FLUJO DE PASOS
+// ==========================================================================
+function cargarEstadoInicial() {
+    const rawTopo = localStorage.getItem(STORAGE_KEY_TOPO);
+    if (rawTopo) {
+        try {
+            const data = JSON.parse(rawTopo);
+            if (data && data.estadoGabinete) {
+                document.getElementById('cliNombre').value = data.cliNombre || '';
+                document.getElementById('cliDireccion').value = data.cliDireccion || '';
+                document.getElementById('cliProyecto').value = data.cliProyecto || '';
+                document.getElementById('obsGenerales').value = data.obsGenerales || '';
+                estadoGabinete = normalizarEstadoGabinete(data.estadoGabinete);
+                clienteDesdeAgenda = !!data.clienteDesdeAgenda;
+                permiteGuardarNube = data.permiteGuardarNube !== false;
+                nombreBorradorActual = data.nombreBorrador || null;
+                telefonoClienteActual = data.telefonoClienteActual || '';
+                mostrarPolosIRAM = data.mostrarPolosIRAM !== false;
+
+                if (data.enTrabajo && data.cliNombre) {
+                    avanzarPasoTrabajo(false);
+                    return;
+                }
+            }
+        } catch (e) { console.warn('Error leyendo estado topográfico:', e); }
+    }
+
+    const rawGlobal = localStorage.getItem('villaser_cliente_global');
+    if (rawGlobal) {
+        try {
+            const cli = JSON.parse(rawGlobal);
+            if (cli && cli.nombre && !document.getElementById('cliNombre').value) {
+                document.getElementById('cliNombre').value = cli.nombre || '';
+                document.getElementById('cliDireccion').value = cli.direccion || '';
+                document.getElementById('cliProyecto').value = cli.proyecto || '';
+                telefonoClienteActual = cli.telefono || '';
+                clienteDesdeAgenda = true;
+                permiteGuardarNube = true;
+                mostrarToast('Cliente Recuperado', `Datos de ${cli.nombre} listos.`);
+            }
+        } catch (e) {}
+    }
+}
+
+function guardarClienteGlobal() {
+    const payload = {
+        nombre: document.getElementById('cliNombre').value.trim(),
+        direccion: document.getElementById('cliDireccion').value.trim(),
+        proyecto: document.getElementById('cliProyecto').value.trim(),
+        telefono: telefonoClienteActual || ''
+    };
+    if (payload.nombre) {
+        localStorage.setItem('villaser_cliente_global', JSON.stringify(payload));
+    }
+}
+
+function guardarEstadoLocal(enTrabajo = true) {
+    const payload = {
+        cliNombre: document.getElementById('cliNombre').value.trim(),
+        cliDireccion: document.getElementById('cliDireccion').value.trim(),
+        cliProyecto: document.getElementById('cliProyecto').value.trim(),
+        obsGenerales: document.getElementById('obsGenerales').value,
+        estadoGabinete,
+        clienteDesdeAgenda,
+        permiteGuardarNube,
+        nombreBorrador: nombreBorradorActual,
+        telefonoClienteActual,
+        mostrarPolosIRAM,
+        enTrabajo
+    };
+    localStorage.setItem(STORAGE_KEY_TOPO, JSON.stringify(payload));
+}
+
+function marcarClienteManual() {
+    clienteDesdeAgenda = false;
+    permiteGuardarNube = false;
+}
+
+function seleccionarContacto(nombre, dir, tel = '') {
+    document.getElementById('cliNombre').value = nombre || '';
+    document.getElementById('cliDireccion').value = dir || '';
+    telefonoClienteActual = tel || '';
+    clienteDesdeAgenda = true;
+    permiteGuardarNube = true;
+    if (typeof cerrarModalAgendaGlobal === 'function') cerrarModalAgendaGlobal();
+    guardarClienteGlobal();
+    mostrarToast('Cliente Seleccionado', `${nombre} vinculado desde Agenda.`);
+}
+
+function iniciarTopografico() {
+    const nombre = document.getElementById('cliNombre').value.trim();
+    if (!nombre) {
+        mostrarAlertaCorp('Datos Incompletos', 'Ingresá al menos el Nombre del Cliente para iniciar.');
+        return;
+    }
+    if (!clienteDesdeAgenda) {
+        document.getElementById('modalAgendarCliente').classList.remove('oculto');
+        return;
+    }
+    avanzarPasoTrabajo(true);
+}
+
+function accionAgendarCliente() {
+    const nombre = encodeURIComponent(document.getElementById('cliNombre').value.trim());
+    const dir = encodeURIComponent(document.getElementById('cliDireccion').value.trim());
+    window.location.href = `../agenda/index.html?nombre=${nombre}&dir=${dir}`;
+}
+function opcionBuscarAgenda() {
+    document.getElementById('modalAgendarCliente').classList.add('oculto');
+    if (typeof abrirModalAgendaGlobal === 'function') abrirModalAgendaGlobal();
+}
+function opcionContinuarSinAgenda() {
+    document.getElementById('modalAgendarCliente').classList.add('oculto');
+    document.getElementById('modalConfirmarSinAgenda').classList.remove('oculto');
+}
+function cerrarModalConfirmarSinAgenda() {
+    document.getElementById('modalConfirmarSinAgenda').classList.add('oculto');
+}
+function ejecutarContinuarSinAgenda() {
+    cerrarModalConfirmarSinAgenda();
+    permiteGuardarNube = false;
+    avanzarPasoTrabajo(true);
+}
+
+function avanzarPasoTrabajo(guardar = true) {
+    document.getElementById('step-cliente').classList.add('oculto');
+    const stepT = document.getElementById('step-trabajo');
+    stepT.classList.remove('oculto');
+    stepT.classList.add('flex-column', 'gap-15');
+
+    const dock = document.getElementById('dockTopograficoFlotante');
+    if (dock) dock.classList.remove('oculto');
+
+    actualizarCabeceraProyecto();
+    actualizarBadgeNube();
+    if (guardar) {
+        guardarClienteGlobal();
+        guardarEstadoLocal(true);
+    }
+    renderizarTodoTopografico();
+}
+
+function volverAEditarCliente() {
+    document.getElementById('step-trabajo').classList.add('oculto');
+    const dock = document.getElementById('dockTopograficoFlotante');
+    if (dock) dock.classList.add('oculto');
+    document.getElementById('step-cliente').classList.remove('oculto');
+    guardarEstadoLocal(false);
+}
+
+function actualizarCabeceraProyecto() {
+    const nom = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const dir = document.getElementById('cliDireccion').value.trim();
+    const proy = document.getElementById('cliProyecto').value.trim();
+    document.getElementById('ui-proyecto-cliente').innerText = nom;
+    document.getElementById('ui-proyecto-detalle').innerText = [dir, proy].filter(Boolean).join(' • ') || 'Obra eléctrica';
+}
+
+function actualizarBadgeNube() {
+    const badge = document.getElementById('ui-cloud-badge');
+    if (!badge) return;
+    if (!permiteGuardarNube) {
+        badge.className = 'pres-cloud-pill local';
+        badge.innerHTML = '<i class="fa-solid fa-mobile-screen"></i> Modo Local';
+    } else {
+        badge.className = 'pres-cloud-pill ready';
+        badge.innerHTML = '<i class="fa-solid fa-cloud"></i> Nube Lista';
+    }
+}
+
+// ==========================================================================
+// CAJÓN EJECUTIVO DE RESUMEN Y SALIDAS
+// ==========================================================================
+function abrirCajonTopografico() {
+    renderizarTodoTopografico();
+    const modal = document.getElementById('modalListaTopografico');
+    if (modal) modal.classList.remove('oculto');
+}
+
+function cerrarCajonTopografico() {
+    const modal = document.getElementById('modalListaTopografico');
+    if (modal) modal.classList.add('oculto');
+}
+
+function toggleMostrarPolos() {
+    mostrarPolosIRAM = !mostrarPolosIRAM;
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+}
+
+// ==========================================================================
+// GESTIÓN DE GABINETE, PLANTILLAS E IMPORTACIÓN DE UNIFILAR / POTENCIA
+// ==========================================================================
+function abrirModalGabinete() {
+    document.getElementById('gabNombre').value = estadoGabinete.nombre || 'TS1';
+    document.getElementById('gabIP').value = estadoGabinete.ip || 'IP41 • PVC Autoextinguible';
+    document.getElementById('gabMontaje').value = estadoGabinete.montaje || 'De Embutir';
+    document.getElementById('gabFilas').value = String(estadoGabinete.filasCount || 1);
+    document.getElementById('gabModulosPorFila').value = String(estadoGabinete.modulosPorFila || 12);
+    document.getElementById('gabBorneras').value = estadoGabinete.borneras || 'PE';
+    document.getElementById('modalGabinete').classList.remove('oculto');
+}
+
+function cerrarModalGabinete() {
+    document.getElementById('modalGabinete').classList.add('oculto');
+}
+
+function guardarConfigGabinete() {
+    const nuevasFilas = parseInt(document.getElementById('gabFilas').value, 10) || 1;
+    const nuevosModulos = parseInt(document.getElementById('gabModulosPorFila').value, 10) || 12;
+
+    estadoGabinete.nombre = document.getElementById('gabNombre').value.trim() || 'TS1';
+    estadoGabinete.ip = document.getElementById('gabIP').value;
+    estadoGabinete.montaje = document.getElementById('gabMontaje').value;
+    estadoGabinete.filasCount = nuevasFilas;
+    estadoGabinete.modulosPorFila = nuevosModulos;
+    estadoGabinete.borneras = document.getElementById('gabBorneras').value;
+
+    while (estadoGabinete.filas.length < nuevasFilas) {
+        estadoGabinete.filas.push([]);
+    }
+    if (estadoGabinete.filas.length > nuevasFilas) {
+        const excedentes = estadoGabinete.filas.slice(nuevasFilas).flat();
+        estadoGabinete.filas = estadoGabinete.filas.slice(0, nuevasFilas);
+        if (excedentes.length > 0) {
+            estadoGabinete.filas[nuevasFilas - 1].push(...excedentes);
+        }
+    }
+
+    cerrarModalGabinete();
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+    mostrarToast('Gabinete Actualizado', `${estadoGabinete.nombre} (${nuevasFilas}×${nuevosModulos}M)`);
+}
+
+function aplicarPlantillaTopografico(tipo) {
+    if (tipo === 'mono_12') {
+        estadoGabinete = {
+            nombre: 'TS1',
+            ip: 'IP41 • PVC Autoextinguible',
+            montaje: 'De Embutir',
+            filasCount: 1,
+            modulosPorFila: 12,
+            borneras: 'PE',
+            filas: [[
+                { tipo: 'ID',  modulos: 2, tag: 'ID1', calibre: '2x40A • 30mA AC', color: 'azul', polaridad: 'L1_N', peine: 'NONE', destino: 'Cabecera Diferencial TS1', cable: '2x6 + PE mm²',   conexionado: 'Entrada Línea → Salida Peine' },
+                { tipo: 'PIA', modulos: 2, tag: 'C1',  calibre: '2x10A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'IUG - Iluminación',       cable: '2x1.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C1' },
+                { tipo: 'PIA', modulos: 2, tag: 'C2',  calibre: '2x16A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'TUG - Tomas Generales',   cable: '2x2.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C2' },
+                { tipo: 'PIA', modulos: 2, tag: 'C3',  calibre: '2x20A Curva C',   color: 'azul', polaridad: 'L1_N', peine: 'SUP',  destino: 'ACU - Aire Acondicionado',cable: '2x4 + PE mm²',   conexionado: 'Alim: Peine ID1 → Salida C3' }
+            ]]
+        };
+    } else if (tipo === 'bifila_24') {
+        estadoGabinete = {
+            nombre: 'TSG',
+            ip: 'IP41 • PVC Autoextinguible',
+            montaje: 'De Embutir',
+            filasCount: 2,
+            modulosPorFila: 12,
+            borneras: 'PE_N',
+            filas: [
+                [
+                    { tipo: 'SEC', modulos: 2, tag: 'IG',   calibre: '2x40A Corte General',    color: 'rojo',    polaridad: 'L1_N',    peine: 'NONE', destino: 'Seccionador Cabecera',   cable: '2x10 + PE mm²',   conexionado: 'Acometida LP → Puente DPS/PT' },
+                    { tipo: 'DPS', modulos: 2, tag: 'DPS1', calibre: 'Clase II • 20kA 275V',   color: 'naranja', polaridad: 'L1_N_PE', peine: 'NONE', destino: 'Descargador Sobretensión', cable: '2x6 + PE(10) mm²',conexionado: 'Paralelo IG → Barra PE' },
+                    { tipo: 'PT',  modulos: 2, tag: 'PT1',  calibre: '2x40A • 175V-245V',      color: 'naranja', polaridad: 'L1_N',    peine: 'NONE', destino: 'Protector Tensión',       cable: '2x10 mm²',        conexionado: 'Serie aguas arriba de ID1' },
+                    { tipo: 'ID',  modulos: 2, tag: 'ID1',  calibre: '2x40A • 30mA Clase A',   color: 'azul',    polaridad: 'L1_N',    peine: 'NONE', destino: 'Diferencial Grupo 1',     cable: '2x6 + PE mm²',    conexionado: 'Entrada PT1 → Salida Peine F2' }
+                ],
+                [
+                    { tipo: 'PIA', modulos: 2, tag: 'C1', calibre: '2x10A Curva C', color: 'azul',  polaridad: 'L1_N', peine: 'SUP', destino: 'IUG - Iluminación PB/PA', cable: '2x1.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C1' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C2', calibre: '2x16A Curva C', color: 'azul',  polaridad: 'L1_N', peine: 'SUP', destino: 'TUG - Tomas Cocina',      cable: '2x2.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C2' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C3', calibre: '2x16A Curva C', color: 'azul',  polaridad: 'L1_N', peine: 'SUP', destino: 'TUG - Tomas Dormitorios', cable: '2x2.5 + PE mm²', conexionado: 'Alim: Peine ID1 → Salida C3' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C4', calibre: '2x20A Curva C', color: 'negro', polaridad: 'L1_N', peine: 'SUP', destino: 'TUE - Horno / Microondas',cable: '2x4 + PE mm²',   conexionado: 'Alim: Peine ID1 → Salida C4' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C5', calibre: '2x20A Curva C', color: 'negro', polaridad: 'L1_N', peine: 'SUP', destino: 'ACU - Climatización',     cable: '2x4 + PE mm²',   conexionado: 'Alim: Peine ID1 → Salida C5' }
+                ]
+            ]
+        };
+    } else if (tipo === 'trifa_36') {
+        estadoGabinete = {
+            nombre: 'TS-TRI',
+            ip: 'IP54 • Estanco',
+            montaje: 'De Superficie',
+            filasCount: 3,
+            modulosPorFila: 12,
+            borneras: 'PE_N',
+            filas: [
+                [
+                    { tipo: 'SEC', modulos: 4, tag: 'IG',   calibre: '4x40A Tetrapolar',       color: 'rojo',    polaridad: 'L1_L2_L3_N',    peine: 'NONE', destino: 'Corte General Trifásico', cable: '4x10 + PE mm²',    conexionado: 'Acometida LP → Repartidor' },
+                    { tipo: 'DPS', modulos: 4, tag: 'DPS1', calibre: '3P+N Clase II 20kA',     color: 'naranja', polaridad: 'L1_L2_L3_N_PE', peine: 'NONE', destino: 'Protección Transitorios', cable: '4x6 + PE(10) mm²', conexionado: 'Paralelo IG → Barra PE' }
+                ],
+                [
+                    { tipo: 'ID',  modulos: 4, tag: 'ID-T', calibre: '4x40A • 30mA Trifásico', color: 'azul',    polaridad: 'L1_L2_L3_N',    peine: 'NONE', destino: 'Diferencial Trifásico',   cable: '4x6 + PE mm²',     conexionado: 'Desde IG → Alimenta C1' },
+                    { tipo: 'PIA', modulos: 4, tag: 'C1',   calibre: '4x25A Curva C 6kA',      color: 'negro',   polaridad: 'L1_L2_L3_N',    peine: 'NONE', destino: 'Fuerza Motriz / Bomba',   cable: '4x4 + PE mm²',     conexionado: 'Desde ID-T → Bornera X1' }
+                ],
+                [
+                    { tipo: 'ID',  modulos: 2, tag: 'ID-M', calibre: '2x25A • 30mA Monofásico',color: 'azul',    polaridad: 'L1_N',          peine: 'NONE', destino: 'Diferencial Servicios',   cable: '2x4 + PE mm²',     conexionado: 'Fase L1 de IG → Peine F3' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C2',   calibre: '2x10A Curva C',          color: 'azul',    polaridad: 'L1_N',          peine: 'SUP',  destino: 'IUG - Iluminación Tablero',cable: '2x1.5 + PE mm²',   conexionado: 'Alim: Peine ID-M → C2' },
+                    { tipo: 'PIA', modulos: 2, tag: 'C3',   calibre: '2x16A Curva C',          color: 'azul',    polaridad: 'L1_N',          peine: 'SUP',  destino: 'TUG - Tomas Servicio',    cable: '2x2.5 + PE mm²',   conexionado: 'Alim: Peine ID-M → C3' }
+                ]
+            ]
+        };
+    } else {
+        estadoGabinete.filas = Array.from({ length: estadoGabinete.filasCount }, () => []);
+    }
+
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+    mostrarToast('Plantilla Aplicada', 'Disposición física cargada en el tablero.');
+}
+
+function abrirModalImportarModulo(origen) {
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Conexión', 'Necesitás sesión activa en la nube para importar proyectos.');
+        return;
+    }
+
+    const modal = document.getElementById('modalImportarModulo');
+    const lista = document.getElementById('listaImportarModulo');
+    const titulo = document.getElementById('tituloModalImportar');
+    const sub = document.getElementById('subtituloModalImportar');
+
+    const coleccion = origen === 'unifilar' ? 'borradores_unifilar' : 'borradores_potencia';
+    titulo.innerHTML = origen === 'unifilar'
+        ? '<i class="fa-solid fa-diagram-project corp-accent-color"></i> Importar de Unifilar'
+        : '<i class="fa-solid fa-bolt" style="color:var(--ngc-warning);"></i> Importar de Potencia';
+    sub.innerText = `Seleccioná un borrador guardado en ${origen.toUpperCase()} para generar el layout físico:`;
+
+    lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Buscando proyectos...</p>';
+    modal.classList.remove('oculto');
+
+    db.collection('perfiles').doc(uid).collection(coleccion).get()
+        .then(snap => {
+            if (snap.empty) {
+                lista.innerHTML = `<p style="text-align:center; color:var(--ngc-text-faded);">No hay borradores guardados en ${origen}.</p>`;
+                return;
+            }
+            lista.innerHTML = '';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const div = document.createElement('div');
+                div.className = 'modal-list-item';
+                div.innerHTML = `
+                    <div>
+                        <h4>${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                        <small>${escapeHtml(d.cliNombre || 'Sin cliente')} • ${escapeHtml(d.cliProyecto || '')}</small>
+                    </div>
+                    <button type="button" class="corp-btn-small primary-action">Importar</button>
+                `;
+                div.querySelector('button').onclick = () => {
+                    procesarImportacionDesdeModulo(origen, d);
+                    cerrarModalImportarModulo();
+                };
+                lista.appendChild(div);
+            });
+        })
+        .catch(() => {
+            lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al consultar la nube.</p>';
+        });
+}
+
+function cerrarModalImportarModulo() {
+    document.getElementById('modalImportarModulo').classList.add('oculto');
+}
+
+function procesarImportacionDesdeModulo(origen, data) {
+    const dispositivos = [];
+    const fasesRotacion = ['L1_N', 'L2_N', 'L3_N'];
+
+    if (origen === 'unifilar') {
+        const esTrifa = data.nivel0 && data.nivel0.sistema && data.nivel0.sistema.toLowerCase().includes('trif');
+        const polosCab = esTrifa ? 4 : 2;
+        if (data.nivel1 && data.nivel1.dps) {
+            dispositivos.push({
+                tipo: 'DPS',
+                modulos: polosCab,
+                tag: 'DPS',
+                calibre: 'Clase II • 20kA',
+                color: 'naranja',
+                polaridad: esTrifa ? 'L1_L2_L3_N_PE' : 'L1_N_PE',
+                peine: 'NONE',
+                destino: 'Protección Sobretensiones',
+                cable: 'PE 10 mm²',
+                conexionado: 'Paralelo Cabecera → Barra PE'
+            });
+        }
+        if (data.nivel2) {
+            dispositivos.push({
+                tipo: 'ID',
+                modulos: polosCab,
+                tag: 'ID1',
+                calibre: `${polosCab}x${data.nivel2.idCalibre || '40'}A • ${data.nivel2.idSens || '30mA'}`,
+                color: 'azul',
+                polaridad: esTrifa ? 'L1_L2_L3_N' : 'L1_N',
+                peine: 'NONE',
+                destino: `Cabecera ${data.nivel2.nombre || 'TS1'}`,
+                cable: data.nivel1?.lsCable || '2x6 + PE mm²',
+                conexionado: 'Entrada Línea → Distribución'
+            });
+        }
+        const circs = Array.isArray(data.circuitos) ? data.circuitos : [];
+        circs.forEach((c, idx) => {
+            const p = Math.min(4, Math.max(1, parseInt(c.polos, 10) || (esTrifa ? 4 : 2)));
+            let pol = 'L1_N';
+            if (p === 1) pol = esTrifa ? ['L1', 'L2', 'L3'][idx % 3] : 'L1';
+            else if (p === 2) pol = esTrifa ? fasesRotacion[idx % 3] : 'L1_N';
+            else if (p === 3) pol = 'L1_L2_L3';
+            else if (p === 4) pol = 'L1_L2_L3_N';
+
+            dispositivos.push({
+                tipo: 'PIA',
+                modulos: p,
+                tag: c.codigo || `C${idx + 1}`,
+                calibre: `${p}x${c.calibre || 16}A Curva ${c.curva || 'C'}`,
+                color: 'azul',
+                polaridad: pol,
+                peine: p === 2 ? 'SUP' : 'NONE',
+                destino: `${c.tipo || 'CIR'} - ${c.destino || 'Circuito terminal'}`,
+                cable: c.cable || '2x2.5 + PE mm²',
+                conexionado: `Alim: ID1 → Salida ${c.codigo || `C${idx + 1}`}`
+            });
+        });
+        estadoGabinete.nombre = (data.nivel2 && data.nivel2.nombre) ? data.nivel2.nombre : 'TS1';
+    } else {
+        const esTrifaPot = data.suministro && String(data.suministro).toUpperCase().includes('TRIF');
+        dispositivos.push({
+            tipo: 'ID',
+            modulos: esTrifaPot ? 4 : 2,
+            tag: 'ID1',
+            calibre: esTrifaPot ? '4x40A • 30mA AC' : '2x40A • 30mA AC',
+            color: 'azul',
+            polaridad: esTrifaPot ? 'L1_L2_L3_N' : 'L1_N',
+            peine: 'NONE',
+            destino: 'Cabecera Diferencial',
+            cable: esTrifaPot ? '4x6 + PE mm²' : '2x6 + PE mm²',
+            conexionado: 'Entrada Línea → Distribución'
+        });
+        const circs = Array.isArray(data.circuitos) ? data.circuitos : [];
+        circs.forEach((c, idx) => {
+            const pol = esTrifaPot ? fasesRotacion[idx % 3] : 'L1_N';
+            dispositivos.push({
+                tipo: 'PIA',
+                modulos: 2,
+                tag: c.id || `C${idx + 1}`,
+                calibre: `2x${c.pia || 16}A Curva C`,
+                color: 'azul',
+                polaridad: pol,
+                peine: 'SUP',
+                destino: `${c.tipo || 'CIR'} - ${c.descripcion || 'Circuito'}`,
+                cable: c.cable || '2x2.5 + PE mm²',
+                conexionado: `Alim: ID1 → Salida ${c.id || `C${idx + 1}`}`
+            });
+        });
+    }
+
+    if (dispositivos.length === 0) {
+        mostrarAlertaCorp('Sin Circuitos', 'El borrador seleccionado no contenía circuitos configurados.');
+        return;
+    }
+
+    const modPorFila = 12;
+    const filas = [[]];
+    let modActuales = 0;
+    dispositivos.forEach(dev => {
+        if (modActuales + dev.modulos > modPorFila) {
+            filas.push([]);
+            modActuales = 0;
+        }
+        filas[filas.length - 1].push(dev);
+        modActuales += dev.modulos;
+    });
+
+    estadoGabinete.filasCount = Math.min(4, filas.length);
+    estadoGabinete.modulosPorFila = modPorFila;
+    estadoGabinete.filas = filas.slice(0, 4);
+    if (filas.length > 4) {
+        estadoGabinete.filas[3].push(...filas.slice(4).flat());
+    }
+
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+    mostrarToast('Importado con Éxito', `${dispositivos.length} dispositivos ubicados en riel DIN.`);
+                }
+
+// ==========================================================================
+// CRUD DE DISPOSITIVOS EN FILAS DIN
+// ==========================================================================
+function abrirModalDispositivo(filaIdx, editIdx = -1) {
+    document.getElementById('devFilaIndex').value = filaIdx;
+    document.getElementById('devEditIndex').value = editIdx;
+
+    if (editIdx >= 0 && estadoGabinete.filas[filaIdx] && estadoGabinete.filas[filaIdx][editIdx]) {
+        const d = estadoGabinete.filas[filaIdx][editIdx];
+        document.getElementById('tituloModalDispositivo').innerHTML = '<i class="fa-solid fa-pen corp-accent-color"></i> Editar Dispositivo DIN';
+        document.getElementById('devTipo').value = d.tipo || 'PIA';
+        document.getElementById('devModulos').value = String(d.modulos || 2);
+        document.getElementById('devTag').value = d.tag || '';
+        document.getElementById('devPolaridad').value = d.polaridad || inferirPolaridadDefecto(d.tipo, d.modulos);
+        document.getElementById('devPeine').value = d.peine || 'NONE';
+        document.getElementById('devCalibre').value = d.calibre || '';
+        document.getElementById('devColor').value = d.color || 'azul';
+        document.getElementById('devDestino').value = d.destino || '';
+        document.getElementById('devCable').value = d.cable || '';
+        document.getElementById('devConexionado').value = d.conexionado || '';
+    } else {
+        document.getElementById('tituloModalDispositivo').innerHTML = `<i class="fa-solid fa-plus-circle corp-accent-color"></i> Agregar en Fila ${filaIdx + 1}`;
+        document.getElementById('devTipo').value = 'PIA';
+        aplicarPrecargaDispositivo();
+        const totalExistentes = estadoGabinete.filas.flat().filter(x => x.tipo === 'PIA').length;
+        const nuevoTag = `C${totalExistentes + 1}`;
+        document.getElementById('devTag').value = nuevoTag;
+        document.getElementById('devConexionado').value = `Alim: Peine ID1 → Salida ${nuevoTag}`;
+    }
+
+    document.getElementById('modalDispositivoTopo').classList.remove('oculto');
+}
+
+function cerrarModalDispositivo() {
+    document.getElementById('modalDispositivoTopo').classList.add('oculto');
+}
+
+function inferirPolaridadDefecto(tipo, modulos) {
+    const m = parseInt(modulos, 10) || 2;
+    if (tipo === 'RES') return 'NONE';
+    if (tipo === 'DPS') return m >= 4 ? 'L1_L2_L3_N_PE' : 'L1_N_PE';
+    if (m === 1) return 'L1';
+    if (m === 3) return 'L1_L2_L3';
+    if (m >= 4) return 'L1_L2_L3_N';
+    return 'L1_N';
+}
+
+function aplicarPrecargaDispositivo() {
+    const tipo = document.getElementById('devTipo').value;
+    const p = PRESETS_DISPOSITIVOS[tipo] || PRESETS_DISPOSITIVOS.PIA;
+    document.getElementById('devModulos').value = String(p.modulos);
+    document.getElementById('devTag').value = p.tag;
+    document.getElementById('devPolaridad').value = p.polaridad || inferirPolaridadDefecto(tipo, p.modulos);
+    document.getElementById('devPeine').value = p.peine || 'NONE';
+    document.getElementById('devCalibre').value = p.calibre;
+    document.getElementById('devColor').value = p.color;
+    document.getElementById('devDestino').value = p.destino;
+    document.getElementById('devCable').value = p.cable;
+    document.getElementById('devConexionado').value = p.conexionado || '';
+}
+
+function ajustarPolaridadPorModulos() {
+    const tipo = document.getElementById('devTipo').value;
+    const mods = parseInt(document.getElementById('devModulos').value, 10) || 2;
+    document.getElementById('devPolaridad').value = inferirPolaridadDefecto(tipo, mods);
+}
+
+function guardarDispositivoTopo() {
+    const filaIdx = parseInt(document.getElementById('devFilaIndex').value, 10) || 0;
+    const editIdx = parseInt(document.getElementById('devEditIndex').value, 10);
+    const tipo = document.getElementById('devTipo').value;
+    const modulos = parseInt(document.getElementById('devModulos').value, 10) || 2;
+
+    const dispositivo = {
+        tipo,
+        modulos,
+        tag: document.getElementById('devTag').value.trim() || 'DEV',
+        polaridad: document.getElementById('devPolaridad').value || inferirPolaridadDefecto(tipo, modulos),
+        peine: document.getElementById('devPeine').value || 'NONE',
+        calibre: document.getElementById('devCalibre').value.trim() || '-',
+        color: document.getElementById('devColor').value,
+        destino: document.getElementById('devDestino').value.trim() || 'Circuito',
+        cable: document.getElementById('devCable').value.trim() || '-',
+        conexionado: document.getElementById('devConexionado').value.trim() || '-'
+    };
+
+    if (!estadoGabinete.filas[filaIdx]) estadoGabinete.filas[filaIdx] = [];
+
+    if (editIdx >= 0) {
+        estadoGabinete.filas[filaIdx][editIdx] = dispositivo;
+    } else {
+        estadoGabinete.filas[filaIdx].push(dispositivo);
+    }
+
+    cerrarModalDispositivo();
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+}
+
+function moverDispositivoFila(filaIdx, idx, delta) {
+    const arr = estadoGabinete.filas[filaIdx];
+    if (!arr) return;
+    const nuevoIdx = idx + delta;
+    if (nuevoIdx < 0 || nuevoIdx >= arr.length) return;
+    const temp = arr[idx];
+    arr[idx] = arr[nuevoIdx];
+    arr[nuevoIdx] = temp;
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+}
+
+function duplicarDispositivoFila(filaIdx, idx) {
+    const arr = estadoGabinete.filas[filaIdx];
+    if (!arr || !arr[idx]) return;
+    const copia = Object.assign({}, arr[idx]);
+    if (/^C\d+$/i.test(copia.tag)) {
+        const cant = estadoGabinete.filas.flat().filter(x => x.tipo === 'PIA').length;
+        copia.tag = `C${cant + 1}`;
+        if (copia.conexionado && copia.conexionado.includes('Salida C')) {
+            copia.conexionado = copia.conexionado.replace(/Salida C\d+/i, `Salida ${copia.tag}`);
+        }
+    }
+    arr.splice(idx + 1, 0, copia);
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+}
+
+function eliminarDispositivoFila(filaIdx, idx) {
+    if (!estadoGabinete.filas[filaIdx]) return;
+    estadoGabinete.filas[filaIdx].splice(idx, 1);
+    guardarEstadoLocal(true);
+    renderizarTodoTopografico();
+}
+
+// ==========================================================================
+// HELPERS DE POLARIDAD Y EQUILIBRIO DE FASES
+// ==========================================================================
+function formatearEtiquetaPolaridad(dev) {
+    const key = dev.polaridad || inferirPolaridadDefecto(dev.tipo, dev.modulos);
+    const info = MAPAS_POLARIDAD[key];
+    return info ? info.label : '-';
+}
+
+function calcularBalanceFases() {
+    const conteo = { L1: 0, L2: 0, L3: 0 };
+    estadoGabinete.filas.flat().forEach(dev => {
+        if (dev.tipo === 'RES' || dev.tipo === 'ID' || dev.tipo === 'DPS' || dev.tipo === 'SEC') return;
+        const key = dev.polaridad || inferirPolaridadDefecto(dev.tipo, dev.modulos);
+        const info = MAPAS_POLARIDAD[key];
+        if (info && Array.isArray(info.fases)) {
+            info.fases.forEach(f => {
+                if (conteo[f] !== undefined) conteo[f]++;
+            });
+        }
+    });
+    return conteo;
+}
+
+// ==========================================================================
+// RENDERIZADO DE INTERFAZ Y AUDITORÍA NORMATIVA AEA 90364-7-770
+// ==========================================================================
+function renderizarTodoTopografico() {
+    const capFila = estadoGabinete.modulosPorFila || 12;
+    const cantFilas = estadoGabinete.filasCount || 1;
+    const capTotal = capFila * cantFilas;
+
+    let ocupadosTotal = 0;
+    let totalDispositivos = 0;
+    let hayDesborde = false;
+    let tieneID = false;
+
+    const contFilas = document.getElementById('ui-contenedor-filas');
+    contFilas.innerHTML = '';
+
+    for (let f = 0; f < cantFilas; f++) {
+        const devs = estadoGabinete.filas[f] || [];
+        totalDispositivos += devs.length;
+        const ocupadosFila = devs.reduce((acc, d) => acc + (parseInt(d.modulos, 10) || 1), 0);
+        ocupadosTotal += ocupadosFila;
+        if (ocupadosFila > capFila) hayDesborde = true;
+        if (devs.some(d => d.tipo === 'ID')) tieneID = true;
+
+        const pct = Math.min(100, Math.round((ocupadosFila / capFila) * 100));
+        const libresFila = capFila - ocupadosFila;
+        const fillClass = libresFila < 0 ? 'over' : (pct > 80 ? 'warn' : '');
+
+        const card = document.createElement('div');
+        card.className = 'topo-row-card gpu-accel';
+        card.innerHTML = `
+            <div class="topo-row-header">
+                <div>
+                    <div class="topo-row-title"><i class="fa-solid fa-grip-lines corp-accent-color"></i> Riel DIN • Fila ${f + 1}</div>
+                    <small style="font-size:0.72rem; color:${libresFila < 0 ? 'var(--error-red)' : 'var(--ngc-text-faded)'}; font-weight:700;">
+                        ${ocupadosFila} / ${capFila} M ocupados • ${libresFila >= 0 ? `${libresFila} M libres` : `¡EXCEDIDO POR ${Math.abs(libresFila)} M!`}
+                    </small>
+                </div>
+                <button type="button" class="corp-btn-small success-btn" onclick="abrirModalDispositivo(${f}, -1)">
+                    <i class="fa-solid fa-plus"></i> Dispositivo
+                </button>
+            </div>
+            <div class="topo-capacity-track">
+                <div class="topo-capacity-fill ${fillClass}" style="width:${pct}%;"></div>
+            </div>
+            <div class="topo-dev-list" id="lista-fila-${f}"></div>
+        `;
+        contFilas.appendChild(card);
+
+        const listaEl = card.querySelector(`#lista-fila-${f}`);
+        if (devs.length === 0) {
+            listaEl.innerHTML = `<div style="text-align:center; padding:12px; font-size:0.78rem; color:var(--ngc-text-faded); border:1px dashed var(--ngc-privacy-border); border-radius:8px;">Riel vacío (${capFila} módulos disponibles para reserva o montaje)</div>`;
+        } else {
+            let posInicio = 1;
+            devs.forEach((d, idx) => {
+                const posFin = posInicio + d.modulos - 1;
+                const rangoTxt = d.modulos === 1 ? `M${posInicio}` : `M${posInicio}–M${posFin}`;
+                posInicio = posFin + 1;
+
+                const polTxt = formatearEtiquetaPolaridad(d);
+                const peineBadge = d.peine === 'SUP' ? ' • Peine Sup.' : (d.peine === 'INF' ? ' • Peine Inf.' : '');
+                const conexTxt = d.conexionado && d.conexionado !== '-' ? `<br><span style="color:var(--ngc-neon); font-weight:600;">${escapeHtml(d.conexionado)}</span>` : '';
+
+                const item = document.createElement('div');
+                item.className = 'topo-dev-item';
+                item.innerHTML = `
+                    <div class="topo-dev-top">
+                        <span class="topo-dev-tag">
+                            <span style="color:var(--ngc-neon);">[${escapeHtml(d.tag)}]</span> ${escapeHtml(d.destino)}
+                        </span>
+                        <span class="topo-mod-badge">${rangoTxt} (${d.modulos}M)</span>
+                    </div>
+                    <div class="topo-dev-meta">
+                        <strong>${escapeHtml(d.tipo)}</strong> • ${escapeHtml(d.calibre)} • Polos: <strong>${escapeHtml(polTxt)}</strong>${peineBadge}<br>
+                        Cond: ${escapeHtml(d.cable)}${conexTxt}
+                    </div>
+                    <div class="topo-dev-actions">
+                        <button type="button" class="corp-btn-small" onclick="moverDispositivoFila(${f}, ${idx}, -1)" title="Mover a la izquierda"><i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="button" class="corp-btn-small" onclick="moverDispositivoFila(${f}, ${idx}, 1)" title="Mover a la derecha"><i class="fa-solid fa-arrow-right"></i></button>
+                        <button type="button" class="corp-btn-small" onclick="duplicarDispositivoFila(${f}, ${idx})" title="Duplicar"><i class="fa-solid fa-copy"></i></button>
+                        <button type="button" class="corp-btn-small primary-action" onclick="abrirModalDispositivo(${f}, ${idx})"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" class="corp-btn-small danger" onclick="eliminarDispositivoFila(${f}, ${idx})"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                listaEl.appendChild(item);
+            });
+        }
+    }
+
+    // Actualiza KPIs de gabinete
+    const libresTotal = capTotal - ocupadosTotal;
+    const pctReserva = capTotal > 0 ? Math.round((libresTotal / capTotal) * 100) : 0;
+    const pctOcupado = capTotal > 0 ? Math.round((ocupadosTotal / capTotal) * 100) : 0;
+
+    document.getElementById('ui-titulo-gabinete').innerText = `${estadoGabinete.nombre} • ${estadoGabinete.ip}`;
+    document.getElementById('ui-stat-capacidad').innerText = `${capTotal} M (${cantFilas}×${capFila})`;
+    document.getElementById('ui-stat-ocupados').innerText = `${ocupadosTotal} M (${pctOcupado}%)`;
+
+    const elReserva = document.getElementById('ui-stat-reserva');
+    const reservaTxt = libresTotal < 0
+        ? `${libresTotal} M (Excedido)`
+        : (pctReserva < 20 ? `${libresTotal} M (${pctReserva}% < 20%)` : `${libresTotal} M (${pctReserva}% OK)`);
+
+    elReserva.style.color = libresTotal < 0 ? 'var(--error-red)' : (pctReserva < 20 ? 'var(--ngc-warning)' : 'var(--success-green)');
+    elReserva.innerText = reservaTxt;
+
+    // Sincronizar Dock Flotante y KPIs del Cajón Ejecutivo
+    const dockRes = document.getElementById('dockTopoResumen');
+    if (dockRes) dockRes.innerText = `${estadoGabinete.nombre} • ${ocupadosTotal}/${capTotal} M • ${totalDispositivos} disp.`;
+
+    const dockAlert = document.getElementById('dockTopoAlerta');
+    if (dockAlert) {
+        if (hayDesborde) {
+            dockAlert.style.color = 'var(--error-red)';
+            dockAlert.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Excedido`;
+        } else if (pctReserva < 20) {
+            dockAlert.style.color = 'var(--ngc-warning)';
+            dockAlert.innerHTML = `<i class="fa-solid fa-temperature-half"></i> Res. ${pctReserva}%`;
+        } else {
+            dockAlert.style.color = 'var(--success-green)';
+            dockAlert.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${pctReserva}% Res.`;
+        }
+    }
+
+    const kpiOc = document.getElementById('kpiTopoOcupados');
+    if (kpiOc) kpiOc.innerText = `${ocupadosTotal} / ${capTotal} M`;
+    const kpiLib = document.getElementById('kpiTopoLibres');
+    if (kpiLib) {
+        kpiLib.style.color = elReserva.style.color;
+        kpiLib.innerText = libresTotal < 0 ? `${libresTotal} M` : `${libresTotal} M (${pctReserva}%)`;
+    }
+    const kpiDev = document.getElementById('kpiTopoDispositivos');
+    if (kpiDev) kpiDev.innerText = `${totalDispositivos}`;
+
+    // Equilibrio de fases en pantalla y en cajón
+    const bal = calcularBalanceFases();
+    const elBal = document.getElementById('ui-balance-fases-valores');
+    if (elBal) {
+        elBal.innerHTML = `<span style="color:#d97706;">L1: ${bal.L1}</span> • <span>L2: ${bal.L2}</span> • <span style="color:#dc2626;">L3: ${bal.L3}</span>`;
+    }
+    const elL1 = document.getElementById('kpiFaseL1');
+    const elL2 = document.getElementById('kpiFaseL2');
+    const elL3 = document.getElementById('kpiFaseL3');
+    if (elL1) elL1.innerText = `${bal.L1} circ.`;
+    if (elL2) elL2.innerText = `${bal.L2} circ.`;
+    if (elL3) elL3.innerText = `${bal.L3} circ.`;
+
+    const btnPolos = document.getElementById('btnTogglePolosOnScreen');
+    if (btnPolos) {
+        btnPolos.innerHTML = `<i class="fa-solid fa-plug"></i> Polos IRAM: ${mostrarPolosIRAM ? 'ON' : 'OFF'}`;
+    }
+
+    // Banner de auditoría normativa AEA 90364-7-770
+    const banner = document.getElementById('ui-aea-topo-status');
+    if (hayDesborde) {
+        banner.className = 'pot-aea-banner err';
+        banner.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <strong>Error Físico:</strong> Hay filas que superan los módulos DIN del gabinete.';
+    } else if (!tieneID && ocupadosTotal > 0) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = '<i class="fa-solid fa-shield-halved"></i> <strong>Advertencia AEA 770:</strong> No se detectó Interruptor Diferencial (ID ≤ 30mA) en el tablero.';
+    } else if (pctReserva < 20) {
+        banner.className = 'pot-aea-banner warn';
+        banner.innerHTML = `<i class="fa-solid fa-temperature-half"></i> <strong>Reserva Térmica (${pctReserva}%):</strong> AEA 90364-7-770 exige ≥ 20% de módulos libres.`;
+    } else {
+        banner.className = 'pot-aea-banner ok';
+        banner.innerHTML = `<i class="fa-solid fa-circle-check"></i> <strong>Tablero Conforme AEA 90364:</strong> Disposición física correcta y ${pctReserva}% de reserva térmica libre.`;
+    }
+
+    // Renderiza SVG en pantalla y en plantilla PDF A4
+    const svgHTML = generarSVGTopografico();
+    document.getElementById('contenedorSvgPantalla').innerHTML = svgHTML;
+    actualizarVistaPreviaPDF(svgHTML);
+            }
+
+// ==========================================================================
+// MOTOR VECTORIAL PARAMÉTRICO SVG (FRENTE MUERTO + BORNES IRAM + PEINES)
+// ==========================================================================
+function generarSVGTopografico() {
+    const capFila = estadoGabinete.modulosPorFila || 12;
+    const cantFilas = estadoGabinete.filasCount || 1;
+
+    const modW = capFila <= 4 ? 56 : (capFila <= 6 ? 44 : (capFila <= 8 ? 38 : 34));
+    const devH = 98;
+    const rowPitch = 160;
+    const padX = 36;
+    const headerH = 54;
+    const footerBusH = estadoGabinete.borneras !== 'NONE' ? 42 : 16;
+
+    const innerW = capFila * modW;
+    const cabW = innerW + padX * 2;
+    const cabH = headerH + cantFilas * rowPitch + footerBusH + 14;
+    const svgW = cabW + 24;
+    const svgH = cabH + 24;
+
+    const palette = {
+        azul:    { handle: '#1d4ed8', badge: '#dbeafe', text: '#1e3a8a' },
+        rojo:    { handle: '#dc2626', badge: '#fee2e2', text: '#7f1d1d' },
+        negro:   { handle: '#1e293b', badge: '#e2e8f0', text: '#0f172a' },
+        naranja: { handle: '#ea580c', badge: '#ffedd5', text: '#7c2d12' },
+        gris:    { handle: '#64748b', badge: '#f1f5f9', text: '#334155' }
+    };
+
+    let s = `<svg viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">`;
+
+    s += `<defs>`;
+    for (let f = 0; f < cantFilas; f++) {
+        const yBase = 12 + headerH + f * rowPitch;
+        const xStart = 12 + padX;
+        let cursorClip = 0;
+        (estadoGabinete.filas[f] || []).forEach((dev, idx) => {
+            const mods = parseInt(dev.modulos, 10) || 1;
+            const dx = xStart + cursorClip * modW;
+            const dw = mods * modW;
+            s += `<clipPath id="clip-dev-${f}-${idx}"><rect x="${dx + 0.5}" y="${yBase + 15}" width="${Math.max(10, dw - 1)}" height="${devH + 34}"/></clipPath>`;
+            cursorClip += mods;
+        });
+    }
+    s += `</defs>`;
+
+    // Marco exterior de gabinete
+    s += `<rect x="12" y="12" width="${cabW}" height="${cabH}" rx="8" fill="#f8fafc" stroke="#0f172a" stroke-width="2.2"/>`;
+    s += `<rect x="18" y="18" width="${cabW - 12}" height="${cabH - 12}" rx="5" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>`;
+
+    // Tornillos de esquina del frente muerto
+    [[25, 25], [cabW - 1, 25], [25, cabH - 1], [cabW - 1, cabH - 1]].forEach(([cx, cy]) => {
+        s += `<circle cx="${cx}" cy="${cy}" r="3.5" fill="#cbd5e1" stroke="#475569" stroke-width="1"/>`;
+        s += `<line x1="${cx - 2}" y1="${cy - 2}" x2="${cx + 2}" y2="${cy + 2}" stroke="#475569" stroke-width="1"/>`;
+    });
+
+    // Placa identificatoria superior de 2 líneas
+    const placaX = padX + 12;
+    const placaCenterX = placaX + innerW / 2;
+    const tituloLinea1 = `${estadoGabinete.nombre} — ${estadoGabinete.montaje.toUpperCase()}`;
+    const tituloLinea2 = `${estadoGabinete.ip} (${cantFilas}×${capFila}M)`;
+    const fontL1 = tituloLinea1.length * 6.4 > (innerW - 14) ? Math.max(8, Math.floor(((innerW - 14) / tituloLinea1.length) * 1.55)) : 11;
+    const fontL2 = tituloLinea2.length * 5.2 > (innerW - 14) ? Math.max(7.2, Math.floor(((innerW - 14) / tituloLinea2.length) * 1.55)) : 9;
+
+    s += `<rect x="${placaX}" y="22" width="${innerW}" height="34" rx="4" fill="#0f172a"/>`;
+    s += `<text x="${placaCenterX}" y="36" fill="#ffffff" font-size="${fontL1}" font-weight="bold" text-anchor="middle">${escapeXml(tituloLinea1)}</text>`;
+    s += `<text x="${placaCenterX}" y="49" fill="#cbd5e1" font-size="${fontL2}" font-weight="bold" text-anchor="middle">${escapeXml(tituloLinea2)}</text>`;
+
+    // Dibujo de cada fila / riel DIN
+    for (let f = 0; f < cantFilas; f++) {
+        const yBase = 12 + headerH + f * rowPitch;
+        const xStart = 12 + padX;
+        const dy = yBase + 24;
+
+        s += `<text x="${xStart - 7}" y="${dy + devH / 2 + 3}" fill="#475569" font-size="9.5" font-weight="bold" text-anchor="end">F${f + 1}</text>`;
+
+        // Riel DIN metálico de fondo (35 mm)
+        s += `<rect x="${xStart - 6}" y="${dy + 32}" width="${innerW + 12}" height="34" fill="#e2e8f0" stroke="#64748b" stroke-width="1"/>`;
+        s += `<rect x="${xStart - 6}" y="${dy + 38}" width="${innerW + 12}" height="22" fill="#cbd5e1" stroke="#94a3b8" stroke-width="0.8"/>`;
+
+        // Regla numerada de módulos DIN arriba del calado
+        for (let m = 0; m < capFila; m++) {
+            const mx = xStart + m * modW;
+            s += `<rect x="${mx}" y="${yBase + 3}" width="${modW}" height="12" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="0.7"/>`;
+            s += `<text x="${mx + modW / 2}" y="${yBase + 12}" fill="#64748b" font-size="7.5" font-weight="bold" text-anchor="middle">${m + 1}</text>`;
+        }
+
+        // Calado rectangular del frente muerto
+        s += `<rect x="${xStart}" y="${dy}" width="${innerW}" height="${devH}" fill="#f8fafc" stroke="#334155" stroke-width="1.3"/>`;
+
+        const devs = estadoGabinete.filas[f] || [];
+        let cursorMod = 0;
+        const rangosPeineSup = [];
+        const rangosPeineInf = [];
+
+        devs.forEach((dev, idx) => {
+            const mods = parseInt(dev.modulos, 10) || 1;
+            const dx = xStart + cursorMod * modW;
+            const dw = mods * modW;
+            const pal = palette[dev.color] || palette.azul;
+
+            const polKey = dev.polaridad || inferirPolaridadDefecto(dev.tipo, mods);
+            const polInfo = MAPAS_POLARIDAD[polKey] || MAPAS_POLARIDAD.NONE;
+
+            if (dev.peine === 'SUP') rangosPeineSup.push({ x1: dx + 4, x2: dx + dw - 4 });
+            if (dev.peine === 'INF') rangosPeineInf.push({ x1: dx + 4, x2: dx + dw - 4 });
+
+            s += `<g clip-path="url(#clip-dev-${f}-${idx})">`;
+
+            // Puntas de conductores superiores e inferiores con color IRAM 2183
+            if (dev.tipo !== 'RES' && mostrarPolosIRAM) {
+                for (let p = 0; p < mods; p++) {
+                    const px = dx + p * modW + modW / 2;
+                    const poloCode = polInfo.polos[p] || '';
+                    const estPolo = ESTILOS_CONDUCTOR_IRAM[poloCode];
+
+                    if (estPolo) {
+                        s += `<line x1="${px}" y1="${dy - 8}" x2="${px}" y2="${dy + 5}" stroke="${estPolo.stroke}" stroke-width="3.2" stroke-linecap="round"/>`;
+                        if (poloCode === 'PE') {
+                            s += `<line x1="${px}" y1="${dy - 7}" x2="${px}" y2="${dy + 4}" stroke="#facc15" stroke-width="1.4" stroke-dasharray="2,2"/>`;
+                        }
+
+                        const salidaCode = polInfo.salidaPE ? 'PE' : poloCode;
+                        const estSalida = ESTILOS_CONDUCTOR_IRAM[salidaCode] || estPolo;
+                        s += `<line x1="${px}" y1="${dy + devH - 5}" x2="${px}" y2="${dy + devH + 7}" stroke="${estSalida.stroke}" stroke-width="3.2" stroke-linecap="round"/>`;
+                        if (salidaCode === 'PE') {
+                            s += `<line x1="${px}" y1="${dy + devH - 4}" x2="${px}" y2="${dy + devH + 6}" stroke="#facc15" stroke-width="1.4" stroke-dasharray="2,2"/>`;
+                        }
+                    }
+                }
+            }
+
+            // Cuerpo modular
+            s += `<rect x="${dx + 0.8}" y="${dy + 0.8}" width="${dw - 1.6}" height="${devH - 1.6}" rx="2" fill="#ffffff" stroke="#0f172a" stroke-width="1.3"/>`;
+
+            // Bornes superiores, letras de polo y bornes inferiores
+            for (let p = 0; p < mods; p++) {
+                const px = dx + p * modW + modW / 2;
+                const poloCode = polInfo.polos[p] || '';
+                const estPolo = ESTILOS_CONDUCTOR_IRAM[poloCode];
+                const salidaCode = polInfo.salidaPE ? 'PE' : poloCode;
+                const estSalida = ESTILOS_CONDUCTOR_IRAM[salidaCode] || estPolo;
+
+                if (p > 0) {
+                    s += `<line x1="${dx + p * modW}" y1="${dy + 2}" x2="${dx + p * modW}" y2="${dy + devH - 2}" stroke="#e2e8f0" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+                }
+
+                if (dev.tipo !== 'RES') {
+                    s += `<circle cx="${px}" cy="${dy + 8}" r="3.1" fill="#e2e8f0" stroke="#475569" stroke-width="0.9"/>`;
+                    s += `<line x1="${px - 1.8}" y1="${dy + 8}" x2="${px + 1.8}" y2="${dy + 8}" stroke="#334155" stroke-width="0.9"/>`;
+
+                    if (mostrarPolosIRAM && poloCode && estPolo) {
+                        s += `<text x="${px}" y="${dy + 19}" fill="${estPolo.text}" font-size="6.8" font-weight="bold" text-anchor="middle">${escapeXml(poloCode)}</text>`;
+                    }
+
+                    if (mostrarPolosIRAM && salidaCode && estSalida) {
+                        s += `<text x="${px}" y="${dy + devH - 14}" fill="${estSalida.text}" font-size="6.8" font-weight="bold" text-anchor="middle">${escapeXml(salidaCode)}</text>`;
+                    }
+
+                    s += `<circle cx="${px}" cy="${dy + devH - 8}" r="3.1" fill="#e2e8f0" stroke="#475569" stroke-width="0.9"/>`;
+                    s += `<line x1="${px - 1.8}" y1="${dy + devH - 8}" x2="${px + 1.8}" y2="${dy + devH - 8}" stroke="#334155" stroke-width="0.9"/>`;
+                }
+            }
+
+            if (dev.tipo === 'RES') {
+                s += `<line x1="${dx + 4}" y1="${dy + 4}" x2="${dx + dw - 4}" y2="${dy + devH - 4}" stroke="#cbd5e1" stroke-width="1"/>`;
+                s += `<line x1="${dx + dw - 4}" y1="${dy + 4}" x2="${dx + 4}" y2="${dy + devH - 4}" stroke="#cbd5e1" stroke-width="1"/>`;
+                s += `<text x="${dx + dw / 2}" y="${dy + 52}" fill="#64748b" font-size="8" font-weight="bold" text-anchor="middle">RES</text>`;
+            } else {
+                s += `<rect x="${dx + 3}" y="${dy + 22}" width="${dw - 6}" height="12" rx="2" fill="${pal.badge}"/>`;
+                s += `<text x="${dx + dw / 2}" y="${dy + 31}" fill="${pal.text}" font-size="${mods === 1 ? '6.8' : '7.8'}" font-weight="bold" text-anchor="middle">${escapeXml(dev.tipo)}</text>`;
+
+                const handleW = Math.max(14, dw - 14);
+                const handleX = dx + (dw - handleW) / 2;
+                s += `<rect x="${handleX}" y="${dy + 46}" width="${handleW}" height="11" rx="2" fill="${pal.handle}" stroke="#0f172a" stroke-width="0.8"/>`;
+
+                if (dev.tipo === 'ID') {
+                    s += `<rect x="${dx + 5}" y="${dy + 36}" width="10" height="7.5" rx="1.5" fill="#facc15" stroke="#854d0e" stroke-width="0.7"/>`;
+                    s += `<text x="${dx + 10}" y="${dy + 42}" fill="#422006" font-size="6.2" font-weight="bold" text-anchor="middle">T</text>`;
+                }
+
+                if (dev.tipo === 'DPS' || dev.tipo === 'PT') {
+                    s += `<rect x="${dx + dw / 2 - 6}" y="${dy + 36}" width="12" height="6.5" rx="1" fill="#22c55e" stroke="#14532d" stroke-width="0.7"/>`;
+                }
+
+                const maxChars = Math.max(4, Math.floor((dw - 6) / 4.4));
+                const calShort = (dev.calibre || '').split('•')[0].trim().slice(0, maxChars);
+                s += `<text x="${dx + dw / 2}" y="${dy + 68}" fill="#0f172a" font-size="${mods === 1 ? '6.6' : '7.4'}" font-weight="bold" text-anchor="middle">${escapeXml(calShort)}</text>`;
+            }
+
+            // Porta-etiqueta grabado debajo del aparato
+            s += `<rect x="${dx + 2}" y="${dy + devH + 9}" width="${dw - 4}" height="14" rx="2" fill="#0f172a"/>`;
+            s += `<text x="${dx + dw / 2}" y="${dy + devH + 19}" fill="#ffffff" font-size="${mods === 1 ? '7.5' : '8.5'}" font-weight="bold" text-anchor="middle">${escapeXml(dev.tag)}</text>`;
+
+            s += `</g>`;
+            cursorMod += mods;
+        });
+
+        if (rangosPeineSup.length > 0) {
+            const px1 = rangosPeineSup[0].x1;
+            const px2 = rangosPeineSup[rangosPeineSup.length - 1].x2;
+            const pyBar = dy - 9;
+            s += `<rect x="${px1}" y="${pyBar}" width="${Math.max(8, px2 - px1)}" height="4.5" rx="1.5" fill="#334155" stroke="#0f172a" stroke-width="0.6"/>`;
+            if (px2 - px1 >= 44) {
+                s += `<text x="${(px1 + px2) / 2}" y="${pyBar + 3.6}" fill="#ffffff" font-size="4.4" font-weight="bold" text-anchor="middle">PEINE DISTRIBUCIÓN</text>`;
+            }
+        }
+
+        if (rangosPeineInf.length > 0) {
+            const px1 = rangosPeineInf[0].x1;
+            const px2 = rangosPeineInf[rangosPeineInf.length - 1].x2;
+            const pyBar = dy + devH + 3.5;
+            s += `<rect x="${px1}" y="${pyBar}" width="${Math.max(8, px2 - px1)}" height="4.5" rx="1.5" fill="#334155" stroke="#0f172a" stroke-width="0.6"/>`;
+        }
+
+        for (let rem = cursorMod; rem < capFila; rem++) {
+            const rx = xStart + rem * modW;
+            s += `<rect x="${rx + 1}" y="${dy + 1}" width="${modW - 2}" height="${devH - 2}" fill="none" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="3,2"/>`;
+            s += `<text x="${rx + modW / 2}" y="${dy + 52}" fill="#94a3b8" font-size="7" text-anchor="middle">LIBRE</text>`;
+        }
+    }
+
+    // Borneras inferiores (PE / N)
+    if (estadoGabinete.borneras !== 'NONE') {
+        const yBus = 12 + headerH + cantFilas * rowPitch + 4;
+        const xBus = 12 + padX;
+        const busW = estadoGabinete.borneras === 'PE_N' ? (innerW / 2 - 6) : innerW;
+        const compacto = busW < 145;
+
+        const lblPE = compacto ? 'BARRA PE' : 'BARRA PE (TIERRA)';
+        const minCirclePE = xBus + (compacto ? 58 : 108);
+        s += `<rect x="${xBus}" y="${yBus}" width="${busW}" height="22" rx="3" fill="#dcfce7" stroke="#15803d" stroke-width="1.2"/>`;
+        s += `<text x="${xBus + 7}" y="${yBus + 14.5}" fill="#14532d" font-size="${compacto ? '8' : '9'}" font-weight="bold">${lblPE}</text>`;
+        for (let b = 0; b < 6; b++) {
+            const bx = xBus + busW - 12 - b * 13;
+            if (bx > minCirclePE) {
+                s += `<circle cx="${bx}" cy="${yBus + 11}" r="2.8" fill="#eab308" stroke="#15803d" stroke-width="0.8"/>`;
+            }
+        }
+
+        if (estadoGabinete.borneras === 'PE_N') {
+            const xN = xBus + innerW / 2 + 6;
+            const lblN = compacto ? 'BARRA N' : 'BARRA NEUTRO (N)';
+            const minCircleN = xN + (compacto ? 54 : 108);
+            s += `<rect x="${xN}" y="${yBus}" width="${busW}" height="22" rx="3" fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.2"/>`;
+            s += `<text x="${xN + 7}" y="${yBus + 14.5}" fill="#1e3a8a" font-size="${compacto ? '8' : '9'}" font-weight="bold">${lblN}</text>`;
+            for (let b = 0; b < 6; b++) {
+                const bx = xN + busW - 12 - b * 13;
+                if (bx > minCircleN) {
+                    s += `<circle cx="${bx}" cy="${yBus + 11}" r="2.8" fill="#93c5fd" stroke="#1d4ed8" stroke-width="0.8"/>`;
+                }
+            }
+        }
+    }
+
+    s += `</svg>`;
+    return s;
+}
+
+// ==========================================================================
+// SINCRONIZACIÓN DE LÁMINA A4 Y EXPORTACIÓN PDF (1 PÁGINA EXACTA)
+// ==========================================================================
+function actualizarVistaPreviaPDF(svgHTMLOpt) {
+    const svgHTML = svgHTMLOpt || generarSVGTopografico();
+    const hoy = new Date().toLocaleDateString('es-AR');
+
+    document.getElementById('pdf-fecha').innerText = hoy;
+    document.getElementById('pdf-cliente').innerText = document.getElementById('cliNombre').value.trim() || '-';
+    document.getElementById('pdf-dir').innerText = document.getElementById('cliDireccion').value.trim() || '-';
+    document.getElementById('pdf-proyecto').innerText = document.getElementById('cliProyecto').value.trim() || '-';
+
+    const capTotal = (estadoGabinete.filasCount || 1) * (estadoGabinete.modulosPorFila || 12);
+    const ocupTotal = estadoGabinete.filas.flat().reduce((a, d) => a + (parseInt(d.modulos, 10) || 1), 0);
+    const libres = Math.max(0, capTotal - ocupTotal);
+    const pctRes = capTotal > 0 ? Math.round((libres / capTotal) * 100) : 0;
+
+    document.getElementById('pdf-sub-gabinete').innerText = `${estadoGabinete.nombre} • ${estadoGabinete.ip} • Cap: ${capTotal}M (Res: ${libres}M / ${pctRes}%)`;
+
+    const bal = calcularBalanceFases();
+    const elPdfBal = document.getElementById('pdf-balance-fases');
+    if (elPdfBal) {
+        elPdfBal.innerText = `Equilibrio Fases: L1=${bal.L1} | L2=${bal.L2} | L3=${bal.L3}`;
+    }
+
+    const svgCont = document.getElementById('pdf-svg-container');
+    if (svgCont) svgCont.innerHTML = svgHTML;
+
+    const tbody = document.getElementById('pdf-tbody-dispositivos');
+    tbody.innerHTML = '';
+
+    estadoGabinete.filas.forEach((devs, fIdx) => {
+        let pos = 1;
+        devs.forEach((d, idx) => {
+            const pFin = pos + d.modulos - 1;
+            const posLabel = d.modulos === 1 ? `F${fIdx + 1} • M${pos}` : `F${fIdx + 1} • M${pos}-${pFin}`;
+            pos = pFin + 1;
+
+            const polTxt = formatearEtiquetaPolaridad(d);
+            const peineTxt = d.peine === 'SUP' ? ' (Peine Sup.)' : (d.peine === 'INF' ? ' (Peine Inf.)' : '');
+            const conexSub = d.conexionado && d.conexionado !== '-'
+                ? `<div style="font-size:7.6px; color:#475569; margin-top:1px;">${escapeHtml(d.conexionado)}</div>`
+                : '';
+
+            const tr = document.createElement('tr');
+            tr.style.background = idx % 2 === 1 ? '#f8fafc' : '#ffffff';
+            tr.innerHTML = `
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1; font-weight: 700;">${posLabel} (${d.modulos}M)</td>
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #0f172a;">${escapeHtml(polTxt)}</td>
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1; font-weight: 800; color: #0f172a;">${escapeHtml(d.tag)}</td>
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1;"><strong>${escapeHtml(d.tipo)}</strong> • ${escapeHtml(d.calibre)}${peineTxt}</td>
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1;">${escapeHtml(d.destino)}</td>
+                <td style="padding: 4px 5px; border: 1px solid #cbd5e1;"><strong>${escapeHtml(d.cable)}</strong>${conexSub}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    });
+
+    if (tbody.children.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:8px; text-align:center; border:1px solid #cbd5e1; color:#64748b;">Gabinete sin dispositivos configurados.</td></tr>';
+    }
+
+    const notas = document.getElementById('obsGenerales').value.trim();
+    document.getElementById('pdf-notas-texto').innerText = notas || 'Paso modular DIN estándar 18 mm. Distribución interna conforme a AEA 90364-7-770 con reserva térmica verificada.';
+
+    actualizarPDFHeaders();
+}
+
+function actualizarPDFHeaders() {
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'PROFESIONAL INDEPENDIENTE';
+    const profTel = localStorage.getItem('villaser_conf_telefono') || '';
+    const profSlogan = localStorage.getItem('villaser_conf_slogan') || '';
+    const profLogo = localStorage.getItem('villaser_conf_logo') || '';
+    const profCuit = localStorage.getItem('villaser_conf_cuit') || '';
+    const profMatricula = localStorage.getItem('villaser_conf_matricula') || '';
+
+    let profEmail = localStorage.getItem('villaser_conf_email') || '';
+    if (!profEmail && typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        profEmail = firebase.auth().currentUser.email || '';
+    }
+
+    const lineaContacto = [
+        profTel ? `Tel.: ${profTel}` : '',
+        profEmail ? `Email: ${profEmail}` : ''
+    ].filter(Boolean).join('<br>');
+
+    const elHeaderContacto = document.getElementById('pdf-header-contacto');
+    if (elHeaderContacto) elHeaderContacto.innerHTML = lineaContacto;
+
+    const elFirmaSub = document.getElementById('pdf-firma-sub');
+    if (elFirmaSub) {
+        elFirmaSub.innerText = profMatricula ? `${profNombre} • Mat. ${profMatricula}` : profNombre;
+    }
+
+    const elSlogan = document.getElementById('pdf-slogan');
+    if (elSlogan) elSlogan.innerText = profSlogan || '¡Electricidad Segura, Hogar Tranquilo!';
+
+    const elTelFooter = document.getElementById('pdf-tel-footer');
+    if (elTelFooter) elTelFooter.innerText = profCuit ? `CUIT: ${profCuit}` : '';
+
+    const imgPdf = document.getElementById('pdf-img-logo');
+    const txtPdf = document.getElementById('pdf-text-logo');
+    if (imgPdf && txtPdf) {
+        if (profLogo && profLogo.startsWith('data:image')) {
+            imgPdf.src = profLogo;
+            imgPdf.style.display = 'block';
+            txtPdf.style.display = 'none';
+        } else {
+            imgPdf.removeAttribute('src');
+            imgPdf.style.display = 'none';
+            txtPdf.innerText = profNombre.toUpperCase();
+            txtPdf.style.display = 'block';
+        }
+    }
+}
+
+async function convertirSvgTopoAImagen() {
+    const contenedor = document.getElementById('pdf-svg-container');
+    if (!contenedor) return () => {};
+
+    const svgOriginalHTML = contenedor.innerHTML;
+    const svgEl = contenedor.querySelector('svg');
+    if (!svgEl) return () => {};
+
+    const vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    const ancho = (vb && vb.width) ? vb.width : (parseInt(svgEl.getAttribute('width'), 10) || 480);
+    const alto = (vb && vb.height) ? vb.height : (parseInt(svgEl.getAttribute('height'), 10) || 260);
+
+    const svgClon = svgEl.cloneNode(true);
+    svgClon.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgClon.setAttribute('width', ancho);
+    svgClon.setAttribute('height', alto);
+
+    const xml = new XMLSerializer().serializeToString(svgClon);
+    const dataUri = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
+
+    try {
+        const pngDataUrl = await new Promise((resolve, reject) => {
+            const imgLoader = new Image();
+            imgLoader.onload = () => {
+                try {
+                    const escala = 3;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = ancho * escala;
+                    canvas.height = alto * escala;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.scale(escala, escala);
+                    ctx.drawImage(imgLoader, 0, 0, ancho, alto);
+                    resolve(canvas.toDataURL('image/png'));
+                } catch (err) {
+                    reject(err);
+                }
+            };
+            imgLoader.onerror = reject;
+            imgLoader.src = dataUri;
+        });
+
+        const imgFinal = document.createElement('img');
+        imgFinal.src = pngDataUrl;
+        imgFinal.alt = 'Esquema Topográfico';
+        imgFinal.style.cssText = 'width: 100%; max-height: 410px; height: auto; object-fit: contain; display: block; margin: 0 auto;';
+        contenedor.innerHTML = '';
+        contenedor.appendChild(imgFinal);
+
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
+    } catch (e) {
+        console.warn('Error rasterizando SVG:', e);
+        return () => { contenedor.innerHTML = svgOriginalHTML; };
+    }
+}
+
+function generarPDF() {
+    cerrarCajonTopografico();
+    actualizarVistaPreviaPDF();
+    const sugerido = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+    const sufijo = Math.floor(Math.random() * 9000) + 1000;
+    document.getElementById('nombreArchivoPDF').value = `Esquema_Topografico_${sugerido}_${sufijo}`;
+    document.getElementById('modalDescargarPDF').classList.remove('oculto');
+}
+
+function cerrarModalPDF() {
+    document.getElementById('modalDescargarPDF').classList.add('oculto');
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = 'Descargar';
+    }
+}
+
+async function ejecutarDescargaPDF() {
+    const btn = document.getElementById('btnConfirmarDescargaPDF');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Generando...';
+    }
+
+    const element = document.getElementById('plantilla-pdf');
+    const pdfContainer = element ? element.querySelector('.pdf-container') : null;
+    const modalVista = document.getElementById('modalVistaPrevia');
+    const modalAbierto = modalVista && !modalVista.classList.contains('oculto');
+    const teniaClaseOculto = element ? element.classList.contains('oculto') : false;
+
+    if (!modalAbierto && element) {
+        element.classList.remove('oculto');
+        element.style.display = 'block';
+        window.scrollTo(0, 0);
+    } else if (pdfContainer) {
+        pdfContainer.style.transform = 'none';
+    }
+
+    if (element) {
+        element.style.width = '794px';
+        element.style.height = '1115px';
+        element.style.overflow = 'hidden';
+    }
+
+    const marcaAgua = document.getElementById('marcaAguaPDF');
+    if (marcaAgua) marcaAgua.style.display = 'none';
+
+    let restaurarSvg = () => {};
+    try {
+        restaurarSvg = await convertirSvgTopoAImagen();
+        const inputNombre = document.getElementById('nombreArchivoPDF');
+        const nombreFinal = (inputNombre && inputNombre.value.trim()) || 'Esquema_Topografico';
+
+        const opt = {
+            margin: 0,
+            filename: `${nombreFinal}.pdf`,
+            image: { type: 'jpeg', quality: 0.96 },
+            html2canvas: {
+                scale: 2,
+                useCORS: false,
+                allowTaint: false,
+                logging: false,
+                scrollX: 0,
+                scrollY: 0,
+                width: 794,
+                height: 1115,
+                ignoreElements: el => el.id === 'marcaAguaPDF' || (el.tagName === 'IMG' && !(el.getAttribute('src') || '').startsWith('data:image'))
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+        };
+
+        await html2pdf()
+            .set(opt)
+            .from(element)
+            .toPdf()
+            .get('pdf')
+            .then(pdf => {
+                const totalPages = pdf.internal.getNumberOfPages();
+                for (let i = totalPages; i > 1; i--) {
+                    pdf.deletePage(i);
+                }
+            })
+            .save();
+
+        cerrarModalPDF();
+        mostrarToast('Éxito', 'Esquema Topográfico PDF generado.');
+
+        if (typeof permiteGuardarNube !== 'undefined' && permiteGuardarNube) {
+            try {
+                guardarBorradorFirebase(false, true);
+            } catch (errNube) {
+                console.warn('Aviso respaldo automático en nube:', errNube);
+            }
+        }
+    } catch (error) {
+        console.error('Error generando PDF Topográfico:', error);
+        mostrarAlertaCorp('Error al Exportar', `No se pudo generar el PDF (${error.message || 'error interno'}).`);
+    } finally {
+        restaurarSvg();
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Descargar';
+        }
+
+        if (element) {
+            element.style.width = '';
+            element.style.height = '';
+            element.style.overflow = '';
+            if (teniaClaseOculto) element.classList.add('oculto');
+        }
+
+        if (marcaAgua) marcaAgua.style.display = 'flex';
+
+        if (modalAbierto) {
+            aplicarEscalaVistaPrevia(escalaActualPreview);
+        } else if (element && window.innerWidth < 992) {
+            element.style.display = 'none';
+        }
+    }
+}
+
+// ==========================================================================
+// VISTA PREVIA FULLSCREEN CON ZOOM Y WHATSAPP
+// ==========================================================================
+let escalaActualPreview = 1;
+
+function abrirVistaPrevia() {
+    actualizarVistaPreviaPDF();
+    const modal = document.getElementById('modalVistaPrevia');
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    const plantilla = document.getElementById('plantilla-pdf');
+
+    modal.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+
+    plantilla.style.display = 'inline-block';
+    cont.appendChild(plantilla);
+
+    const anchoDisp = Math.max(280, document.getElementById('areaScrollVistaPrevia').clientWidth - 28);
+    escalaActualPreview = Math.min(1, anchoDisp / 794);
+    aplicarEscalaVistaPrevia(escalaActualPreview);
+}
+
+function aplicarEscalaVistaPrevia(escala) {
+    escalaActualPreview = Math.min(1.6, Math.max(0.35, escala));
+    const cont = document.getElementById('contenedorVistaPreviaMobile');
+    if (cont) {
+        cont.style.transform = `scale(${escalaActualPreview})`;
+        cont.style.width = `${794 * escalaActualPreview}px`;
+        cont.style.height = `${1115 * escalaActualPreview}px`;
+    }
+    const txt = document.getElementById('txtZoomPreview');
+    if (txt) txt.innerText = `${Math.round(escalaActualPreview * 100)}%`;
+}
+
+function cambiarZoomPreview(delta) {
+    aplicarEscalaVistaPrevia(escalaActualPreview + delta);
+}
+
+function cerrarVistaPrevia() {
+    const modal = document.getElementById('modalVistaPrevia');
+    const plantilla = document.getElementById('plantilla-pdf');
+    const aside = document.querySelector('.preview-panel');
+
+    modal.classList.add('oculto');
+    document.body.style.overflow = '';
+
+    if (aside && plantilla) {
+        plantilla.style.display = '';
+        aside.appendChild(plantilla);
+    }
+}
+
+function prepararEnvioWhatsApp() {
+    cerrarCajonTopografico();
+    const profNombre = localStorage.getItem('villaser_conf_nombre') || 'VILLASER GESTIÓN';
+    const cli = document.getElementById('cliNombre').value.trim() || 'Cliente';
+    const proy = document.getElementById('cliProyecto').value.trim() || '-';
+    const capTotal = (estadoGabinete.filasCount || 1) * (estadoGabinete.modulosPorFila || 12);
+    const bal = calcularBalanceFases();
+
+    let msg = `*${profNombre.toUpperCase()} - ESQUEMA TOPOGRÁFICO*\n`;
+    msg += `*Cliente:* ${cli}\n`;
+    msg += `*Proyecto:* ${proy}\n`;
+    msg += `*Gabinete:* ${estadoGabinete.nombre} (${estadoGabinete.ip} • ${capTotal} Módulos DIN)\n`;
+    msg += `*Fases:* L1=${bal.L1} | L2=${bal.L2} | L3=${bal.L3}\n\n`;
+
+    estadoGabinete.filas.forEach((devs, fIdx) => {
+        if (devs.length > 0) {
+            msg += `*FILA ${fIdx + 1}:*\n`;
+            devs.forEach(d => {
+                const polTxt = formatearEtiquetaPolaridad(d);
+                msg += `• *[${d.tag}]* (${d.modulos}M • ${polTxt}) ${d.tipo} ${d.calibre} → ${d.destino}\n`;
+            });
+            msg += `\n`;
+        }
+    });
+
+    if (typeof abrirModalWspGlobal === 'function') {
+        abrirModalWspGlobal(telefonoClienteActual, msg);
+    }
+}
+
+// ==========================================================================
+// BORRADORES EN FIREBASE (perfiles/{uid}/borradores_topografico)
+// ==========================================================================
+function guardarBorradorFirebase(pedirNombre = true, silencioso = false) {
+    cerrarCajonTopografico();
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        if (!silencioso) mostrarAlertaCorp('Sin Sesión', 'No se detectó sesión activa para guardar en la nube.');
+        return;
+    }
+    if (!permiteGuardarNube) {
+        if (!silencioso) mostrarAlertaCorp('Cliente no Agendado', 'Vinculá el cliente desde Agenda para respaldar en la nube.');
+        return;
+    }
+
+    if (pedirNombre) {
+        const cli = document.getElementById('cliNombre').value.trim().replace(/\s+/g, '_') || 'Cliente';
+        const fecha = new Date().toISOString().slice(0, 10);
+        document.getElementById('inputNombreBorrador').value = nombreBorradorActual || `Topografico_${cli}_${fecha}`;
+        document.getElementById('modalGuardarBorrador').classList.remove('oculto');
+        return;
+    }
+
+    const nombreFinal = nombreBorradorActual || `Topografico_${Date.now()}`;
+    ejecutarGuardadoEnNube(nombreFinal, silencioso);
+}
+
+function cerrarModalGuardarBorrador() {
+    document.getElementById('modalGuardarBorrador').classList.add('oculto');
+}
+
+function ejecutarGuardarBorrador() {
+    const nombre = document.getElementById('inputNombreBorrador').value.trim();
+    if (!nombre) {
+        mostrarAlertaCorp('Faltan Datos', 'Ingresá un nombre para identificar el borrador.');
+        return;
+    }
+    nombreBorradorActual = nombre;
+    cerrarModalGuardarBorrador();
+    ejecutarGuardadoEnNube(nombre, false);
+}
+
+function serializarGabineteParaFirestore(gab) {
+    const base = normalizarEstadoGabinete(gab);
+    return {
+        nombre: base.nombre,
+        ip: base.ip,
+        montaje: base.montaje,
+        filasCount: base.filasCount,
+        modulosPorFila: base.modulosPorFila,
+        borneras: base.borneras,
+        filas: base.filas.map((dispositivos, idx) => ({
+            filaIndex: idx,
+            dispositivos: dispositivos.map(d => ({ ...d }))
+        }))
+    };
+}
+
+function normalizarEstadoGabinete(rawGab) {
+    const gab = Object.assign({
+        nombre: 'TS1',
+        ip: 'IP41 • PVC Autoextinguible',
+        montaje: 'De Embutir',
+        filasCount: 1,
+        modulosPorFila: 12,
+        borneras: 'PE',
+        filas: [[]]
+    }, rawGab || {});
+
+    if (Array.isArray(gab.filas)) {
+        gab.filas = gab.filas.map(f => {
+            const lista = Array.isArray(f) ? f : (f && Array.isArray(f.dispositivos) ? f.dispositivos : []);
+            return lista.map(d => Object.assign({
+                polaridad: inferirPolaridadDefecto(d.tipo, d.modulos),
+                peine: 'NONE',
+                conexionado: '-'
+            }, d));
+        });
+    } else {
+        gab.filas = [[]];
+    }
+
+    while (gab.filas.length < (gab.filasCount || 1)) {
+        gab.filas.push([]);
+    }
+    return gab;
+    }
+
+function ejecutarGuardadoEnNube(nombreDoc, silencioso) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    const badge = document.getElementById('ui-cloud-badge');
+    if (badge) {
+        badge.className = 'pres-cloud-pill saving';
+        badge.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Guardando...';
+    }
+
+    const manejarErrorNube = (err) => {
+        console.error('Error guardando borrador topográfico:', err);
+        if (badge) {
+            if (silencioso) {
+                actualizarBadgeNube();
+            } else {
+                badge.className = 'pres-cloud-pill local';
+                badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Error Nube`;
+            }
+        }
+        if (!silencioso) {
+            mostrarAlertaCorp('Error de Nube', `No se pudo sincronizar con Firebase (${err?.code || err?.message || 'error'}).`);
+        }
+    };
+
+    try {
+        const docId = nombreDoc.replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+
+        const payload = JSON.parse(JSON.stringify({
+            cliNombre: document.getElementById('cliNombre').value.trim(),
+            cliDireccion: document.getElementById('cliDireccion').value.trim(),
+            cliProyecto: document.getElementById('cliProyecto').value.trim(),
+            obsGenerales: document.getElementById('obsGenerales').value,
+            estadoGabinete: serializarGabineteParaFirestore(estadoGabinete),
+            nombreBorrador: nombreDoc,
+            telefonoClienteActual: telefonoClienteActual || '',
+            fechaGuardado: Date.now()
+        }));
+
+        const escritura = db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(docId).set(payload);
+        const timeoutNube = new Promise((_, reject) =>
+            setTimeout(() => reject({ code: 'timeout', message: 'Tiempo de espera agotado' }), 8000)
+        );
+
+        Promise.race([escritura, timeoutNube])
+            .then(() => {
+                if (badge) {
+                    badge.className = 'pres-cloud-pill saved';
+                    badge.innerHTML = '<i class="fa-solid fa-cloud-check"></i> Sincronizado';
+                }
+                if (!silencioso) mostrarToast('Guardado en Nube', `Borrador "${nombreDoc}" sincronizado.`);
+            })
+            .catch(manejarErrorNube);
+    } catch (syncErr) {
+        manejarErrorNube(syncErr);
+    }
+}
+
+function abrirModalBorradores() {
+    cerrarCajonTopografico();
+    const uid = obtenerUid();
+    if (!uid || !db) {
+        mostrarAlertaCorp('Sin Sesión', 'Iniciá sesión para acceder a tus borradores en la nube.');
+        return;
+    }
+
+    const modal = document.getElementById('modalBorradores');
+    const lista = document.getElementById('listaBorradores');
+    lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);"><i class="fa-solid fa-circle-notch fa-spin"></i> Cargando...</p>';
+    modal.classList.remove('oculto');
+
+    db.collection('perfiles').doc(uid).collection('borradores_topografico').orderBy('fechaGuardado', 'desc').get()
+        .then(snap => {
+            if (snap.empty) {
+                lista.innerHTML = '<p style="text-align:center; color:var(--ngc-text-faded);">No tenés esquemas topográficos guardados aún.</p>';
+                return;
+            }
+            lista.innerHTML = '';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const div = document.createElement('div');
+                div.className = 'modal-list-item';
+                div.innerHTML = `
+                    <div style="flex:1; min-width:0;">
+                        <h4 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(d.nombreBorrador || doc.id)}</h4>
+                        <small>${escapeHtml(d.cliNombre || 'Sin cliente')} • ${escapeHtml(d.estadoGabinete?.nombre || 'TS1')}</small>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" class="corp-btn-small primary-action" onclick="cargarBorradorTopografico('${escapeJs(doc.id)}')">Abrir</button>
+                        <button type="button" class="corp-btn-small danger" onclick="confirmarEliminarBorrador('${escapeJs(doc.id)}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                lista.appendChild(div);
+            });
+        })
+        .catch(() => {
+            lista.innerHTML = '<p style="color:var(--error-red); text-align:center;">Error al cargar borradores.</p>';
+        });
+}
+
+function cerrarModalBorradores() {
+    document.getElementById('modalBorradores').classList.add('oculto');
+}
+
+function cargarBorradorTopografico(docId) {
+    const uid = obtenerUid();
+    if (!uid || !db) return;
+
+    db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(docId).get().then(doc => {
+        if (!doc.exists) return;
+        const d = doc.data();
+        document.getElementById('cliNombre').value = d.cliNombre || '';
+        document.getElementById('cliDireccion').value = d.cliDireccion || '';
+        document.getElementById('cliProyecto').value = d.cliProyecto || '';
+        document.getElementById('obsGenerales').value = d.obsGenerales || '';
+        if (d.estadoGabinete) {
+            estadoGabinete = normalizarEstadoGabinete(d.estadoGabinete);
+        }
+
+        clienteDesdeAgenda = true;
+        permiteGuardarNube = true;
+        nombreBorradorActual = d.nombreBorrador || docId;
+        telefonoClienteActual = d.telefonoClienteActual || '';
+
+        cerrarModalBorradores();
+        avanzarPasoTrabajo(true);
+        mostrarToast('Borrador Cargado', `Esquema "${nombreBorradorActual}" listo.`);
+    });
+}
+
+function confirmarEliminarBorrador(docId) {
+    borradorPendienteEliminar = docId;
+    document.getElementById('modalConfirmarEliminar').classList.remove('oculto');
+}
+function cerrarModalEliminarBorrador() {
+    borradorPendienteEliminar = null;
+    document.getElementById('modalConfirmarEliminar').classList.add('oculto');
+}
+function ejecutarEliminarBorrador() {
+    const uid = obtenerUid();
+    if (!uid || !db || !borradorPendienteEliminar) return;
+    const idBorrar = borradorPendienteEliminar;
+    cerrarModalEliminarBorrador();
+
+    db.collection('perfiles').doc(uid).collection('borradores_topografico').doc(idBorrar).delete()
+        .then(() => {
+            mostrarToast('Eliminado', 'Borrador borrado de la nube.');
+            abrirModalBorradores();
+        });
+}
+
+// ==========================================================================
+// REINICIO DE MÓDULO Y UTILIDADES
+// ==========================================================================
+function ejecutarNuevoTopografico() {
+    if (typeof cerrarModalConfirmarNuevoGlobal === 'function') cerrarModalConfirmarNuevoGlobal();
+    cerrarCajonTopografico();
+
+    document.getElementById('cliNombre').value = '';
+    document.getElementById('cliDireccion').value = '';
+    document.getElementById('cliProyecto').value = '';
+    document.getElementById('obsGenerales').value = '';
+
+    clienteDesdeAgenda = false;
+    permiteGuardarNube = true;
+    nombreBorradorActual = null;
+    telefonoClienteActual = '';
+    mostrarPolosIRAM = true;
+
+    aplicarPlantillaTopografico('mono_12');
+    localStorage.removeItem(STORAGE_KEY_TOPO);
+
+    const dock = document.getElementById('dockTopograficoFlotante');
+    if (dock) dock.classList.add('oculto');
+
+    document.getElementById('step-trabajo').classList.add('oculto');
+    document.getElementById('step-cliente').classList.remove('oculto');
+}
+
+function mostrarAlertaCorp(titulo, mensaje) {
+    document.getElementById('modalAlertaTitulo').innerText = titulo;
+    document.getElementById('modalAlertaMensaje').innerText = mensaje;
+    document.getElementById('modalAlertaCorp').classList.remove('oculto');
+}
+function cerrarModalAlertaCorp() {
+    document.getElementById('modalAlertaCorp').classList.add('oculto');
+}
+
+function mostrarToast(titulo, mensaje) {
+    const toast = document.getElementById('toastCliente');
+    if (!toast) return;
+    document.getElementById('toastTitle').innerText = titulo;
+    document.getElementById('toastMessage').innerText = mensaje;
+    toast.classList.remove('oculto');
+    setTimeout(() => toast.classList.add('mostrar'), 80);
+    setTimeout(() => {
+        toast.classList.remove('mostrar');
+        setTimeout(() => toast.classList.add('oculto'), 350);
+    }, 3500);
+}
+
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+}
+function escapeXml(str) {
+    return String(str || '').replace(/[<>&'"]/g, m => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[m]));
+}
+function escapeJs(str) {
+    return String(str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                }
