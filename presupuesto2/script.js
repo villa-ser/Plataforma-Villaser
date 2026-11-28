@@ -31,11 +31,12 @@ let uidSeguro = null;
 
 const selTema = document.getElementById('selTema');
 const selConcepto = document.getElementById('selConcepto');
-const detTema = document.getElementById('detTema');
+const btnSelectTema = document.getElementById('btnSelectTema');
 const sumTema = document.getElementById('sumTema');
-const detConcepto = document.getElementById('detConcepto');
+const btnSelectConcepto = document.getElementById('btnSelectConcepto');
 const sumConcepto = document.getElementById('sumConcepto');
 const inputCliNombre = document.getElementById('cliNombre');
+
 
 // ==========================================
 // UTILIDADES DE FORMATO Y NORMALIZACIÓN
@@ -828,33 +829,115 @@ function actualizarSubtotalItemActual() {
     lblPreview.innerText = `Subtotal ítem: $ ${subtotal.toLocaleString('es-AR')}`;
 }
 
-let selectAbiertoActual = null;
-let timerAjusteTeclado = null;
+let selectorTipoActual = null;
+let opcionesSelectorCache = [];
 
-function ajustarVistaSelectConTeclado(det) {
-    if (!det || !det.open) return;
-    const summary = det.querySelector('summary');
-    const list = det.querySelector('.corp-select-list');
-    if (!summary || !list) return;
+function ajustarAlturaSelectorConTeclado() {
+    const modal = document.getElementById('modalSelectorPresupuesto');
+    const card = document.getElementById('cardSelectorPresupuesto');
+    if (!modal || modal.classList.contains('oculto') || !card) return;
 
     const vvHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    const margenSuperior = 12;
-    const rect = det.getBoundingClientRect();
-    const deltaScroll = rect.top - margenSuperior;
-
-    if (Math.abs(deltaScroll) > 4) {
-        window.scrollBy({ top: deltaScroll, behavior: 'smooth' });
-    }
-
-    const summaryHeight = summary.offsetHeight || 46;
-    const espacioLibre = vvHeight - (margenSuperior + summaryHeight + 16);
-    list.style.maxHeight = `${Math.max(150, Math.min(320, espacioLibre))}px`;
+    card.style.maxHeight = `${Math.max(220, vvHeight - 24)}px`;
 }
 
-function onViewportChangeSelect() {
-    if (selectAbiertoActual && selectAbiertoActual.open) {
-        ajustarVistaSelectConTeclado(selectAbiertoActual);
+function abrirSelectorPresupuesto(tipo) {
+    if (tipo === 'concepto' && (!selTema.value || btnSelectConcepto?.disabled)) {
+        mostrarAlertaCorp("Seleccioná un Rubro", "Primero elegí un rubro de la lista.");
+        return;
     }
+
+    selectorTipoActual = tipo;
+    const modal = document.getElementById('modalSelectorPresupuesto');
+    const titulo = document.getElementById('tituloSelectorPresupuesto');
+    const inputBuscador = document.getElementById('inputBuscadorSelector');
+    if (!modal || !titulo || !inputBuscador) return;
+
+    if (tipo === 'tema') {
+        titulo.innerHTML = `<i class="fa-solid fa-layer-group" style="color: var(--ngc-neon);"></i> Seleccionar Rubro`;
+        inputBuscador.placeholder = 'Buscar rubro...';
+        const temasUnicos = [...new Set(dbPrecios.map(i => i.tema))].sort();
+        opcionesSelectorCache = temasUnicos.map(t => ({
+            valor: t,
+            titulo: t,
+            subtitulo: ''
+        }));
+    } else {
+        titulo.innerHTML = `<i class="fa-solid fa-wrench" style="color: var(--ngc-neon);"></i> Seleccionar Trabajo`;
+        inputBuscador.placeholder = 'Filtrar trabajo...';
+        const conceptosFiltro = dbPrecios.filter(i => i.tema === selTema.value);
+        opcionesSelectorCache = conceptosFiltro.map(i => ({
+            valor: i.concepto,
+            titulo: i.concepto,
+            subtitulo: `$ ${i.precio.toLocaleString('es-AR')} • ${i.minutos} min`
+        }));
+    }
+
+    inputBuscador.value = '';
+    renderOpcionesSelector(opcionesSelectorCache);
+
+    modal.classList.remove('oculto');
+    ajustarAlturaSelectorConTeclado();
+
+    setTimeout(() => {
+        inputBuscador.focus();
+        ajustarAlturaSelectorConTeclado();
+    }, 60);
+}
+
+function cerrarSelectorPresupuesto() {
+    const modal = document.getElementById('modalSelectorPresupuesto');
+    if (modal) modal.classList.add('oculto');
+    selectorTipoActual = null;
+}
+
+function filtrarOpcionesSelector() {
+    const q = normalizarTextoBusqueda(document.getElementById('inputBuscadorSelector')?.value);
+    const filtradas = !q
+        ? opcionesSelectorCache
+        : opcionesSelectorCache.filter(op =>
+            normalizarTextoBusqueda(`${op.titulo} ${op.subtitulo}`).includes(q)
+        );
+    renderOpcionesSelector(filtradas);
+}
+
+function renderOpcionesSelector(lista) {
+    const cont = document.getElementById('listaOpcionesSelector');
+    if (!cont) return;
+    cont.innerHTML = '';
+
+    if (!lista || lista.length === 0) {
+        cont.innerHTML = `<div style="padding: 18px; text-align: center; color: var(--ngc-text-faded);">Sin coincidencias...</div>`;
+        return;
+    }
+
+    const valorSeleccionado = selectorTipoActual === 'tema' ? selTema.value : selConcepto.value;
+
+    lista.forEach(op => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        const esActual = valorSeleccionado === op.valor;
+        btn.className = `pres-picker-item${esActual ? ' active' : ''}`;
+        btn.innerHTML = op.subtitulo
+            ? `<div style="font-weight: 600; color: var(--ngc-text-main); line-height: 1.25;">${escaparHTML(op.titulo)}</div>
+               <small style="color: var(--ngc-text-faded); font-size: 0.78rem; margin-top: 2px; display: block;">${escaparHTML(op.subtitulo)}</small>`
+            : `<div style="font-weight: 600; color: var(--ngc-text-main);">${escaparHTML(op.titulo)}</div>`;
+
+        btn.onclick = () => {
+            if (selectorTipoActual === 'tema') {
+                selTema.value = op.valor;
+                sumTema.innerText = op.titulo;
+                cerrarSelectorPresupuesto();
+                cambioTema();
+            } else {
+                selConcepto.value = op.valor;
+                sumConcepto.innerText = op.titulo;
+                cerrarSelectorPresupuesto();
+                cargarDetallePrecios();
+            }
+        };
+        cont.appendChild(btn);
+    });
 }
 
 function setupEventListeners() {
@@ -866,150 +949,33 @@ function setupEventListeners() {
     }
 
     if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', onViewportChangeSelect);
-    }
-
-    document.querySelectorAll('details.corp-custom-select').forEach(det => {
-        det.addEventListener('toggle', () => {
-            if (det.open) {
-                document.querySelectorAll('details.corp-custom-select').forEach(other => {
-                    if (other !== det) other.removeAttribute('open');
-                });
-
-                selectAbiertoActual = det;
-                document.body.classList.add('pres-select-open');
-
-                const inputFiltro = det.querySelector('.pres-select-search');
-                if (inputFiltro) {
-                    inputFiltro.value = '';
-                    filtrarOpcionesSelect(det.id === 'detTema' ? 'tema' : 'concepto');
-                    setTimeout(() => {
-                        try {
-                            inputFiltro.focus({ preventScroll: true });
-                        } catch (e) {
-                            inputFiltro.focus();
-                        }
-                        ajustarVistaSelectConTeclado(det);
-                    }, 50);
-                }
-
-                clearTimeout(timerAjusteTeclado);
-                timerAjusteTeclado = setTimeout(() => ajustarVistaSelectConTeclado(det), 320);
-            } else {
-                const list = det.querySelector('.corp-select-list');
-                if (list) list.style.maxHeight = '';
-
-                if (!document.querySelector('details.corp-custom-select[open]')) {
-                    selectAbiertoActual = null;
-                    document.body.classList.remove('pres-select-open');
-                }
-            }
-        });
-    });
-}
-
-function filtrarOpcionesSelect(tipo) {
-    if (tipo === 'tema') {
-        const q = normalizarTextoBusqueda(document.getElementById('filtroTema')?.value);
-        const cont = document.getElementById('opcionesTema');
-        if (!cont) return;
-        let visibles = 0;
-        cont.querySelectorAll('.corp-select-option').forEach(el => {
-            const match = !q || normalizarTextoBusqueda(el.innerText).includes(q);
-            el.style.display = match ? 'block' : 'none';
-            if (match) visibles++;
-        });
-        actualizarMensajeSinResultados(cont, visibles === 0);
-    } else {
-        const q = normalizarTextoBusqueda(document.getElementById('filtroConcepto')?.value);
-        const cont = document.getElementById('opcionesConcepto');
-        if (!cont) return;
-        let visibles = 0;
-        cont.querySelectorAll('.corp-select-option').forEach(el => {
-            const match = !q || normalizarTextoBusqueda(el.innerText).includes(q);
-            el.style.display = match ? 'block' : 'none';
-            if (match) visibles++;
-        });
-        actualizarMensajeSinResultados(cont, visibles === 0);
+        window.visualViewport.addEventListener('resize', ajustarAlturaSelectorConTeclado);
     }
 }
 
-function actualizarMensajeSinResultados(contenedor, mostrar) {
-    let emptyMsg = contenedor.querySelector('.pres-select-empty');
-    if (mostrar) {
-        if (!emptyMsg) {
-            emptyMsg = document.createElement('div');
-            emptyMsg.className = 'pres-select-empty';
-            emptyMsg.innerText = 'Sin coincidencias...';
-            contenedor.appendChild(emptyMsg);
-        }
-    } else if (emptyMsg) {
-        emptyMsg.remove();
-    }
-}
-
-function poblarTemas() { 
-    const opcionesTema = document.getElementById('opcionesTema');
-    if(!opcionesTema) return; 
-    
-    opcionesTema.innerHTML = '';
+function poblarTemas() {
     selTema.value = '';
     sumTema.innerText = '-- SELECCIONE RUBRO --';
-    
     const temasUnicos = [...new Set(dbPrecios.map(i => i.tema))].sort();
-    
-    if(temasUnicos.length > 0) {
-        detTema.removeAttribute('disabled');
-        temasUnicos.forEach(t => { 
-            const opt = document.createElement('div'); 
-            opt.className = 'corp-select-option';
-            opt.innerText = t; 
-            opt.onclick = () => {
-                selTema.value = t;
-                sumTema.innerText = t;
-                detTema.removeAttribute('open');
-                cambioTema();
-            };
-            opcionesTema.appendChild(opt); 
-        }); 
-    } else {
-        detTema.setAttribute('disabled', 'true');
+    if (btnSelectTema) {
+        btnSelectTema.disabled = temasUnicos.length === 0;
     }
-      }
+}
 
-function cambioTema() { 
-    const t = selTema.value; 
-    const opcionesConcepto = document.getElementById('opcionesConcepto');
-    
-    opcionesConcepto.innerHTML = '';
+function cambioTema() {
+    const t = selTema.value;
     selConcepto.value = '';
     sumConcepto.innerText = '-- SELECCIONE TRABAJO --';
-    
-    limpiarEdicionesTemporales(); 
-    document.getElementById('unitarioLabel').innerText = "Unit: $ 0,00"; 
+
+    limpiarEdicionesTemporales();
+    document.getElementById('unitarioLabel').innerText = "Unit: $ 0,00";
     document.getElementById('obsManual').value = "";
     const minEl = document.getElementById('minutosTrabajo');
     if (minEl) minEl.value = 30;
     actualizarSubtotalItemActual();
-    
-    if(t) { 
-        detConcepto.removeAttribute('disabled'); 
-        const conceptosFiltro = dbPrecios.filter(i => i.tema === t);
-        
-        conceptosFiltro.forEach(i => { 
-            const opt = document.createElement('div'); 
-            opt.className = 'corp-select-option';
-            opt.innerHTML = `<div style="font-weight: 600;">${escaparHTML(i.concepto)}</div><small style="color: var(--ngc-text-faded); font-size: 0.78rem;">$ ${i.precio.toLocaleString('es-AR')} • ${i.minutos} min</small>`; 
-            opt.onclick = () => {
-                selConcepto.value = i.concepto;
-                sumConcepto.innerText = i.concepto;
-                detConcepto.removeAttribute('open');
-                cargarDetallePrecios();
-            };
-            opcionesConcepto.appendChild(opt); 
-        }); 
-    } else { 
-        detConcepto.setAttribute('disabled', 'true'); 
+
+    if (btnSelectConcepto) {
+        btnSelectConcepto.disabled = !t;
     }
 }
 
@@ -1945,12 +1911,3 @@ function generarMenuInferior() {
         }
     });
 }
-
-document.addEventListener('click', (event) => {
-    const details = document.querySelectorAll('details.corp-custom-select');
-    details.forEach(det => {
-        if (det.open && !det.contains(event.target)) {
-            det.removeAttribute('open');
-        }
-    });
-});
