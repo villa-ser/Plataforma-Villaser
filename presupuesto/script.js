@@ -828,6 +828,35 @@ function actualizarSubtotalItemActual() {
     lblPreview.innerText = `Subtotal ítem: $ ${subtotal.toLocaleString('es-AR')}`;
 }
 
+let selectAbiertoActual = null;
+let timerAjusteTeclado = null;
+
+function ajustarVistaSelectConTeclado(det) {
+    if (!det || !det.open) return;
+    const summary = det.querySelector('summary');
+    const list = det.querySelector('.corp-select-list');
+    if (!summary || !list) return;
+
+    const vvHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const margenSuperior = 12;
+    const rect = det.getBoundingClientRect();
+    const deltaScroll = rect.top - margenSuperior;
+
+    if (Math.abs(deltaScroll) > 4) {
+        window.scrollBy({ top: deltaScroll, behavior: 'smooth' });
+    }
+
+    const summaryHeight = summary.offsetHeight || 46;
+    const espacioLibre = vvHeight - (margenSuperior + summaryHeight + 16);
+    list.style.maxHeight = `${Math.max(150, Math.min(320, espacioLibre))}px`;
+}
+
+function onViewportChangeSelect() {
+    if (selectAbiertoActual && selectAbiertoActual.open) {
+        ajustarVistaSelectConTeclado(selectAbiertoActual);
+    }
+}
+
 function setupEventListeners() {
     if (inputCliNombre) {
         inputCliNombre.addEventListener('input', () => {
@@ -836,17 +865,43 @@ function setupEventListeners() {
         });
     }
 
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', onViewportChangeSelect);
+    }
+
     document.querySelectorAll('details.corp-custom-select').forEach(det => {
         det.addEventListener('toggle', () => {
             if (det.open) {
                 document.querySelectorAll('details.corp-custom-select').forEach(other => {
                     if (other !== det) other.removeAttribute('open');
                 });
+
+                selectAbiertoActual = det;
+                document.body.classList.add('pres-select-open');
+
                 const inputFiltro = det.querySelector('.pres-select-search');
                 if (inputFiltro) {
                     inputFiltro.value = '';
                     filtrarOpcionesSelect(det.id === 'detTema' ? 'tema' : 'concepto');
-                    setTimeout(() => inputFiltro.focus(), 60);
+                    setTimeout(() => {
+                        try {
+                            inputFiltro.focus({ preventScroll: true });
+                        } catch (e) {
+                            inputFiltro.focus();
+                        }
+                        ajustarVistaSelectConTeclado(det);
+                    }, 50);
+                }
+
+                clearTimeout(timerAjusteTeclado);
+                timerAjusteTeclado = setTimeout(() => ajustarVistaSelectConTeclado(det), 320);
+            } else {
+                const list = det.querySelector('.corp-select-list');
+                if (list) list.style.maxHeight = '';
+
+                if (!document.querySelector('details.corp-custom-select[open]')) {
+                    selectAbiertoActual = null;
+                    document.body.classList.remove('pres-select-open');
                 }
             }
         });
