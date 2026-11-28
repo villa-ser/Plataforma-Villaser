@@ -3567,3 +3567,55 @@ html.modo-modal-embebido main.container {
         min-height: 95px;
     }
 }
+
+/* ========================================================================== */
+/* MENÚ INFERIOR DE MÓDULOS A ANCHO COMPLETO (TABLET Y PC)                    */
+/* ========================================================================== */
+@media (min-width: 768px) {
+    .corp-scroll-container {
+        max-width: 100%;
+        width: 100%;
+        justify-content: space-between;
+        padding: 0 20px;
+        gap: 6px;
+    }
+
+    .corp-nav-item {
+        flex: 1 0 auto;
+        min-width: 74px;
+        padding: 8px 10px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+
+    .corp-nav-item.active {
+        background: rgba(35, 116, 225, 0.12);
+    }
+}
+
+@media (min-width: 1024px) {
+    .corp-scroll-container {
+        padding: 0 28px;
+        gap: 8px;
+    }
+
+    .corp-nav-item {
+        min-width: 80px;
+        gap: 5px;
+    }
+
+    .corp-nav-item i {
+        font-size: 1.35rem;
+    }
+
+    .corp-nav-item span {
+        font-size: 0.72rem;
+    }
+}
+
+@media (hover: hover) {
+    .corp-nav-item:not(.active):hover {
+        color: var(--ngc-text-main);
+        background: var(--corp-btn-bg, var(--ngc-btn-bg));
+    }
+}
