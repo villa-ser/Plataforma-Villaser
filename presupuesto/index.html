@@ -167,6 +167,23 @@
             opacity: 1 !important;
             visibility: visible !important;
         }
+
+        /* Ajuste automático de scroll y espacio cuando se abre un buscador desplegable */
+        .corp-select-list {
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        body.pres-select-open #step-trabajo {
+            padding-bottom: 62vh !important;
+        }
+
+        @media (max-width: 767px) {
+            body.pres-select-open #dockPresupuestoFlotante,
+            body.pres-select-open .corp-bottom-nav {
+                display: none !important;
+            }
+        }
     </style>
 </head>
 <body>
