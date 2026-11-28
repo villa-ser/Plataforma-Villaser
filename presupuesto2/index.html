@@ -168,23 +168,80 @@
             visibility: visible !important;
         }
 
-        /* Ajuste automático de scroll y espacio cuando se abre un buscador desplegable */
-        .corp-select-list {
+                /* Selector flotante anclado arriba del teclado */
+        #modalSelectorPresupuesto {
+            z-index: 10015 !important;
+            align-items: flex-start !important;
+            padding: 12px !important;
+        }
+
+        #cardSelectorPresupuesto {
+            width: 100%;
+            max-width: 500px;
+            max-height: calc(100dvh - 24px);
+            margin: 0 auto;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .pres-picker-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
             overscroll-behavior: contain;
             -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 10px;
+            padding-right: 2px;
         }
 
-        body.pres-select-open #step-trabajo {
-            padding-bottom: 62vh !important;
+        .pres-picker-item {
+            width: 100%;
+            text-align: left;
+            padding: 11px 12px;
+            border-radius: 8px;
+            background: var(--ngc-bg-input);
+            border: 1px solid var(--ngc-privacy-border);
+            color: var(--ngc-text-main);
+            cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
         }
 
-        @media (max-width: 767px) {
-            body.pres-select-open #dockPresupuestoFlotante,
-            body.pres-select-open .corp-bottom-nav {
-                display: none !important;
-            }
+        .pres-picker-item.active {
+            border-color: var(--ngc-neon);
+            background: rgba(35, 116, 225, 0.12);
+        }
+
+        .pres-select-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            min-height: 44px;
+        }
+
+        .pres-select-trigger span {
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .pres-select-trigger:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
     </style>
+    
 </head>
 <body>
 
@@ -210,6 +267,22 @@
     </div>
 </div>
 
+    <!-- MODAL SELECTOR CON BUSCADOR (RUBRO / TRABAJO) -->
+<div id="modalSelectorPresupuesto" class="modal-overlay oculto gpu-accel" onclick="if(event.target === this) cerrarSelectorPresupuesto()">
+    <div id="cardSelectorPresupuesto" class="corp-modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <h3 id="tituloSelectorPresupuesto" style="margin: 0; font-size: 1rem; color: var(--ngc-text-main); justify-content: flex-start;">
+                Seleccionar
+            </h3>
+            <button type="button" class="corp-btn-small danger" onclick="cerrarSelectorPresupuesto()">
+                <i class="fa-solid fa-xmark"></i> Cerrar
+            </button>
+        </div>
+        <input type="text" id="inputBuscadorSelector" class="corp-input" placeholder="Buscar..." autocomplete="off" oninput="filtrarOpcionesSelector()">
+        <div id="listaOpcionesSelector" class="pres-picker-list"></div>
+    </div>
+</div>
+    
 <!-- MODAL EDITAR ÍTEM YA AGREGADO -->
 <div id="modalEditarItem" class="modal-overlay oculto gpu-accel">
     <div class="corp-modal-card" style="max-width: 460px; max-height: 90vh; overflow-y: auto; text-align: left;">
@@ -718,17 +791,12 @@
                         </button>
                     </div>
                     
-                    <div class="row-group">
+                                        <div class="row-group">
                         <label>Rubro</label>
-                        <details id="detTema" class="corp-custom-select">
-                            <summary id="sumTema" class="corp-input">-- SELECCIONE RUBRO --</summary>
-                            <div id="listTema" class="corp-select-list">
-                                <div class="pres-select-search-wrap">
-                                    <input type="text" id="filtroTema" class="corp-input pres-select-search" placeholder="Buscar rubro..." oninput="filtrarOpcionesSelect('tema')">
-                                </div>
-                                <div id="opcionesTema"></div>
-                            </div>
-                        </details>
+                        <button type="button" id="btnSelectTema" class="corp-input pres-select-trigger" onclick="abrirSelectorPresupuesto('tema')">
+                            <span id="sumTema">-- SELECCIONE RUBRO --</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; opacity: 0.7; flex-shrink: 0;"></i>
+                        </button>
                         <input type="hidden" id="selTema" value="">
                     </div>
 
@@ -736,21 +804,17 @@
                         <label>Trabajo</label>
                         <div style="display:flex; gap:8px; width: 100%; align-items: center;">
                             <div style="flex: 1; position: relative; min-width: 0;">
-                                <details id="detConcepto" class="corp-custom-select" disabled>
-                                    <summary id="sumConcepto" class="corp-input">-- SELECCIONE TRABAJO --</summary>
-                                    <div id="listConcepto" class="corp-select-list">
-                                        <div class="pres-select-search-wrap">
-                                            <input type="text" id="filtroConcepto" class="corp-input pres-select-search" placeholder="Filtrar trabajo..." oninput="filtrarOpcionesSelect('concepto')">
-                                        </div>
-                                        <div id="opcionesConcepto"></div>
-                                    </div>
-                                </details>
+                                <button type="button" id="btnSelectConcepto" class="corp-input pres-select-trigger" onclick="abrirSelectorPresupuesto('concepto')" disabled>
+                                    <span id="sumConcepto">-- SELECCIONE TRABAJO --</span>
+                                    <i class="fa-solid fa-chevron-down" style="font-size: 0.8rem; opacity: 0.7; flex-shrink: 0;"></i>
+                                </button>
                                 <input type="hidden" id="selConcepto" value="">
                             </div>
                             <button id="btnEditConcepto" class="corp-btn-icon oculto" onclick="editarConceptoTemporal()" title="Editar Nombre"><i class="fa-solid fa-pen"></i></button>
                         </div>
                         <span id="badgeConcepto" class="badge-edit oculto">Nombre editado temporalmente</span>
                     </div>
+                    
                                         
                     <div class="stepper-grid-3">
                         <div>
