@@ -608,3 +608,246 @@ label {
         margin: 0 !important;
     }
 }
+
+/* ========================================================================== */
+/* ADAPTACIÓN PROFESIONAL PARA TABLET Y PC (SIN ALTERAR VISTA MÓVIL)          */
+/* ========================================================================== */
+
+/* 1. TABLETS (768px a 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    body {
+        padding: 24px;
+    }
+
+    /* Centrado vertical elegante en pantalla de acceso */
+    body.vista-login {
+        justify-content: center;
+    }
+
+    body.vista-login .layout-wrapper {
+        max-width: 480px;
+        flex: 0 1 auto;
+    }
+
+    /* Dashboard expandido y alineado con la App Bar */
+    body.vista-app .layout-wrapper,
+    .corp-navbar-inner {
+        max-width: 760px;
+    }
+
+    .corp-navbar {
+        height: 68px;
+        padding: 0 24px;
+    }
+
+    .user-pill-name {
+        max-width: 150px;
+    }
+
+    /* Grilla de 3 columnas (4 filas simétricas para los 12 módulos) */
+    .corp-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+    }
+
+    .corp-grid-btn {
+        min-height: 150px;
+        padding: 24px 14px;
+        font-size: 0.95rem;
+        border-radius: 18px;
+    }
+
+    .corp-grid-btn i {
+        font-size: 3rem;
+    }
+}
+
+/* 2. MODALES MÁS AMPLIOS EN TABLET Y PC */
+@media (min-width: 768px) {
+    #modalConfig .config-modal-shell {
+        max-width: 580px;
+        max-height: 86vh;
+        border-radius: 16px;
+    }
+
+    #modalConfig .config-modal-body {
+        padding: 20px 24px;
+        gap: 14px;
+    }
+
+    #modalTerminos .corp-modal-card {
+        max-width: 640px;
+        padding: 26px;
+        border-radius: 16px;
+    }
+
+    .corp-terms-content {
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+}
+
+/* 3. PC / ESCRITORIO (1024px en adelante) */
+@media (min-width: 1024px) {
+    body {
+        padding: 28px 32px;
+    }
+
+    /* Barra superior alineada al ancho ejecutivo */
+    .corp-navbar {
+        height: 70px;
+        padding: 0 32px;
+    }
+
+    .corp-navbar-inner {
+        max-width: 1140px;
+    }
+
+    .navbar-brand-main {
+        font-size: 1.25rem;
+    }
+
+    .user-pill {
+        padding: 5px 6px 5px 14px;
+        gap: 10px;
+    }
+
+    .user-pill-name {
+        max-width: 180px;
+        font-size: 0.9rem;
+    }
+
+    .corp-dropdown {
+        width: 230px;
+    }
+
+    /* Login ejecutivo de 2 columnas lado a lado centrado en pantalla */
+    body.vista-login {
+        justify-content: center;
+    }
+
+    body.vista-login .layout-wrapper {
+        display: grid;
+        grid-template-columns: 1fr 1.08fr;
+        max-width: 900px;
+        gap: 24px;
+        align-items: stretch;
+        flex: 0 1 auto;
+    }
+
+    body.vista-login #pwaInstallBanner {
+        grid-column: 1 / -1;
+    }
+
+    body.vista-login #mainHeader {
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 40px 32px;
+        border-radius: 16px;
+    }
+
+    body.vista-login .logo-header-oscuro,
+    body.vista-login .logo-header-claro {
+        width: 210px;
+        margin-bottom: 20px;
+    }
+
+    body.vista-login #loginScreen {
+        padding: 36px 32px;
+        border-radius: 16px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    body.vista-login .corp-credits {
+        grid-column: 1 / -1;
+        padding-top: 8px;
+    }
+
+    /* Dashboard principal de 4 columnas (12 módulos visibles sin scroll) */
+    body.vista-app .layout-wrapper {
+        max-width: 1140px;
+    }
+
+    #appScreen {
+        margin-top: 22px;
+    }
+
+    .corp-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+    }
+
+    .corp-grid-btn {
+        min-height: 152px;
+        padding: 24px 16px;
+        border-radius: 18px;
+        font-size: 0.98rem;
+        gap: 14px;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .corp-grid-btn i {
+        font-size: 3rem;
+        transition: transform 0.2s ease;
+    }
+}
+
+/* 4. PANTALLAS GRANDES / FULL HD (1400px en adelante) */
+@media (min-width: 1400px) {
+    body.vista-app .layout-wrapper,
+    .corp-navbar-inner {
+        max-width: 1240px;
+    }
+
+    .corp-grid {
+        gap: 22px;
+    }
+
+    .corp-grid-btn {
+        min-height: 162px;
+        font-size: 1.02rem;
+    }
+}
+
+/* 5. INTERACCIONES CON MOUSE Y TECLADO (DISPOSITIVOS CON PUNTERO) */
+@media (hover: hover) {
+    .corp-grid-btn:hover {
+        transform: translateY(-4px);
+        border-color: var(--corp-accent);
+        box-shadow: 0 10px 24px var(--corp-shadow);
+    }
+
+    .corp-grid-btn:hover i {
+        transform: scale(1.08);
+    }
+
+    .user-pill:hover {
+        background: var(--corp-btn-bg);
+        border-color: var(--corp-accent);
+    }
+
+    .primary-btn:hover {
+        filter: brightness(1.08);
+    }
+
+    .corp-auth-tab:not(.active):hover {
+        background: var(--corp-btn-bg);
+        color: var(--corp-text-main);
+    }
+
+    .corp-modal-close:hover {
+        color: var(--corp-text-main);
+    }
+}
+
+.corp-grid-btn:focus-visible,
+.corp-btn:focus-visible,
+.corp-auth-tab:focus-visible {
+    outline: 2px solid var(--corp-accent);
+    outline-offset: 2px;
+}
