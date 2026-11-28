@@ -1532,7 +1532,7 @@ function dibujarSimboloID(x, y) {
 
 function generarSVGUnifilar() {
     const esTrifa = esSuministroTrifasico();
-    const colW = 152;
+    const colW = 160;
     const tsGap = 78;
     const colorTablero = '#1d4ed8';
     const tableros = esquema.tablerosSeccionales;
@@ -1545,7 +1545,7 @@ function generarSVGUnifilar() {
     const gruposPorId = {};
     tableros.forEach(ts => {
         const circs = esquema.circuitos.filter(c => c.tableroId === ts.id);
-        const anchoContenido = Math.max(245, circs.length * colW);
+        const anchoContenido = Math.max(270, circs.length * colW);
         gruposPorId[ts.id] = { ts, circs, ancho: anchoContenido, cx: 0, bottomY: 0 };
     });
 
@@ -1561,7 +1561,7 @@ function generarSVGUnifilar() {
 
     let g = '';
 
-// ==========================================
+    // ==========================================
     // NIVEL 0: ACOMETIDA Y MEDICIÓN
     // ==========================================
     const yRdd = 24;
@@ -1595,7 +1595,7 @@ function generarSVGUnifilar() {
     // ==========================================
     // NIVEL 1: TABLERO PRINCIPAL (TP)
     // ==========================================
-    const tpBoxW = 290;
+    const tpBoxW = 300;
     const tpBoxH = 104;
     const tpX = centerX - Math.round(tpBoxW / 2);
     const tpY = yMed + 44;
@@ -1607,11 +1607,11 @@ function generarSVGUnifilar() {
         g += dibujarSimboloDobleAislacion(tpX + tpBoxW - 22, tpY + 6, 11);
     }
 
-    // Cabecera TP
+    // Cabecera TP (datos a la derecha del símbolo)
     const yTpDisp = tpY + 12;
     g += dibujarSimboloPIA(centerX, yTpDisp);
-    g += `<text x="${centerX - 18}" y="${yTpDisp + 18}" fill="#0f172a" font-size="9" font-weight="800" text-anchor="end">${escapeXml(esquema.nivel1.tipoDisp)} ${escapeXml(esquema.nivel1.curvaPolos)}${escapeXml(esquema.nivel1.in)}A</text>`;
-    g += `<text x="${centerX - 18}" y="${yTpDisp + 30}" fill="#475569" font-size="8.2" font-weight="600" text-anchor="end">Pcc ${escapeXml(esquema.nivel1.pcc)}A • ${escapeXml(esquema.nivel1.tension)}V</text>`;
+    g += `<text x="${centerX + 12}" y="${yTpDisp + 18}" fill="#0f172a" font-size="9" font-weight="800" text-anchor="start">${escapeXml(esquema.nivel1.tipoDisp)} ${escapeXml(esquema.nivel1.curvaPolos)}${escapeXml(esquema.nivel1.in)}A</text>`;
+    g += `<text x="${centerX + 12}" y="${yTpDisp + 30}" fill="#475569" font-size="8.2" font-weight="600" text-anchor="start">Pcc ${escapeXml(esquema.nivel1.pcc)}A • ${escapeXml(esquema.nivel1.tension)}V</text>`;
 
     // DPS opcional en TP
     if (esquema.nivel1.dps && esquema.nivel1.dps !== 'NO') {
@@ -1651,15 +1651,15 @@ function generarSVGUnifilar() {
             g += dibujarSimboloDobleAislacion(tsX + ancho - 22, yTsTop + 7, 11);
         }
 
-        // Cabecera del TS (ID o PIA)
+        // Cabecera del TS (ID o PIA con datos a la derecha para evitar choque con título/símbolo)
         const yCabTs = yTsTop + 14;
         const esID = String(ts.tipoCab || '').toLowerCase().includes('id');
         g += esID
             ? dibujarSimboloID(tsCenterX, yCabTs)
             : dibujarSimboloPIA(tsCenterX, yCabTs);
 
-        g += `<text x="${tsCenterX - 18}" y="${yCabTs + 20}" fill="#0f172a" font-size="9" font-weight="800" text-anchor="end">${escapeXml(ts.tipoCab)} ${escapeXml(ts.in)}</text>`;
-        g += `<text x="${tsCenterX - 18}" y="${yCabTs + 32}" fill="#475569" font-size="8.2" font-weight="600" text-anchor="end">${esID && ts.sens !== 'N/A' ? `IΔn ${escapeXml(ts.sens)} • ` : ''}Pcc ${escapeXml(ts.pcc)}A</text>`;
+        g += `<text x="${tsCenterX + 14}" y="${yCabTs + 20}" fill="#0f172a" font-size="9" font-weight="800" text-anchor="start">${escapeXml(ts.tipoCab)} ${escapeXml(ts.in)}</text>`;
+        g += `<text x="${tsCenterX + 14}" y="${yCabTs + 32}" fill="#475569" font-size="8.2" font-weight="600" text-anchor="start">${esID && ts.sens !== 'N/A' ? `IΔn ${escapeXml(ts.sens)} • ` : ''}Pcc ${escapeXml(ts.pcc)}A</text>`;
 
         // Barra de distribución interna del TS
         const yBus = yCabTs + 58;
@@ -1698,14 +1698,18 @@ function generarSVGUnifilar() {
                 g += `<line x1="${cx}" y1="${yBus}" x2="${cx}" y2="${yPiaC}" stroke="#0f172a" stroke-width="1.7"/>`;
                 g += dibujarSimboloPIA(cx, yPiaC);
 
-                // Etiquetas de protección a la izquierda de cada PIA
-                g += `<text x="${cx - 14}" y="${yPiaC + 14}" fill="#0f172a" font-size="8.6" font-weight="800" text-anchor="end">${escapeXml(c.piaCod)}</text>`;
-                g += `<text x="${cx - 14}" y="${yPiaC + 25}" fill="#1e293b" font-size="8.2" font-weight="700" text-anchor="end">${escapeXml(c.curvaPolos)}${escapeXml(c.in)}A</text>`;
-                g += `<text x="${cx - 14}" y="${yPiaC + 36}" fill="#475569" font-size="7.6" font-weight="600" text-anchor="end">${escapeXml(c.pcc)}A • ${escapeXml(c.tension)}V</text>`;
+                // Etiquetas de protección a la derecha de cada PIA
+                g += `<text x="${cx + 11}" y="${yPiaC + 14}" fill="#0f172a" font-size="8.6" font-weight="800" text-anchor="start">${escapeXml(c.piaCod)}</text>`;
+                g += `<text x="${cx + 11}" y="${yPiaC + 25}" fill="#1e293b" font-size="8.2" font-weight="700" text-anchor="start">${escapeXml(c.curvaPolos)}${escapeXml(c.in)}A</text>`;
+                g += `<text x="${cx + 11}" y="${yPiaC + 36}" fill="#475569" font-size="7.6" font-weight="600" text-anchor="start">${escapeXml(c.pcc)}A • ${escapeXml(c.tension)}V</text>`;
 
+                // Indicador de Fase a la izquierda en suministros trifásicos (sobre el tramo recto superior)
                 if (esTrifa) {
-                    g += `<rect x="${cx + 12}" y="${yPiaC + 8}" width="38" height="13" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="0.8"/>`;
-                    g += `<text x="${cx + 31}" y="${yPiaC + 17.5}" fill="#1d4ed8" font-size="7.5" font-weight="800" text-anchor="middle">${escapeXml(c.fase)}</text>`;
+                    const faseTxt = String(c.fase || 'L1');
+                    const badgeW = faseTxt.length > 3 ? 40 : 24;
+                    const badgeX = cx - 9 - badgeW;
+                    g += `<rect x="${badgeX}" y="${yPiaC + 2}" width="${badgeW}" height="13" rx="3" fill="#eff6ff" stroke="#93c5fd" stroke-width="0.8"/>`;
+                    g += `<text x="${badgeX + badgeW / 2}" y="${yPiaC + 11.5}" fill="#1d4ed8" font-size="7.5" font-weight="800" text-anchor="middle">${escapeXml(faseTxt)}</text>`;
                 }
 
                 // Salida hacia caja de circuito
@@ -1792,7 +1796,8 @@ function generarSVGUnifilar() {
 
     const svgH = maxBottomY + 54;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgW} ${svgH}" width="${svgW}" height="${svgH}" style="font-family: 'Segoe UI', Arial, sans-serif; background: #ffffff;">${g}</svg>`;
-}
+                                                                                                                                    }
+                          
 
 // ==========================================
 // SINCRONIZACIÓN DE LÁMINA A4 Y MEMBRETE
