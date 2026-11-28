@@ -232,49 +232,10 @@ function cambiarTabAuth(modo, limpiarError = true) {
     }
 }
 
-/* function mostrarPantallaLogin() {
-    // Mostrar interfaz de login clásica
-    document.getElementById('loginScreen').classList.remove('oculto');
-    document.getElementById('mainHeader').classList.remove('oculto');
-    
-    // Ocultar barra superior y grilla
-    document.getElementById('appScreen').classList.add('oculto');
-    document.getElementById('barraSuperiorNav').style.display = 'none';
-    
-    // Quitar el espaciado superior que evita chocar con la barra
-    document.getElementById('mainContainer').style.paddingTop = '0px';
-
-    mostrarControlesInstalacion();
-}
-
-function mostrarAppPrincipal(emailUsuario) {
-    // Ocultar login y cabecera gigante
-    document.getElementById('loginScreen').classList.add('oculto');
-    document.getElementById('mainHeader').classList.add('oculto');
-    
-    const bannerPwa = document.getElementById('pwaInstallBanner');
-    if (bannerPwa) {
-        bannerPwa.classList.add('oculto');
-        bannerPwa.style.display = 'none';
-    }
-    
-    const emailDisplay = document.getElementById('userEmailDisplay');
-    if (emailDisplay) emailDisplay.innerText = emailUsuario;
-
-    const nombreCompleto = localStorage.getItem('villaser_conf_nombre') || 'Usuario';
-    const primerNombre = nombreCompleto.split(" ")[0]; 
-    const nameDisplay = document.getElementById('userFirstNameDisplay');
-    if (nameDisplay) nameDisplay.innerText = primerNombre;
-
-    // Mostrar la nueva barra superior, la grilla, y agregar espacio exacto
-    document.getElementById('barraSuperiorNav').style.display = 'flex';
-    document.getElementById('mainContainer').style.paddingTop = '72px'; 
-    document.getElementById('appScreen').classList.remove('oculto');
-
-    mostrarControlesInstalacion();
-} */
-
 function mostrarPantallaLogin() {
+    document.body.classList.add('vista-login');     // <-- AGREGAR
+    document.body.classList.remove('vista-app');    // <-- AGREGAR
+    
     // Mostrar interfaz de login clásica
     document.getElementById('loginScreen').classList.remove('oculto');
     document.getElementById('mainHeader').classList.remove('oculto');
@@ -297,6 +258,9 @@ function mostrarPantallaLogin() {
 }
 
 function mostrarAppPrincipal(emailUsuario) {
+    document.body.classList.remove('vista-login');  // <-- AGREGAR
+    document.body.classList.add('vista-app');       // <-- AGREGAR
+    
     // Ocultar login y cabecera gigante
     document.getElementById('loginScreen').classList.add('oculto');
     document.getElementById('mainHeader').classList.add('oculto');
